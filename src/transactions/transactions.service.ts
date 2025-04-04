@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, forwardRef, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, In, Not, IsNull } from 'typeorm';
 import { Transaction } from './transaction.entity';
@@ -24,6 +24,7 @@ import { DuplicateTransactionChoice } from './dto/duplicate-transaction-choice.d
 
 @Injectable()
 export class TransactionsService {
+  private readonly logger = new Logger(TransactionsService.name);
   constructor(
     @InjectRepository(Transaction)
     private transactionsRepository: Repository<Transaction>,
@@ -73,6 +74,7 @@ export class TransactionsService {
     duplicateChoice?: DuplicateTransactionChoice,
     skipDuplicateCheck: boolean = false
   ): Promise<Transaction> {
+    // First check if the category exists
     const { 
       bankAccountId, 
       creditCardId, 
@@ -99,7 +101,19 @@ export class TransactionsService {
       }
     }
     // Validation logic
-    const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
+    // const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
+    let category: Category | null = null;
+    if (createTransactionDto.categoryId) {
+      category = await this.categoriesRepository.findOne({
+        where: { id: createTransactionDto.categoryId, user: { id: userId } },
+      });
+
+      if (!category) {
+        throw new NotFoundException(`Category with ID ${createTransactionDto.categoryId} not found`);
+      }
+    }
+
+
     
     // Validate payment method
     if ((bankAccountId && creditCardId) || (!bankAccountId && !creditCardId)) {
@@ -178,7 +192,7 @@ export class TransactionsService {
       ...createTransactionDto,
       amount: normalizedAmount,
       user: { id: userId },
-      category,
+      category: category || undefined,
       bankAccount: bankAccountId ? { id: bankAccountId } : null,
       creditCard: creditCardId ? { id: creditCardId } : null,
       status: status,
@@ -548,7 +562,10 @@ export class TransactionsService {
   }
 
   async importTransactions(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    // ➕ Se presente un formato bancario specifico
+    this.logger.log(`Starting import for user ${userId} with format: ${importDto.bankFormat || 'generic'}`);
+    
+    // Log a shorter version of the import data to avoid console flooding
+    this.logger.debug(`Import DTO summary: bankFormat=${importDto.bankFormat}, bankAccountId=${importDto.bankAccountId}, dateFormat=${importDto.dateFormat}`);
 
     if (importDto.bankFormat) {
       switch (importDto.bankFormat) {
@@ -568,12 +585,34 @@ export class TransactionsService {
     if (!importDto.csvData || !importDto.columnMappings) {
       throw new BadRequestException('Missing CSV data or column mappings');
     }
-  
-    const records = parse(importDto.csvData, {
+
+    // Check if the CSV data is base64 encoded and decode it if necessary
+    let csvData = importDto.csvData;
+    if (this.isBase64(csvData)) {
+      try {
+        csvData = Buffer.from(csvData, 'base64').toString('utf-8');
+        this.logger.log('Successfully decoded base64 CSV data');
+      } catch (error) {
+        this.logger.error(`Failed to decode base64 data: ${error.message}`);
+        throw new BadRequestException('Invalid CSV data format');
+      }
+    }
+    
+    // Now parse the decoded CSV data
+    const records = parse(csvData, {
       columns: true,
       skip_empty_lines: true,
+      delimiter: ',', // Explicitly set delimiter
+      relax_column_count: true,
+      trim: true
     });
-  
+    
+    this.logger.log(`Successfully parsed ${records.length} records from CSV`);
+    if (records.length > 0) {
+      this.logger.debug(`First record sample: ${JSON.stringify(records[0])}`);
+    } else {
+      this.logger.warn('No records found in CSV data');
+    }
 
     // Set a default date format if none is provided
     const dateFormat = importDto.dateFormat || 'yyyy-MM-dd'; // Default ISO format
@@ -583,17 +622,23 @@ export class TransactionsService {
     const transactions: Transaction[] = [];
 
     for (const record of records) {
+      this.logger.debug(`Processing record: ${JSON.stringify(record)}`);
       const transactionData: Partial<Transaction> = {};
       
       // Map CSV columns to transaction fields based on columnMappings
       transactionData.description = record[importDto.columnMappings.description];
+      this.logger.debug(`Mapped description: ${transactionData.description}`);
       
       // Parse amount with proper handling of different number formats
       const amountStr = record[importDto.columnMappings.amount];
+      this.logger.debug(`Raw amount string: ${amountStr}`);
+
       const parsedAmount = parseLocalizedAmount(amountStr);
+      this.logger.debug(`Parsed amount: ${parsedAmount}`);
       
       // Check if parsing was successful
       if (isNaN(parsedAmount)) {
+        this.logger.error(`Invalid amount format: ${amountStr}`);
         throw new BadRequestException(`Invalid amount format: ${amountStr}`);
       }
       
@@ -713,8 +758,11 @@ export class TransactionsService {
           userId,
           'csv_import'
         );
+
+        this.logger.debug(`Created transaction: ${JSON.stringify(transaction)}`);
         transactions.push(transaction);
       } catch (error) {
+        this.logger.error(`Error processing record: ${JSON.stringify(record)}`, error.stack);
         throw error;
       }
     }
@@ -732,8 +780,16 @@ export class TransactionsService {
       }
     }
 
-
+    this.logger.log(`Successfully imported ${transactions.length} transactions`);
     return transactions;
+  }
+
+  // Helper method to check if a string is base64 encoded
+  private isBase64(str: string): boolean {
+    // A simple check for base64 encoding pattern
+    const base64Regex = /^[A-Za-z0-9+/=]+$/;
+    // Additional check to avoid false positives with short strings
+    return base64Regex.test(str) && str.length % 4 === 0 && str.length > 20;
   }
 
   async categorizeTransactionByDescription(transaction: Transaction, userId: number): Promise<Transaction> {

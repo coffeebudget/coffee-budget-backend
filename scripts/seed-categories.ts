@@ -3,13 +3,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
 import { CategoriesService } from '../src/categories/categories.service';
-import { User } from '../src/users/user.entity'; // o dove si trova la tua entity User
+import { User } from '../src/users/user.entity'; 
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const categoriesService = app.get(CategoriesService);
 
-  // 👤 Utente amministratore o di default
+
   const user: Partial<User> = { id: 10 } as User;
 
   const predefinedCategories = [

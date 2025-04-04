@@ -7,9 +7,12 @@ import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transa
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { User } from '../users/user.entity';
 import { Between } from 'typeorm';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class TransactionOperationsService {
+  private readonly logger = new Logger(TransactionOperationsService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
@@ -26,10 +29,37 @@ export class TransactionOperationsService {
     transactions: Transaction[], 
     recurringTransaction: RecurringTransaction
   ): Promise<void> {
+    this.logger.debug(`Linking ${transactions.length} transactions to recurring transaction ID: ${recurringTransaction.id}`);
+    
     for (const transaction of transactions) {
-      transaction.recurringTransaction = recurringTransaction;
-      await this.transactionRepository.save(transaction);
+      try {
+        this.logger.debug(`Updating transaction ID: ${transaction.id} to link to recurring transaction ID: ${recurringTransaction.id}`);
+        
+        // Log the transaction object to see what we're working with
+        this.logger.debug(`Transaction before update: ${JSON.stringify({
+          id: transaction.id,
+          description: transaction.description,
+          amount: transaction.amount,
+          hasRecurringTransaction: !!transaction.recurringTransaction
+        })}`);
+        
+        // Here's where the update happens - this is likely where the error occurs
+        transaction.recurringTransaction = recurringTransaction;
+        await this.transactionRepository.save(transaction);
+        
+        this.logger.debug(`Successfully linked transaction ID: ${transaction.id} to recurring transaction ID: ${recurringTransaction.id}`);
+      } catch (error) {
+        this.logger.error(`Error linking transaction ID: ${transaction.id}: ${error.message}`);
+        this.logger.error(`Error stack: ${error.stack}`);
+        
+        // Log the query that failed if possible
+        if (error.query) {
+          this.logger.error(`Failed query: ${error.query}`);
+        }
+      }
     }
+    
+    this.logger.debug('Finished linking transactions to recurring transaction');
   }
 
   /**

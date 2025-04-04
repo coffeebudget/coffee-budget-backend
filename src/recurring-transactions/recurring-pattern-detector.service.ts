@@ -6,6 +6,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { RecurringTransactionsService } from './recurring-transactions.service';
 import { RecurringTransaction } from './entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { Logger } from '@nestjs/common';
 
 export interface RecurringPattern {
   similarTransactions: Transaction[];
@@ -17,6 +18,8 @@ export interface RecurringPattern {
 
 @Injectable()
 export class RecurringPatternDetectorService {
+  private readonly logger = new Logger(RecurringPatternDetectorService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
@@ -117,50 +120,82 @@ export class RecurringPatternDetectorService {
   }
 
   async detectAndProcessRecurringTransaction(transaction: Transaction): Promise<RecurringTransaction | null> {
+    this.logger.debug(`Starting detectAndProcessRecurringTransaction for transaction ID: ${transaction.id}`);
+    
     const patternResult = await this.detectPatternForTransaction(transaction);
+    this.logger.debug(`Pattern detection result: similarTransactions=${patternResult.similarTransactions.length}, isRecurring=${patternResult.isRecurring}, suggestedFrequency=${patternResult.suggestedFrequency}`);
 
-    if (patternResult.similarTransactions.length < 3) return null;
+    if (patternResult.similarTransactions.length < 3) {
+      this.logger.debug('Not enough similar transactions found (< 3). Returning null.');
+      return null;
+    }
 
+    this.logger.debug(`Checking for existing recurring transaction with name=${transaction.description}, amount=${transaction.amount}, frequency=${patternResult.suggestedFrequency}`);
     const existing = await this.recurringTransactionRepository.findOne({
       where: {
         user: { id: transaction.user.id },
         name: transaction.description,
         amount: transaction.amount,
-        frequencyType: transaction.type as 'daily' | 'weekly' | 'monthly' | 'yearly',
+        frequencyType: patternResult.suggestedFrequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
       },
       relations: ['category', 'bankAccount', 'creditCard', 'user'],
     });
 
     if (existing) {
-      await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, existing);
+      this.logger.debug(`Found existing recurring transaction with ID: ${existing.id}. Linking transactions.`);
+      try {
+        await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, existing);
+        this.logger.debug('Successfully linked transactions to existing recurring transaction');
+      } catch (error) {
+        this.logger.error(`Error linking transactions to existing recurring: ${error.message}`);
+        this.logger.error(`Error stack: ${error.stack}`);
+      }
       return existing;
     }
 
     const name = transaction.description ? 
-    (transaction.description.length > 255 ? 
-      transaction.description.substring(0, 255) : 
-      transaction.description) : 
-    'Recurring Transaction';
-    const newRecurring = await this.recurringTransactionRepository.save(
-      this.recurringTransactionRepository.create({
-        name: name,
-        amount: transaction.amount,
-        category: { id: transaction.category.id },
-        startDate: this.findEarliestDate(patternResult.similarTransactions, transaction),
-        type: transaction.type,
-        frequencyType: transaction.type as 'daily' | 'weekly' | 'monthly' | 'yearly',
-        frequencyEveryN: 1,
-        status: 'SCHEDULED',
-        user: { id: transaction.user.id },
-        userConfirmed: false,
-        bankAccount: { id: transaction.bankAccount?.id },
-        creditCard: { id: transaction.creditCard?.id },
-        source: 'PATTERN_DETECTOR',
-      })
-    );
+      (transaction.description.length > 255 ? 
+        transaction.description.substring(0, 255) : 
+        transaction.description) : 
+      'Recurring Transaction';
+    
+    this.logger.debug(`Creating new recurring transaction with name=${name}, amount=${transaction.amount}, type=${transaction.type}, frequency=${patternResult.suggestedFrequency}`);
+    
+    try {
+      const newRecurring = await this.recurringTransactionRepository.save(
+        this.recurringTransactionRepository.create({
+          name: name,
+          amount: transaction.amount,
+          category: { id: transaction.category.id },
+          startDate: this.findEarliestDate(patternResult.similarTransactions, transaction),
+          type: transaction.type,
+          frequencyType: patternResult.suggestedFrequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
+          frequencyEveryN: 1,
+          status: 'SCHEDULED',
+          user: { id: transaction.user.id },
+          userConfirmed: false,
+          bankAccount: transaction.bankAccount ? { id: transaction.bankAccount.id } : null,
+          creditCard: transaction.creditCard ? { id: transaction.creditCard.id } : null,
+          source: 'PATTERN_DETECTOR',
+        })
+      );
+      this.logger.debug(`Successfully created new recurring transaction with ID: ${newRecurring.id}`);
 
-    await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, newRecurring);
-    return newRecurring;
+      try {
+        this.logger.debug(`Attempting to link ${patternResult.similarTransactions.length} transactions to new recurring transaction`);
+        await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, newRecurring);
+        this.logger.debug('Successfully linked transactions to new recurring transaction');
+      } catch (error) {
+        this.logger.error(`Error linking transactions to new recurring: ${error.message}`);
+        this.logger.error(`Error stack: ${error.stack}`);
+      }
+      
+      return newRecurring;
+    } catch (error) {
+      this.logger.error(`Error creating recurring transaction: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
+      return null;
+    }
   }
 
   async createRecurringTransactionFromPattern(

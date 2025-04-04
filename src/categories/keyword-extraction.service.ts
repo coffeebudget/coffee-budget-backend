@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
 import { Category } from './entities/category.entity';
 
@@ -76,7 +76,7 @@ export class KeywordExtractionService {
     const uncategorizedTransactions = await this.transactionRepository.find({
       where: {
         user: { id: userId },
-        category: { id: Not(IsNull()) }
+        category: { id: IsNull() }
       }
     });
 

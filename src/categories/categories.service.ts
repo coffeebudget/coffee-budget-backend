@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category } from './entities/category.entity';
@@ -256,7 +256,7 @@ export class CategoriesService {
     return this.transactionsRepository.find({
       where: {
         user: { id: userId },
-        category: { id: Not(IsNull()) }
+        category: { id: IsNull() }
       },
       order: { executionDate: 'DESC' }
     });

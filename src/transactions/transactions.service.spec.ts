@@ -406,8 +406,12 @@ describe('TransactionsService', () => {
         bankAccountId: 1,
       };
 
+      // Mock the duplicate check to return null (no duplicates)
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(null);
+      
+      // Mock the category repository to return null (category not found)
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null);
-
+      
       await expect(service.create(createTransactionDto, 1)).rejects.toThrow(NotFoundException);
     });
 

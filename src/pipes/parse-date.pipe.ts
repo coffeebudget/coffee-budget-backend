@@ -1,5 +1,5 @@
 import { PipeTransform, Injectable, ArgumentMetadata, BadRequestException } from '@nestjs/common';
-import { parse, isValid } from 'date-fns';
+import { parseDate } from '../utils/date-utils';
 
 @Injectable()
 export class ParseDatePipe implements PipeTransform {
@@ -8,18 +8,10 @@ export class ParseDatePipe implements PipeTransform {
       return undefined;
     }
 
-    // Try to parse as ISO date string
-    const date = new Date(value);
-    if (isValid(date)) {
-      return date;
+    try {
+      return parseDate(value);
+    } catch (error) {
+      throw new BadRequestException(`Invalid date format: ${value}. Expected ISO date or another common format.`);
     }
-
-    // Try to parse as yyyy-MM-dd format
-    const parsedDate = parse(value, 'yyyy-MM-dd', new Date());
-    if (isValid(parsedDate)) {
-      return parsedDate;
-    }
-
-    throw new BadRequestException(`Invalid date format: ${value}. Expected ISO date or yyyy-MM-dd format.`);
   }
 }

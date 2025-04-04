@@ -7,6 +7,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
+import { KeywordExtractionService } from './keyword-extraction.service';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -14,6 +15,7 @@ describe('CategoriesService', () => {
   let transactionRepository: Repository<Transaction>;
   let recurringTransactionRepository: Repository<RecurringTransaction>;
   let transactionOperationsService: TransactionOperationsService;
+  let keywordExtractionService: KeywordExtractionService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -44,6 +46,14 @@ describe('CategoriesService', () => {
             linkTransactionsToRecurring: jest.fn(),
           },
         },
+        {
+          provide: KeywordExtractionService,
+          useValue: {
+            extractKeywords: jest.fn(),
+            suggestKeywordsForCategory: jest.fn(),
+            findCommonKeywordsInUncategorized: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -52,6 +62,7 @@ describe('CategoriesService', () => {
     transactionRepository = module.get<Repository<Transaction>>(getRepositoryToken(Transaction));
     recurringTransactionRepository = module.get<Repository<RecurringTransaction>>(getRepositoryToken(RecurringTransaction));
     transactionOperationsService = module.get<TransactionOperationsService>(TransactionOperationsService);
+    keywordExtractionService = module.get<KeywordExtractionService>(KeywordExtractionService);
 
     // Mock repository methods
     jest.spyOn(categoryRepository, 'findOne').mockImplementation();
