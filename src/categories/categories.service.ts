@@ -177,51 +177,85 @@ export class CategoriesService {
     await categoryRepo.save(categories);
   }
   
+  /**
+   * Suggest a category for a transaction description
+   */
   async suggestCategoryForDescription(description: string, userId: number): Promise<Category | null> {
-    const normalizedDescription = description.toLowerCase();
-    
+    if (!description) {
+      return null;
+    }
+
     // Get all categories with keywords for this user
     const categories = await this.categoriesRepository.find({
       where: { user: { id: userId } }
     });
+
+    // Extract keywords from the description
+    const descriptionKeywords = this.keywordExtractionService.extractKeywords(description);
     
-    // Find the first category with a matching keyword
-    for (const category of categories) {
-      if (category.keywords && category.keywords.length > 0) {
-        const matchingKeyword = category.keywords.find(keyword => 
-          normalizedDescription.includes(keyword)
-        );
+    // Score each category based on keyword matches
+    const categoryScores = categories.map(category => {
+      if (!category.keywords || category.keywords.length === 0) {
+        return { category, score: 0 };
+      }
+
+      let score = 0;
+      
+      // Check for exact matches
+      for (const keyword of category.keywords) {
+        // Multi-word keywords get higher scores
+        const wordCount = keyword.split(' ').length;
+        const baseScore = wordCount * 2; // Multi-word phrases get higher base scores
         
-        if (matchingKeyword) {
-          return category;
+        if (description.toLowerCase().includes(keyword.toLowerCase())) {
+          // Exact match in description
+          score += baseScore * 2;
+        } else if (descriptionKeywords.some(k => k === keyword.toLowerCase())) {
+          // Exact match in extracted keywords
+          score += baseScore;
         }
       }
+      
+      return { category, score };
+    });
+    
+    // Sort by score (highest first) and get the best match
+    categoryScores.sort((a, b) => b.score - a.score);
+    
+    // Only suggest if the score is above a threshold
+    if (categoryScores.length > 0 && categoryScores[0].score > 0) {
+      return categoryScores[0].category;
     }
     
     return null;
+  }
+
+  /**
+   * Suggest keywords from a transaction description
+   */
+  async suggestKeywordsFromTransaction(transaction: Transaction): Promise<string[]> {
+    if (!transaction.description) {
+      return [];
+    }
+    
+    return this.keywordExtractionService.extractKeywords(transaction.description);
   }
 
   async suggestKeywordsForCategory(categoryId: number, userId: number): Promise<string[]> {
     return this.keywordExtractionService.suggestKeywordsForCategory(categoryId, userId);
   }
 
-  async suggestKeywordsFromTransaction(transaction: Transaction): Promise<string[]> {
-    if (!transaction.description) return [];
-    
-    const keywords = this.keywordExtractionService.extractKeywords(transaction.description);
-    return keywords.slice(0, 3); // Return top 3 keywords
-  }
-
   async addKeywordToCategory(categoryId: number, keyword: string, userId: number): Promise<Category> {
     const category = await this.findOne(categoryId, userId);
+    
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
-
-    // Normalize keyword
-    const normalizedKeyword = keyword.toLowerCase().trim();
     
-    // Add keyword if it doesn't already exist
+    // Normalize the keyword
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    
+    // Check if the keyword already exists
     if (!category.keywords) {
       category.keywords = [];
     }
@@ -268,16 +302,29 @@ export class CategoriesService {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
+    // Normalize the keyword
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    
     // Find transactions containing the keyword
-    const result = await this.transactionsRepository
+    const queryBuilder = this.transactionsRepository
       .createQueryBuilder('transaction')
       .update()
       .set({ category: { id: categoryId } })
       .where('transaction.userId = :userId', { userId })
-      .andWhere('transaction.categoryId IS NULL')
-      .andWhere('LOWER(transaction.description) LIKE :keyword', { keyword: `%${keyword.toLowerCase()}%` })
-      .execute();
-
+      .andWhere('transaction.categoryId IS NULL');
+    
+    // Handle multi-word phrases differently than single words
+    if (normalizedKeyword.includes(' ')) {
+      // For multi-word phrases, we need an exact match
+      queryBuilder.andWhere('LOWER(transaction.description) LIKE :exactKeyword', 
+        { exactKeyword: `%${normalizedKeyword}%` });
+    } else {
+      // For single words, we can match word boundaries
+      queryBuilder.andWhere('LOWER(transaction.description) ~ :wordBoundary', 
+        { wordBoundary: `\\y${normalizedKeyword}\\y` });
+    }
+    
+    const result = await queryBuilder.execute();
     return result.affected || 0;
   }
 

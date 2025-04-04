@@ -1,53 +1,111 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
 import { Category } from './entities/category.entity';
+import * as natural from 'natural';
 
 @Injectable()
 export class KeywordExtractionService {
-  // Common words to exclude from keyword extraction
-  private stopWords = new Set([
-    'the', 'and', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 
-    'by', 'from', 'payment', 'purchase', 'transaction', 'card', 'debit', 'credit'
+  private readonly logger = new Logger(KeywordExtractionService.name);
+  private readonly tokenizer = new natural.WordTokenizer();
+  private readonly stopWords = new Set([
+    'a', 'an', 'the', 'and', 'or', 'but', 'for', 'nor', 'on', 'at', 'to', 'by', 
+    'from', 'in', 'of', 'with', 'about', 'against', 'between', 'into', 'through',
+    'during', 'before', 'after', 'above', 'below', 'under', 'over', 'again',
+    'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',
+    'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such',
+    'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's',
+    't', 'can', 'will', 'just', 'don', 'should', 'now', 'id', 'var', 'function',
+    'js', 'rev', 'net', 'org', 'com', 'edu', 'payment', 'purchase', 'transaction'
   ]);
 
   constructor(
     @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
+    private transactionsRepository: Repository<Transaction>,
     @InjectRepository(Category)
-    private categoryRepository: Repository<Category>,
+    private categoriesRepository: Repository<Category>,
   ) {}
 
   /**
-   * Extract potential keywords from a transaction description
+   * Extract keywords from a text, including multi-word phrases
    */
-  extractKeywords(description: string): string[] {
-    if (!description) return [];
+  extractKeywords(text: string): string[] {
+    if (!text) return [];
     
-    // Normalize and split the description
-    const words = description.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')  // Replace non-alphanumeric with spaces
-      .split(/\s+/)              // Split by whitespace
-      .filter(word => 
-        word.length > 2 &&       // Only words longer than 2 chars
-        !this.stopWords.has(word) && // Not in stopwords
-        !(/^\d+$/.test(word))    // Not just numbers
-      );
+    const normalizedText = text.toLowerCase().replace(/[^\w\s]/g, ' ');
     
-    return [...new Set(words)];  // Remove duplicates
+    // Extract single words
+    const tokens = this.tokenizer.tokenize(normalizedText) || [];
+    const singleWords = tokens
+      .filter(token => token.length > 2 && !this.stopWords.has(token.toLowerCase()))
+      .map(token => token.toLowerCase());
+    
+    // Extract multi-word phrases (2-3 words)
+    const phrases: string[] = [];
+    
+    // Extract 2-word phrases
+    for (let i = 0; i < tokens.length - 1; i++) {
+      if (!this.stopWords.has(tokens[i].toLowerCase()) && !this.stopWords.has(tokens[i+1].toLowerCase())) {
+        phrases.push(`${tokens[i].toLowerCase()} ${tokens[i+1].toLowerCase()}`);
+      }
+    }
+    
+    // Extract 3-word phrases
+    for (let i = 0; i < tokens.length - 2; i++) {
+      if (!this.stopWords.has(tokens[i].toLowerCase()) && 
+          !this.stopWords.has(tokens[i+2].toLowerCase())) {
+        phrases.push(`${tokens[i].toLowerCase()} ${tokens[i+1].toLowerCase()} ${tokens[i+2].toLowerCase()}`);
+      }
+    }
+    
+    // Combine single words and phrases
+    return [...new Set([...singleWords, ...phrases])];
   }
 
   /**
-   * Suggest keywords for a category based on existing transactions
+   * Find common keywords in uncategorized transactions
+   */
+  async findCommonKeywordsInUncategorized(userId: number): Promise<Record<string, number>> {
+    const uncategorizedTransactions = await this.transactionsRepository.find({
+      where: {
+        user: { id: userId },
+        category: IsNull(),
+      },
+      take: 100, // Limit to prevent performance issues
+    });
+
+    const keywordFrequency: Record<string, number> = {};
+
+    for (const transaction of uncategorizedTransactions) {
+      if (transaction.description) {
+        const keywords = this.extractKeywords(transaction.description);
+        
+        for (const keyword of keywords) {
+          keywordFrequency[keyword] = (keywordFrequency[keyword] || 0) + 1;
+        }
+      }
+    }
+
+    // Filter out keywords that appear only once
+    return Object.fromEntries(
+      Object.entries(keywordFrequency)
+        .filter(([_, count]) => count > 1)
+        .sort(([_, countA], [__, countB]) => countB - countA)
+    );
+  }
+
+  /**
+   * Suggest keywords for a category based on its transactions
    */
   async suggestKeywordsForCategory(categoryId: number, userId: number): Promise<string[]> {
     // Get transactions for this category
-    const transactions = await this.transactionRepository.find({
+    const transactions = await this.transactionsRepository.find({
       where: {
         category: { id: categoryId },
-        user: { id: userId }
-      }
+        user: { id: userId },
+      },
+      take: 50, // Limit to prevent performance issues
     });
 
     if (transactions.length === 0) {
@@ -55,46 +113,30 @@ export class KeywordExtractionService {
     }
 
     // Extract keywords from all transactions
-    const allKeywords = transactions
-      .flatMap(tx => this.extractKeywords(tx.description))
-      .reduce((counts, keyword) => {
-        counts[keyword] = (counts[keyword] || 0) + 1;
-        return counts;
-      }, {} as Record<string, number>);
-
-    // Sort by frequency and return top keywords
-    return Object.entries(allKeywords)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([keyword]) => keyword);
-  }
-
-  /**
-   * Find common keywords in uncategorized transactions
-   */
-  async findCommonKeywordsInUncategorized(userId: number): Promise<Record<string, number>> {
-    const uncategorizedTransactions = await this.transactionRepository.find({
-      where: {
-        user: { id: userId },
-        category: { id: IsNull() }
-      }
-    });
-
-    // Extract and count keywords
-    const keywordCounts: Record<string, number> = {};
+    const keywordFrequency: Record<string, number> = {};
     
-    uncategorizedTransactions.forEach(tx => {
-      const keywords = this.extractKeywords(tx.description);
-      keywords.forEach(keyword => {
-        keywordCounts[keyword] = (keywordCounts[keyword] || 0) + 1;
-      });
+    for (const transaction of transactions) {
+      if (transaction.description) {
+        const keywords = this.extractKeywords(transaction.description);
+        
+        for (const keyword of keywords) {
+          keywordFrequency[keyword] = (keywordFrequency[keyword] || 0) + 1;
+        }
+      }
+    }
+
+    // Calculate the percentage of transactions that contain each keyword
+    const keywordPercentages = Object.entries(keywordFrequency).map(([keyword, count]) => {
+      return {
+        keyword,
+        percentage: (count / transactions.length) * 100
+      };
     });
 
-    // Return sorted by frequency
-    return Object.fromEntries(
-      Object.entries(keywordCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 20)
-    );
+    // Sort by percentage and return keywords that appear in at least 30% of transactions
+    return keywordPercentages
+      .filter(item => item.percentage >= 30)
+      .sort((a, b) => b.percentage - a.percentage)
+      .map(item => item.keyword);
   }
 } 
