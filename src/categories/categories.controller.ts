@@ -10,6 +10,8 @@ import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
+import { DefaultCategoriesService } from './default-categories.service';
+import { Request } from '@nestjs/common';
 
 @ApiTags('categories')
 @ApiBearerAuth()
@@ -18,7 +20,8 @@ import { KeywordExtractionService } from './keyword-extraction.service';
 export class CategoriesController {
   constructor(
     private readonly categoriesService: CategoriesService,
-    private readonly keywordExtractionService: KeywordExtractionService
+    private readonly keywordExtractionService: KeywordExtractionService,
+    private readonly defaultCategoriesService: DefaultCategoriesService,
   ) {}
 
   @Post()
@@ -69,6 +72,12 @@ export class CategoriesController {
   ): Promise<{ count: number }> {
     const count = await this.categoriesService.bulkCategorizeByKeyword(keyword, categoryId, user.id);
     return { count };
+  }
+
+  @Post('reset-to-defaults')
+  async resetToDefaults(@CurrentUser() user: User): Promise<{ message: string }> {
+    await this.defaultCategoriesService.resetCategoriesToDefaults(user);
+    return { message: 'Categories have been reset to defaults' };
   }
 
   @Get(':id')
@@ -136,5 +145,4 @@ export class CategoriesController {
       user.id
     );
   }
-
 }

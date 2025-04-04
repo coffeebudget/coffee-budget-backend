@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CategoriesService } from '../categories/categories.service';
+import { DefaultCategoriesService } from '../categories/default-categories.service';
 
 
 @Injectable()
@@ -12,6 +13,7 @@ export class UserService {
     @InjectRepository(User)
     private usersRepository: Repository<User>,
     private categoriesService: CategoriesService,
+    private readonly defaultCategoriesService: DefaultCategoriesService,
   ) {}
 
   async findByAuth0Id(auth0Id: string): Promise<User> {
@@ -35,8 +37,8 @@ export class UserService {
     const user = this.usersRepository.create(createUserDto);
     const savedUser = await this.usersRepository.save(user);
 
-    // ✅ Crea categorie predefinite per il nuovo utente
-    await this.categoriesService.createDefaultCategoriesForUser(savedUser);
+    // Create default categories for the new user
+    await this.defaultCategoriesService.createDefaultCategoriesForUser(savedUser);
 
     return savedUser;
   }
