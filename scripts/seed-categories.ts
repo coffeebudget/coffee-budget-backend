@@ -9,52 +9,51 @@ async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
   const categoriesService = app.get(CategoriesService);
 
-
   const user: Partial<User> = { id: 10 } as User;
 
   const predefinedCategories = [
-    // 🏠 Casa & Utenze
-    'Affitto', 'Mutuo', 'Energia elettrica', 'Gas', 'Acqua', 'Internet e telefono',
-    'Spese condominiali', 'Manutenzione casa', 'Elettrodomestici',
+    // 🏠 Home & Utilities
+    'Rent', 'Mortgage', 'Electricity', 'Gas', 'Water', 'Internet & Phone',
+    'Housing Fees', 'Home Maintenance', 'Appliances',
 
-    // 🚗 Trasporti
-    'Carburante', 'Assicurazione auto', 'Bollo auto', 'Manutenzione auto',
-    'Mezzi pubblici', 'Parcheggi / pedaggi', 'Noleggi auto / scooter',
+    // 🚗 Transportation
+    'Fuel', 'Car Insurance', 'Car Tax', 'Car Maintenance',
+    'Public Transport', 'Parking / Tolls', 'Car / Scooter Rental',
 
-    // 🛒 Spese quotidiane
-    'Spesa alimentare', 'Farmacia', 'Cura personale', 'Tabacchi',
+    // 🛒 Daily Expenses
+    'Groceries', 'Pharmacy', 'Personal Care', 'Tobacco',
 
-    // 🍽️ Ristoranti & bar
-    'Ristorante', 'Bar / colazione', 'Take away / delivery',
+    // 🍽️ Restaurants & Bars
+    'Restaurant', 'Cafe / Breakfast', 'Takeaway / Delivery',
 
     // 🛍️ Shopping
-    'Abbigliamento', 'Elettronica', 'Regali', 'Libri / media',
+    'Clothing', 'Electronics', 'Gifts', 'Books / Media',
 
-    // 🎓 Istruzione & formazione
-    'Scuola / università', 'Libri scolastici', 'Corsi / abbonamenti educativi',
+    // 🎓 Education & Training
+    'School / University', 'Textbooks', 'Courses / Educational Subscriptions',
 
-    // ⚕️ Salute
-    'Visite mediche', 'Analisi / esami', 'Assicurazioni sanitarie',
+    // ⚕️ Health
+    'Medical Visits', 'Tests / Exams', 'Health Insurance',
 
-    // 👶 Famiglia & figli
-    'Asilo / scuola', 'Abbigliamento bambini', 'Baby sitter', 'Attività ricreative',
+    // 👶 Family & Children
+    'Daycare / School', 'Children Clothing', 'Babysitter', 'Recreational Activities',
 
-    // 🎉 Tempo libero
-    'Viaggi', 'Abbonamenti streaming', 'Cinema / teatro', 'Eventi / concerti', 'Sport / palestra',
+    // 🎉 Leisure
+    'Travel', 'Streaming Subscriptions', 'Cinema / Theater', 'Events / Concerts', 'Sports / Gym',
 
-    // 💼 Lavoro & professione
-    'Spese professionali', 'Utenze business', 'Materiale da ufficio',
+    // 💼 Work & Professional
+    'Professional Expenses', 'Business Utilities', 'Office Supplies',
 
-    // 💸 Finanza personale
-    'Risparmi', 'Investimenti', 'Donazioni', 'Commissioni bancarie'
+    // 💸 Personal Finance
+    'Savings', 'Investments', 'Donations', 'Bank Fees'
   ];
 
   for (const name of predefinedCategories) {
     try {
       await categoriesService.create({ name }, user as User);
-      console.log(`✅ Categoria creata: ${name}`);
+      console.log(`✅ Category created: ${name}`);
     } catch (error) {
-      console.error(`⚠️ Errore creando "${name}":`, error.message);
+      console.error(`⚠️ Error creating "${name}":`, error.message);
     }
   }
 
