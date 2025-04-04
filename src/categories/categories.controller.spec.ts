@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
+import { DefaultCategoriesService } from './default-categories.service';
 import { User } from '../users/user.entity';
 import { Category } from './entities/category.entity';
 
@@ -9,6 +10,7 @@ describe('CategoriesController', () => {
   let controller: CategoriesController;
   let categoriesService: CategoriesService;
   let keywordExtractionService: KeywordExtractionService;
+  let defaultCategoriesService: DefaultCategoriesService;
 
   const mockUser: User = {
     id: 1,
@@ -39,12 +41,21 @@ describe('CategoriesController', () => {
             findCommonKeywordsInUncategorized: jest.fn().mockResolvedValue({}),
           },
         },
+        {
+          provide: DefaultCategoriesService,
+          useValue: {
+            resetCategoriesToDefaults: jest.fn(),
+            createDefaultCategoriesForUser: jest.fn(),
+            getDefaultCategories: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     controller = module.get<CategoriesController>(CategoriesController);
     categoriesService = module.get<CategoriesService>(CategoriesService);
     keywordExtractionService = module.get<KeywordExtractionService>(KeywordExtractionService);
+    defaultCategoriesService = module.get<DefaultCategoriesService>(DefaultCategoriesService);
   });
 
   it('should be defined', () => {
