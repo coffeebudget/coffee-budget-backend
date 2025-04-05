@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { IsNull, Repository, Raw } from 'typeorm';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category } from './entities/category.entity';
@@ -305,27 +305,37 @@ export class CategoriesService {
     // Normalize the keyword
     const normalizedKeyword = keyword.trim().toLowerCase();
     
-    // Find transactions containing the keyword
-    const queryBuilder = this.transactionsRepository
-      .createQueryBuilder('transaction')
-      .update()
-      .set({ category: { id: categoryId } })
-      .where('transaction.userId = :userId', { userId })
-      .andWhere('transaction.categoryId IS NULL');
-    
-    // Handle multi-word phrases differently than single words
-    if (normalizedKeyword.includes(' ')) {
-      // For multi-word phrases, we need an exact match
-      queryBuilder.andWhere('LOWER(transaction.description) LIKE :exactKeyword', 
-        { exactKeyword: `%${normalizedKeyword}%` });
-    } else {
-      // For single words, we can match word boundaries
-      queryBuilder.andWhere('LOWER(transaction.description) ~ :wordBoundary', 
-        { wordBoundary: `\\y${normalizedKeyword}\\y` });
+    // Add the keyword to the category if it's not already there
+    if (!category.keywords.includes(normalizedKeyword)) {
+      category.keywords.push(normalizedKeyword);
+      await this.categoriesRepository.save(category);
     }
     
-    const result = await queryBuilder.execute();
-    return result.affected || 0;
+    // Find all uncategorized transactions for this user that match the keyword
+    const transactions = await this.transactionsRepository.find({
+      where: {
+        user: { id: userId },
+        category: IsNull(),
+        description: normalizedKeyword.includes(' ')
+          ? Raw(alias => `LOWER(${alias}) LIKE '%${normalizedKeyword}%'`)
+          : Raw(alias => `LOWER(${alias}) ~ '\\y${normalizedKeyword}\\y'`)
+      }
+    });
+    
+    // If no transactions found, return 0
+    if (transactions.length === 0) {
+      return 0;
+    }
+    
+    // Update all matching transactions with the category
+    for (const transaction of transactions) {
+      transaction.category = category;
+    }
+    
+    // Save all transactions in a single operation
+    await this.transactionsRepository.save(transactions);
+    
+    return transactions.length;
   }
 
   /**
