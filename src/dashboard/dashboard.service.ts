@@ -36,36 +36,27 @@ export class DashboardService {
     startDate: Date,
     endDate: Date,
   ): Promise<{ categoryName: string; amount: number; percentage: number }[]> {
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        user: { id: userId },
-        type: 'expense',
-        executionDate: Between(startDate, endDate),
-      },
-      relations: ['category'],
-    });
+    const categoryTotals = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .select('category.name', 'categoryName')
+      .addSelect('SUM(ABS(transaction.amount))', 'amount')
+      .leftJoin('transaction.category', 'category')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'expense' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', 
+        { start: startDate, end: endDate })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+      .groupBy('category.name')
+      .getRawMany();
 
-    // Group transactions by category
-    const categoryMap = new Map<string, number>();
-    let totalExpenses = 0;
+    // Calculate total expense amount for percentage calculation
+    const totalExpense = categoryTotals.reduce((sum, row) => sum + Number(row.amount), 0);
 
-    transactions.forEach(transaction => {
-      const categoryName = transaction.category?.name || 'Uncategorized';
-      const amount = Math.abs(transaction.amount);
-      totalExpenses += amount;
-      
-      if (categoryMap.has(categoryName)) {
-        categoryMap.set(categoryName, (categoryMap.get(categoryName) ?? 0) + amount);
-      } else {
-        categoryMap.set(categoryName, amount);
-      }
-    });
-
-    // Convert map to array and calculate percentages
-    const result = Array.from(categoryMap.entries()).map(([categoryName, amount]) => ({
-      categoryName,
-      amount,
-      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
+    // Convert raw results to array with calculated percentages
+    const result = categoryTotals.map((row) => ({
+      categoryName: row.categoryName || 'Uncategorized',
+      amount: Number(row.amount),
+      percentage: totalExpense > 0 ? (Number(row.amount) / totalExpense) * 100 : 0,
     }));
 
     // Sort by amount in descending order
@@ -87,21 +78,29 @@ export class DashboardService {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
       
-      const transactions = await this.transactionsRepository.find({
-        where: {
-          user: { id: userId },
-          executionDate: Between(start, end),
-        },
-      });
-
+      // Use queryBuilder instead of find to apply the exclusion filter
+      const monthlyData = await this.transactionsRepository
+        .createQueryBuilder('transaction')
+        .leftJoinAndSelect('transaction.category', 'category')
+        .select('transaction.type', 'type')
+        .addSelect('SUM(ABS(transaction.amount))', 'total')
+        .where('transaction.user.id = :userId', { userId })
+        .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+        .andWhere('(transaction.type = :income OR (category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false))', 
+          { income: 'income' })
+        .groupBy('transaction.type')
+        .getRawMany();
+      
+      // Initialize with zeros
       let income = 0;
       let expenses = 0;
-
-      transactions.forEach(transaction => {
-        if (transaction.type === 'income') {
-          income += Number(transaction.amount);
-        } else {
-          expenses += Math.abs(Number(transaction.amount));
+      
+      // Process the results
+      monthlyData.forEach(item => {
+        if (item.type === 'income') {
+          income = Number(item.total);
+        } else if (item.type === 'expense') {
+          expenses = Number(item.total);
         }
       });
 
@@ -133,51 +132,61 @@ export class DashboardService {
     const end = endOfMonth(date);
     const daysInMonth = end.getDate();
   
-    const transactions = await this.transactionsRepository.find({
-      where: { user: { id: userId }, executionDate: Between(start, end) },
-      relations: ['category'],
-    });
+    // Get income total
+    const incomeResult = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .select('SUM(transaction.amount)', 'total')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'income' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+      .getRawOne();
   
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    const categoryExpenses = new Map<string, { id: number; amount: number }>();
+    // Get expense total with exclusions
+    const expenseResult = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('SUM(ABS(transaction.amount))', 'total')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'expense' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+      .getRawOne();
   
-    transactions.forEach(transaction => {
-      if (transaction.type === 'income') {
-        totalIncome += Number(transaction.amount);
-      } else {
-        const amount = Math.abs(Number(transaction.amount));
-        totalExpenses += amount;
+    // Get top expense category
+    const topCategory = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('category.name', 'name')
+      .addSelect('SUM(ABS(transaction.amount))', 'amount')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'expense' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+      .groupBy('category.name')
+      .orderBy('amount', 'DESC')
+      .limit(1)
+      .getRawOne();
   
-        if (transaction.category) {
-          const categoryName = transaction.category.name;
-          categoryExpenses.set(categoryName, {
-            id: transaction.category.id,
-            amount: (categoryExpenses.get(categoryName)?.amount ?? 0) + amount,
-          });
-        }
-      }
-    });
+    // Get total transaction count
+    const totalCount = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+      .getCount();
   
-  
-    // ✅ Find top expense category
-    let topExpenseCategory: { name: string; amount: number } | null = null;
-    let maxAmount = 0;
+    const totalIncome = Number(incomeResult?.total || 0);
+    const totalExpenses = Number(expenseResult?.total || 0);
     
-    categoryExpenses.forEach((value, key) => {
-      if (value.amount > maxAmount) {
-        maxAmount = value.amount;
-        topExpenseCategory = { name: key, amount: value.amount };
-      }
-    });
-  
     return {
       totalIncome,
       totalExpenses,
       balance: totalIncome - totalExpenses,
       averageDailyExpense: totalExpenses / daysInMonth,
-      topExpenseCategory,
-      totalTransactions: transactions.length,
+      topExpenseCategory: topCategory ? { 
+        name: topCategory.name || 'Uncategorized', 
+        amount: Number(topCategory.amount) 
+      } : null,
+      totalTransactions: totalCount,
     };
   }
   
@@ -278,27 +287,29 @@ export class DashboardService {
     startingBalance: number,
   ): Promise<{ month: string; income: number; expenses: number; projectedBalance: number }[]> {
     const today = new Date();
+    
+    // Get past months data with excluded categories already filtered out
     const pastMonths = await this.getMonthlyIncomeAndExpenses(userId, 6);
-  
+
     if (pastMonths.length === 0) return [];
-  
+
     let projectedBalance = startingBalance;
     const forecast: { month: string; income: number; expenses: number; projectedBalance: number }[] = [];
-  
+
     for (let i = 0; i < months; i++) {
       const date = addMonths(today, i);
       const month = format(date, 'MMM yyyy');
-  
+
       // Rotate through historical months cyclically
       const historical = pastMonths[i % pastMonths.length];
       const income = historical.income;
       const expenses = historical.expenses;
-  
+
       projectedBalance += income - expenses;
-  
+
       forecast.push({ month, income, expenses, projectedBalance });
     }
-  
+
     return forecast;
   }
 
@@ -351,29 +362,25 @@ export class DashboardService {
   async getSavingsPlanByCategory(userId: number): Promise<{ categoryName: string; total: number; monthly: number }[]> {
     const today = new Date();
     const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
-  
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        user: { id: userId },
-        type: 'expense',
-        executionDate: Between(oneYearAgo, today),
-      },
-      relations: ['category'],
-    });
-  
-    const categoryTotals = new Map<string, number>();
-  
-    for (const tx of transactions) {
-      const category = tx.category?.name ?? 'Uncategorized';
-      const amount = Math.abs(Number(tx.amount));
-  
-      categoryTotals.set(category, (categoryTotals.get(category) || 0) + amount);
-    }
-  
-    return Array.from(categoryTotals.entries()).map(([categoryName, total]) => ({
-      categoryName,
-      total: Number(total.toFixed(2)),
-      monthly: Number((total / 12).toFixed(2)),
+
+    const categoryTotals = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('category.name', 'categoryName')
+      .addSelect('SUM(ABS(transaction.amount))', 'total')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'expense' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', { 
+        start: oneYearAgo, end: today 
+      })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+      .groupBy('category.name')
+      .getRawMany();
+
+    return categoryTotals.map(item => ({
+      categoryName: item.categoryName || 'Uncategorized',
+      total: Number(Number(item.total).toFixed(2)),
+      monthly: Number((Number(item.total) / 12).toFixed(2)),
     })).sort((a, b) => b.total - a.total);
   }
   

@@ -44,7 +44,7 @@ export class DefaultCategoriesService {
       'Professional Expenses', 'Business Utilities', 'Office Supplies',
 
       // 💸 Personal Finance
-      'Savings', 'Investments', 'Donations', 'Bank Fees'
+      'Savings', 'Investments', 'Donations', 'Bank Fees', 'Credit Card Bill Payment'
     ];
   }
 
