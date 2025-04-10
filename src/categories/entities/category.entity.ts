@@ -22,4 +22,10 @@ export class Category {
 
   @OneToMany(() => RecurringTransaction, (recurringTransaction) => recurringTransaction.category)
   recurringTransactions: RecurringTransaction[];
+
+  @Column({ default: false })
+  excludeFromExpenseAnalytics: boolean;
+
+  @Column({ nullable: true })
+  analyticsExclusionReason: string;
 }
