@@ -12,6 +12,7 @@ import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { createCategoryMock } from '../../test/test-utils';
 
 describe('RecurringTransactionGeneratorService', () => {
   let service: RecurringTransactionGeneratorService;
@@ -42,14 +43,7 @@ describe('RecurringTransactionGeneratorService', () => {
     amount: 100,
     status: 'SCHEDULED',
     type: 'expense',
-    category: {
-      id: 1,
-      name: 'Test Category',
-      transactions: [],
-      user: mockUser,
-      recurringTransactions: [],
-      keywords: []
-    } as Category,
+    category: createCategoryMock() as unknown as Category,
     user: mockUser,
     tags: [],
     bankAccount: {
@@ -202,9 +196,9 @@ describe('RecurringTransactionGeneratorService', () => {
         frequencyEveryN: 1,
         startDate: new Date('2024-01-01'),
         endDate: new Date('2024-01-14'),
-        category: { id: 1 },
-        user: { id: 1 }
-      } as RecurringTransaction;
+        category: createCategoryMock() as unknown as Category,
+        user: mockUser
+      } as unknown as RecurringTransaction;
 
       const result = service.generateTransactions(mockRecurringTransaction);
       expect(result).toHaveLength(1); // Only the executed transaction

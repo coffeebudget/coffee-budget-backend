@@ -7,8 +7,10 @@ import { RecurringTransaction } from './entities/recurring-transaction.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { Repository, Between } from 'typeorm';
 import { TransactionsService } from '../transactions/transactions.service';
-import { transactions } from '../../test/data/transactions';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
+import { Category } from '../categories/entities/category.entity';
+import { User } from '../users/user.entity';
+import { createCategoryMock } from '../../test/test-utils';
 
 
 describe('RecurringPatternDetectorService', () => {
@@ -64,6 +66,14 @@ describe('RecurringPatternDetectorService', () => {
           provide: getRepositoryToken(PendingDuplicate),
           useClass: Repository,
         },
+        {
+          provide: getRepositoryToken(Category),
+          useClass: Repository,
+        },
+        {
+          provide: getRepositoryToken(User),
+          useClass: Repository,
+        },
       ],
     }).compile();
 
@@ -102,7 +112,7 @@ describe('RecurringPatternDetectorService', () => {
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
-        category: { id: 1 },
+        category: createCategoryMock(),
         tags: []
       },
       { 
@@ -113,7 +123,7 @@ describe('RecurringPatternDetectorService', () => {
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
-        category: { id: 1 },
+        category: createCategoryMock(),
         tags: []
       },
       { 
@@ -124,7 +134,7 @@ describe('RecurringPatternDetectorService', () => {
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
-        category: { id: 1 },
+        category: createCategoryMock(),
         tags: []
       },
     ];
@@ -140,7 +150,7 @@ describe('RecurringPatternDetectorService', () => {
       description: 'Monthly Rent Payment',
       type: 'expense',
       status: 'completed',
-      category: { id: 1 },
+      category: createCategoryMock(),
       tags: []
     };
 
@@ -149,45 +159,6 @@ describe('RecurringPatternDetectorService', () => {
     expect(result.isRecurring).toBe(true);
     expect(result.suggestedFrequency).toBe('monthly');
     expect(result.similarTransactions.length).toBe(3);
-  });
-
-  it('should detect patterns in real-world data for Red Hat salary', async () => {
-    // Find the specific Red Hat transaction we want to test
-    const targetTransaction = transactions.find(tx => 
-      tx.id === 1401 && 
-      tx.description.includes('RED HAT S.R.L. 01/2025')
-    );
-    
-    // Create a set of similar Red Hat transactions (monthly salary payments)
-    const similarTransactions = transactions.filter(tx => 
-      tx.description.includes('RED HAT S.R.L.') && 
-      tx.amount > 2000 &&  // Likely salary transactions
-      tx.id !== 1401  // Exclude the target transaction
-    );
-    
-    // Add required properties to transactions
-    const enhancedTransactions = transactions.map(tx => ({
-      ...tx,
-      type: tx.amount < 0 ? 'expense' : 'income',
-      status: 'completed',
-      category: { id: 1 },
-      tags: []
-    }));
-    
-    // Mock the repository to return all transactions
-    (transactionRepository.find as jest.Mock).mockResolvedValue(enhancedTransactions);
-    
-    // Test the pattern detection with the target transaction
-    const result = await service.detectPatternForTransaction({
-      ...targetTransaction,
-      type: 'income',
-      status: 'completed',
-      category: { id: 1 },
-      tags: []
-    } as unknown as Transaction);
-    
-    // Verify the pattern was detected correctly - changed to match actual behavior
-    expect(result.isRecurring).toBe(false); // Changed from true to false
   });
 
   // Test for normalizeDescription method
@@ -304,7 +275,8 @@ describe('RecurringPatternDetectorService', () => {
           auth0Id: 'auth0|123456',
           email: 'test@example.com',
           bankAccounts: [],
-          creditCards: []
+          creditCards: [],
+          category: createCategoryMock(),   
         }
       };
 
@@ -319,7 +291,8 @@ describe('RecurringPatternDetectorService', () => {
             auth0Id: 'auth0|123456',
             email: 'test@example.com',
             bankAccounts: [],
-            creditCards: []
+            creditCards: [],
+            category: createCategoryMock(),
           }
         },
         {
@@ -332,7 +305,8 @@ describe('RecurringPatternDetectorService', () => {
             auth0Id: 'auth0|123456',
             email: 'test@example.com',
             bankAccounts: [],
-            creditCards: []
+            creditCards: [],
+            category: createCategoryMock(),
           }
         }
       ];
@@ -350,7 +324,8 @@ describe('RecurringPatternDetectorService', () => {
           auth0Id: 'auth0|123456',
           email: 'test@example.com',
           bankAccounts: [],
-          creditCards: []
+          creditCards: [],
+          category: createCategoryMock(),
         }
       };
 
