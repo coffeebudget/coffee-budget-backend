@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { Transaction } from "../../transactions/transaction.entity";
 import { User } from "../../users/user.entity";
 import { RecurringTransaction } from "../../recurring-transactions/entities/recurring-transaction.entity";
@@ -28,4 +28,10 @@ export class Category {
 
   @Column({ nullable: true })
   analyticsExclusionReason: string;
+
+  @CreateDateColumn({ type: 'timestamp' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ type: 'timestamp' })
+  updatedAt: Date;
 }
