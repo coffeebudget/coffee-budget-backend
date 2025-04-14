@@ -21,7 +21,7 @@ export class PendingDuplicatesService {
   async findPendingDuplicates(userId: number): Promise<PendingDuplicate[]> {
     return this.pendingDuplicatesRepository.find({
       where: { user: { id: userId }, resolved: false },
-      relations: ['existingTransaction'],
+      relations: ['existingTransaction', 'existingTransaction.category', 'existingTransaction.tags', 'existingTransaction.bankAccount', 'existingTransaction.creditCard'],
       order: { createdAt: 'DESC' }
     });
   }

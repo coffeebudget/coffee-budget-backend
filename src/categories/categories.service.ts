@@ -68,6 +68,11 @@ export class CategoriesService {
     if (updateCategoryDto.keywords !== undefined) {
       category.keywords = updateCategoryDto.keywords.map(k => k.trim().toLowerCase());
     }
+
+    if (updateCategoryDto.excludeFromExpenseAnalytics !== undefined) 
+      category.excludeFromExpenseAnalytics = updateCategoryDto.excludeFromExpenseAnalytics;
+    if (updateCategoryDto.analyticsExclusionReason !== undefined) 
+      category.analyticsExclusionReason = updateCategoryDto.analyticsExclusionReason;
   
     return this.categoriesRepository.save(category);
   }
