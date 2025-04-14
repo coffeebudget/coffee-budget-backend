@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsBoolean } from "class-validator";
+import { IsString, IsOptional, IsArray, IsBoolean, IsDate } from "class-validator";
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateCategoryDto {
@@ -22,4 +22,15 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsString()
   analyticsExclusionReason?: string;
+
+
+  @ApiProperty({ description: 'Created at', required: false })
+  @IsOptional()
+  @IsDate()
+  createdAt?: Date;
+
+  @ApiProperty({ description: 'Updated at', required: false })
+  @IsOptional()
+  @IsDate()
+  updatedAt?: Date;
 }
