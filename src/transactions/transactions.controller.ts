@@ -25,7 +25,7 @@ export class TransactionsController {
         throw new UnauthorizedException('User not authenticated or user ID missing');
       }
 
-      return await this.transactionsService.create(createTransactionDto, user.id, createTransactionDto.duplicateChoice || undefined);
+      return await this.transactionsService.createAndSaveTransaction(createTransactionDto, user.id, createTransactionDto.duplicateChoice || undefined);
     } catch (error) {
       if (error instanceof ConflictException && error.message === 'Duplicate transaction detected') {
         // Return the conflict with details so the frontend can handle it

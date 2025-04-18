@@ -32,7 +32,7 @@ export class RecurringTransactionCronService {
     
     for (const recurringTransaction of dueRecurringTransactions) {
       // Create the transaction for today
-      await this.transactionsService.create({
+      await this.transactionsService.createAndSaveTransaction({
         description: recurringTransaction.name,
         amount: recurringTransaction.amount,
         type: recurringTransaction.type as "expense" | "income",
