@@ -229,8 +229,12 @@ describe('BnlXlsParser', () => {
       // Check date parsing
       expect(parseDateSpy).toHaveBeenCalledWith('31/12/2023', 'dd/MM/yyyy');
       
-      // Verify the execution date is set correctly (assuming the parseDate method works as expected)
-      expect(result[0].executionDate).toBeDefined();
+      // Verify the execution date is set correctly
+      const executionDate = result[0].executionDate!;
+      expect(executionDate).toBeDefined();
+      expect(executionDate.getFullYear()).toBe(2023);
+      expect(executionDate.getMonth()).toBe(11); // December is 11
+      expect(executionDate.getDate()).toBe(31);
       
       // Clean up
       parseDateSpy.mockRestore();
@@ -310,6 +314,154 @@ describe('BnlXlsParser', () => {
         type: 'expense',
         bankAccount: { id: 123 }
       });
+    });
+
+    it('should correctly parse dates in dd/MM/yyyy format', async () => {
+      // Instead of creating an actual Excel workbook, we'll directly test 
+      // the date parsing by mocking the sheet_to_json response
+      const base64Data = 'mockBase64Data';
+      
+      // Mock xlsx responses
+      (xlsx.read as jest.Mock).mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          Sheet1: {}
+        }
+      });
+
+      // Mock sheet_to_json to return a row with a date in dd/MM/yyyy format
+      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
+        ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'],
+        ['31/12/2023', 'Test transaction', '', '100,50'] // December 31, 2023
+      ]);
+      
+      // Spy on the parseDate method
+      const parseDateSpy = jest.spyOn(parser as any, 'parseDate');
+      
+      // Parse the file
+      const transactions = await parser.parseFile(base64Data, { userId: 1 });
+      
+      // Verify the parseDate was called with correct format
+      expect(parseDateSpy).toHaveBeenCalledWith('31/12/2023', 'dd/MM/yyyy');
+      
+      // Verify the parsed data
+      expect(transactions).toHaveLength(1);
+      expect(transactions[0].description).toBe('Test transaction');
+      expect(transactions[0].amount).toBe(100.5);
+      expect(transactions[0].type).toBe('expense');
+
+      // Clean up
+      parseDateSpy.mockRestore();
+    });
+
+    it('should correctly parse multiple rows with different dates', async () => {
+      // Mock base64 data
+      const base64Data = 'mockBase64Data';
+      
+      // Mock xlsx responses
+      (xlsx.read as jest.Mock).mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          Sheet1: {}
+        }
+      });
+
+      // Mock sheet_to_json to return rows with different dates
+      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
+        ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'],
+        ['01/01/2023', 'January transaction', '250,00', ''], // January 1, 2023
+        ['15/02/2023', 'February transaction', '', '75,30'], // February 15, 2023
+        ['31/12/2023', 'December transaction', '', '100,50'] // December 31, 2023
+      ]);
+      
+      // Spy on the parseDate method
+      const parseDateSpy = jest.spyOn(parser as any, 'parseDate');
+      
+      // Parse the file
+      const transactions = await parser.parseFile(base64Data, { userId: 1 });
+      
+      // Verify parseDate was called for each date with correct format
+      expect(parseDateSpy).toHaveBeenCalledWith('01/01/2023', 'dd/MM/yyyy');
+      expect(parseDateSpy).toHaveBeenCalledWith('15/02/2023', 'dd/MM/yyyy');
+      expect(parseDateSpy).toHaveBeenCalledWith('31/12/2023', 'dd/MM/yyyy');
+      
+      // Verify the parsed data
+      expect(transactions).toHaveLength(3);
+      
+      // Check transactions data
+      expect(transactions[0].description).toBe('January transaction');
+      expect(transactions[0].amount).toBe(250);
+      expect(transactions[0].type).toBe('income');
+      
+      expect(transactions[1].description).toBe('February transaction');
+      expect(transactions[1].amount).toBe(75.3);
+      expect(transactions[1].type).toBe('expense');
+      
+      expect(transactions[2].description).toBe('December transaction');
+      expect(transactions[2].amount).toBe(100.5);
+      expect(transactions[2].type).toBe('expense');
+
+      // Clean up
+      parseDateSpy.mockRestore();
+    });
+
+    it('should correctly parse transactions with MOB reference numbers', async () => {
+      const base64Data = 'base64encodeddata';
+      
+      // Mock xlsx responses
+      (xlsx.read as jest.Mock).mockReturnValue({
+        SheetNames: ['Sheet1'],
+        Sheets: {
+          Sheet1: {}
+        }
+      });
+
+      // Mock sheet_to_json to return a row with MOB reference number
+      // Note: Column indices must match how the parser is accessing the data
+      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
+        // Column indexes:   0            1            2             3                   4                               5
+        ['Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Descrizione_Completa', 'Importo'],
+        ['07/01/2025', '07/01/2025', '50', 'PAGAMENTI DIVERSI', 'MOB-6999764301 PAG. MAV 0 3065', '-168,12']
+      ]);
+
+      // Spy on the determineTransactionType method to always return 'expense'
+      const determineTypeSpy = jest.spyOn(parser as any, 'determineTransactionType')
+        .mockReturnValue('expense');
+        
+      // Mock parseAmount to handle the amount column
+      const parseAmountSpy = jest.spyOn(parser as any, 'parseAmount')
+        .mockReturnValue(-168.12);
+      
+      // Force the parseDate to return the expected date
+      const parseDateSpy = jest.spyOn(parser as any, 'parseDate')
+        .mockReturnValue(new Date(2025, 0, 7)); // January 7, 2025
+        
+      const result = await parser.parseFile(base64Data, { 
+        userId: 1,
+        bankAccountId: 123
+      });
+
+      expect(result).toHaveLength(1);
+      
+      // Verify the transaction details
+      expect(result[0]).toMatchObject({
+        description: 'PAGAMENTI DIVERSI MOB-6999764301 PAG. MAV 0 3065',
+        amount: 168.12,
+        type: 'expense',
+        bankAccount: { id: 123 }
+      });
+      
+      // Verify the execution date is set correctly
+      const executionDate = result[0].executionDate!;
+      expect(executionDate).toBeDefined();
+      expect(executionDate.getFullYear()).toBe(2025);
+      expect(executionDate.getMonth()).toBe(0); // January is 0
+      expect(executionDate.getDate()).toBe(7);
+      
+      // Clean up
+      determineTypeSpy.mockRestore();
+      parseAmountSpy.mockRestore();
+      parseDateSpy.mockRestore();
     });
   });
 });

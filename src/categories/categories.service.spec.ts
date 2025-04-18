@@ -188,10 +188,7 @@ describe('CategoriesService', () => {
       
       // Mock the repository find method
       transactionsRepository.find.mockImplementation(async (options?: FindManyOptions<Transaction>) => {
-        if (!options || !options.where) return [];
-        
-        // Verify the search query is correctly formatted
-        console.log('Query condition:', options.where);
+        if (!options || !options.where) return [];   
         
         // Simulate DB querying with our test data
         // Use the same word-by-word matching we implemented in the service
