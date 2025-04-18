@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In, Not, IsNull } from 'typeorm';
+import { Repository, Between, In, Not, IsNull, Stream } from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { ImportTransactionDto } from './dto/import-transaction.dto';
@@ -21,6 +21,7 @@ import { parse } from 'csv-parse/sync';
 import { Workbook } from 'exceljs';
 import * as cheerio from 'cheerio';
 import { DuplicateTransactionChoice } from './dto/duplicate-transaction-choice.dto';
+import * as xlsx from 'xlsx';
 
 @Injectable()
 export class TransactionsService {
@@ -862,47 +863,87 @@ export class TransactionsService {
   }
 
   private async importFromBnlXls(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    if (!importDto.csvData) throw new BadRequestException('Missing XLS file content');
+    try {
+      if (!importDto.csvData) throw new BadRequestException('Missing XLS file content');
 
-    const buffer = Buffer.from(importDto.csvData, 'base64');
-    const workbook = new Workbook();
-    await workbook.xlsx.load(buffer);
-
-    const sheet = workbook.worksheets[0];
-    const transactions: Transaction[] = [];
-
-    sheet.eachRow((row, rowIndex) => {
-      if (rowIndex === 1) return; // Skip header
-
-      const dateStr = row.getCell(1).text;
-      const description = row.getCell(3).text;
-      const amountStr = row.getCell(4).text;
-
-      if (!dateStr || !description || !amountStr) return;
-
-      const executionDate = parseDate(dateStr, 'dd/MM/yyyy', new Date());
-      const amount = parseFloat(amountStr.replace(/\./g, '').replace(',', '.'));
-      const type = amount >= 0 ? 'income' : 'expense';
-
-      const transactionData: Partial<Transaction> = {
-        description: description.trim(),
-        amount: Math.abs(amount),
-        type,
-        executionDate,
-        bankAccount: importDto.bankAccountId ? { id: importDto.bankAccountId } as BankAccount : undefined,
-      };
-
-      transactions.push(transactionData as Transaction);
-    });
-
-    // Salva nel DB
-    return Promise.all(
-      transactions.map(tx =>
-        this.createAutomatedTransaction(tx, userId, 'csv_import')
-      )
-    );
+      const buffer = Buffer.from(importDto.csvData, 'base64');
+      
+      // Use xlsx library which has better compatibility with various Excel formats
+      const workbook = xlsx.read(buffer, { type: 'buffer' });
+      
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        throw new BadRequestException('No worksheets found in Excel file');
+      }
+      
+      // Get first sheet
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      
+      // Convert to JSON
+      const rows = xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
+      
+      // Find the header row (look for "Data contabile" in the first column)
+      let headerRowIndex = -1;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i][0] === 'Data contabile') {
+          headerRowIndex = i;
+          break;
+        }
+      }
+      
+      if (headerRowIndex === -1) {
+        throw new BadRequestException('Could not find header row in BNL Excel file');
+      }
+      
+      // Map column indices
+      const dateIndex = 0;
+      const codeIndex = 2;
+      const descriptionIndex = 3;
+      const amountIndex = 4;
+      
+      const transactions: Transaction[] = [];
+      
+      // Process each data row
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const row = rows[i] as any[];
+        if (!row[dateIndex] || row.length < 5) continue; // Skip empty rows
+        
+        try {
+          const dateStr = row[dateIndex] as string;
+          const description = row[descriptionIndex] as string;
+          const amountStr = row[amountIndex] as string;
+          
+          if (!dateStr || !description || !amountStr) continue;
+          
+          const executionDate = parseDate(dateStr, 'dd/MM/yyyy', new Date());
+          const amount = parseLocalizedAmount(amountStr);
+          const type = amount >= 0 ? 'income' : 'expense';
+          
+          const transactionData: Partial<Transaction> = {
+            description,
+            amount: Math.abs(amount),
+            type,
+            executionDate,
+            bankAccount: importDto.bankAccountId ? { id: importDto.bankAccountId } as BankAccount : undefined,
+          };
+          
+          transactions.push(transactionData as Transaction);
+        } catch (parseError) {
+          this.logger.warn(`Skipping row ${i} due to parsing error: ${parseError.message}`);
+        }
+      }
+      
+      // Save to DB
+      return Promise.all(
+        transactions.map(tx =>
+          this.createAutomatedTransaction(tx, userId, 'csv_import')
+        )
+      );
+    } catch (error) {
+      this.logger.error(`Failed to import BNL XLS file: ${error.message}`);
+      throw new BadRequestException('Failed to parse BNL file: ' + error.message);
+    }
   }
-  // ...
 
   private async importFromFinecoXls(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
     if (!importDto.csvData) {
