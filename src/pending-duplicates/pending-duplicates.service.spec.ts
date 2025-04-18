@@ -77,7 +77,13 @@ describe('PendingDuplicatesService', () => {
       expect(result).toEqual(mockDuplicates);
       expect(pendingDuplicatesRepository.find).toHaveBeenCalledWith({
         where: { user: { id: 1 }, resolved: false },
-        relations: ['existingTransaction'],
+        relations: [
+          'existingTransaction',
+          'existingTransaction.category',
+          'existingTransaction.tags',
+          'existingTransaction.bankAccount',
+          'existingTransaction.creditCard'
+        ],
         order: { createdAt: 'DESC' }
       });
     });
