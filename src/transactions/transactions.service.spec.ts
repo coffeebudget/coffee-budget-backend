@@ -241,7 +241,7 @@ describe('TransactionsService', () => {
         Promise.resolve({ id: 1, ...entity } as any)
       );
       
-      const result = await service.create(createDto, mockUserId);
+      const result = await service.createAndSaveTransaction(createDto, mockUserId);
       
       expect(result).toBeDefined();
       expect(result.description).toBe(createDto.description);
@@ -283,7 +283,7 @@ describe('TransactionsService', () => {
       (pendingDuplicatesService.findAllByExistingTransactionId as jest.Mock).mockResolvedValue([]);
       
       // Pass the REPLACE choice to handle the duplicate
-      const result = await service.create(
+      const result = await service.createAndSaveTransaction(
         createDto, 
         mockUserId, 
         DuplicateTransactionChoice.REPLACE
@@ -333,7 +333,7 @@ describe('TransactionsService', () => {
       // Add spy to check if findPotentialDuplicate is called
       const findDuplicateSpy = jest.spyOn(service as any, 'findPotentialDuplicate');
 
-      const result = await service.create(
+      const result = await service.createAndSaveTransaction(
         createTransactionDto as any, 
         mockUserId, 
         undefined,
@@ -380,7 +380,7 @@ describe('TransactionsService', () => {
       // Mock merge operation
       (service as any).mergeTransactions = jest.fn().mockResolvedValue(mergedTransaction);
 
-      const result = await service.create(
+      const result = await service.createAndSaveTransaction(
         createTransactionDto as any,
         mockUserId,
         DuplicateTransactionChoice.MERGE
@@ -412,7 +412,7 @@ describe('TransactionsService', () => {
       // Mock the category repository to return null (category not found)
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null);
       
-      await expect(service.create(createTransactionDto, 1)).rejects.toThrow(NotFoundException);
+      await expect(service.createAndSaveTransaction(createTransactionDto, 1)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when both bankAccount and creditCard are provided', async () => {
@@ -429,7 +429,7 @@ describe('TransactionsService', () => {
         creditCardId: 1,
       };
 
-      await expect(service.create(createTransactionDto, 1)).rejects.toThrow(BadRequestException);
+      await expect(service.createAndSaveTransaction(createTransactionDto, 1)).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -508,7 +508,7 @@ describe('TransactionsService', () => {
       (transactionRepository.save as jest.Mock).mockResolvedValue(expectedTransaction);
 
       // Mock the service.create method to avoid going through the duplicate check logic
-      const createSpy = jest.spyOn(service, 'create').mockResolvedValue(expectedTransaction as unknown as Transaction);
+      const createSpy = jest.spyOn(service, 'createAndSaveTransaction').mockResolvedValue(expectedTransaction as unknown as Transaction);
 
       const result = await (service as any).createTransactionFromAnyFormat(
         dtoFormatData, 

@@ -69,7 +69,7 @@ export class TransactionsService {
     return transaction;
   }
 
-  async create(
+  async createAndSaveTransaction(
     createTransactionDto: CreateTransactionDto, 
     userId: number,
     duplicateChoice?: DuplicateTransactionChoice,
@@ -213,14 +213,6 @@ export class TransactionsService {
     }
     
     return savedTransaction;
-  }
-
-  async createTransaction(transactionData: Partial<Transaction>, userId: number): Promise<Transaction> {
-    const transaction = this.transactionsRepository.create({
-      ...transactionData,
-      user: { id: userId }
-    });
-    return this.transactionsRepository.save(transaction);
   }
 
   async delete(id: number, userId: number): Promise<void> {
@@ -485,7 +477,7 @@ export class TransactionsService {
       return this.transactionsRepository.save(transaction);
     } else {
       // DTO format - use the standard create method with duplicate check skipped
-      return this.create(transactionData, userId, undefined, true);
+      return this.createAndSaveTransaction(transactionData, userId, undefined, true);
     }
   }
 
