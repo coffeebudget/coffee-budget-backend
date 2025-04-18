@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, Query } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -143,6 +143,57 @@ export class CategoriesController {
       categoryId,
       transactionId,
       user.id
+    );
+  }
+
+  @Get(':id/preview-keyword-impact')
+  @ApiOperation({ summary: 'Preview the impact of adding a keyword to a category' })
+  async previewKeywordImpact(
+    @Param('id', ParseIntPipe) categoryId: number,
+    @Query('keyword') keyword: string,
+    @Query('onlyUncategorized') onlyUncategorized: boolean = false,
+    @CurrentUser() user: User
+  ) {
+    // First check if the category exists
+    await this.categoriesService.findOne(categoryId, user.id);
+    
+    // Then find transactions that would be affected
+    const { transactions, categoryCounts } = await this.categoriesService.findTransactionsMatchingKeyword(
+      keyword, 
+      user.id, 
+      onlyUncategorized
+    );
+    
+    // Return preview data
+    return {
+      categoryId,
+      keyword,
+      totalAffected: transactions.length,
+      categoryCounts,
+      // Return a sample of transactions for preview (limit to 10)
+      sampleTransactions: transactions.slice(0, 10).map(t => ({
+        id: t.id,
+        description: t.description,
+        amount: t.amount,
+        executionDate: t.executionDate,
+        currentCategory: t.category ? t.category.name : 'Uncategorized'
+      }))
+    };
+  }
+
+  @Post(':id/apply-keyword')
+  @ApiOperation({ summary: 'Apply a keyword to a category and optionally update existing transactions' })
+  async applyKeyword(
+    @Param('id', ParseIntPipe) categoryId: number,
+    @Body('keyword') keyword: string,
+    @Body('applyTo') applyTo: 'none' | 'uncategorized' | 'all' | string[] = 'none',
+    @CurrentUser() user: User
+  ) {
+    return this.categoriesService.applyKeywordToCategory(
+      categoryId,
+      keyword,
+      user.id,
+      applyTo
     );
   }
 }
