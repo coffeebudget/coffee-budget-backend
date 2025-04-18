@@ -33,6 +33,7 @@ export class KeywordExtractionService {
   extractKeywords(text: string): string[] {
     if (!text) return [];
     
+    // Improved normalization - replace all punctuation with spaces, including periods
     const normalizedText = text.toLowerCase().replace(/[^\w\s]/g, ' ');
     
     // Extract single words
