@@ -102,10 +102,18 @@ export class BnlXlsParser extends BaseParser {
           
           // Use detailed description if available, otherwise use simple description
           let description = '';
-          if (detailedDescriptionIndex !== -1 && row[detailedDescriptionIndex]) {
-            description = row[detailedDescriptionIndex] as string;
-          } else if (descriptionIndex !== -1 && row[descriptionIndex]) {
+          if (descriptionIndex !== -1 && row[descriptionIndex]) {
             description = row[descriptionIndex] as string;
+          }
+          
+          // Add detailed description if available
+          if (detailedDescriptionIndex !== -1 && row[detailedDescriptionIndex]) {
+            const detailedDesc = row[detailedDescriptionIndex] as string;
+            if (description && detailedDesc) {
+              description = `${description} ${detailedDesc}`;
+            } else if (detailedDesc) {
+              description = detailedDesc;
+            }
           }
           
           // Handle amounts - either from dedicated columns or single amount column
