@@ -587,6 +587,18 @@ export class TransactionsService {
             // For bank account transactions, billing date equals execution date
             tx.billingDate = new Date(tx.executionDate);
           }
+          
+          // Add category suggestion based on description
+          if (!tx.category && tx.description) {
+            const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+              tx.description,
+              userId
+            );
+            
+            if (suggestedCategory) {
+              tx.category = suggestedCategory;
+            }
+          }
         }
         
         // Save all the parsed transactions to the database
