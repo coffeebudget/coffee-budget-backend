@@ -88,6 +88,15 @@ export class RecurringTransactionsService {
       creditCard,
     });
 
+    // Validate endDate if provided
+    if (recurringTransaction.endDate) {
+      const endDate = new Date(recurringTransaction.endDate);
+      if (isNaN(endDate.getTime())) {
+        this.logger.warn(`Invalid endDate detected in create: ${recurringTransaction.endDate}, setting to null`);
+        recurringTransaction.endDate = null;
+      }
+    }
+
     // Save the recurring transaction first to get an ID
     const savedRecurringTransaction = await this.recurringTransactionRepository.save(recurringTransaction);
 
@@ -233,31 +242,122 @@ export class RecurringTransactionsService {
     if (updateDto.frequencyType) existingTransaction.frequencyType = updateDto.frequencyType;
     if (updateDto.occurrences) existingTransaction.occurrences = updateDto.occurrences;
     if (updateDto.startDate) existingTransaction.startDate = updateDto.startDate;
-    if (updateDto.endDate) existingTransaction.endDate = updateDto.endDate;
+    
+    // Handle endDate in update method
+    if (updateDto.endDate !== undefined) {
+      // Handle empty string or null case
+      if (updateDto.endDate === null || String(updateDto.endDate).trim() === '') {
+        existingTransaction.endDate = null;
+      } else {
+        try {
+          // Convert to string explicitly if needed
+          const dateValue = typeof updateDto.endDate === 'string' 
+            ? updateDto.endDate 
+            : String(updateDto.endDate);
+          
+          const parsedDate = new Date(dateValue);
+          if (!isNaN(parsedDate.getTime())) {
+            existingTransaction.endDate = parsedDate;
+          } else {
+            this.logger.warn(`Invalid endDate detected: ${dateValue}, not updating this field`);
+          }
+        } catch (err) {
+          this.logger.warn(`Error parsing endDate: ${err.message}, not updating this field`);
+        }
+      }
+    }
 
     // Save the updated recurring transaction
-    const updatedTransaction = await this.recurringTransactionRepository.save(existingTransaction);
+    try {
+      const updatedTransaction = await this.recurringTransactionRepository.save(existingTransaction);
+      
+      // Check if timing-related properties have changed
+      const timingChanged = updateDto.startDate || 
+                            updateDto.frequencyType || 
+                            updateDto.frequencyEveryN;
 
-    // Check if timing-related properties have changed
-    const timingChanged = updateDto.startDate || 
-                          updateDto.frequencyType || 
-                          updateDto.frequencyEveryN;
+      // Handle past transactions if needed
+      if (updateDto.applyToPast) {
+        if (timingChanged) {
+          // If timing has changed and we need to apply to past, we should:
+          // 1. Delete all existing transactions for this recurring transaction
+          // 2. Regenerate all transactions based on the new configuration
+          
+          // Delete all existing transactions (both pending and executed)
+          await this.transactionRepository.delete({ recurringTransaction: { id } });
+          
+          // Generate all transactions from the start date until now
+          const allTransactions = this.recurringTransactionGeneratorService.generateTransactions(updatedTransaction);
+          
+          if (allTransactions.length > 0) {
+            const transactionsToCreate = allTransactions.map(transaction => {
+              return {
+                description: transaction.description,
+                amount: transaction.amount,
+                type: transaction.type,
+                status: transaction.status,
+                executionDate: transaction.executionDate,
+                category: { id: updatedTransaction.category.id },
+                bankAccount: updatedTransaction.bankAccount ? { id: updatedTransaction.bankAccount.id } : null,
+                creditCard: updatedTransaction.creditCard ? { id: updatedTransaction.creditCard.id } : null,
+                tags: updatedTransaction.tags.map(tag => ({ id: tag.id })),
+                user: { id: userId },
+                source: 'recurring',
+                recurringTransaction: { id: updatedTransaction.id }
+              };
+            });
 
-    // Handle past transactions if needed
-    if (updateDto.applyToPast) {
-      if (timingChanged) {
-        // If timing has changed and we need to apply to past, we should:
-        // 1. Delete all existing transactions for this recurring transaction
-        // 2. Regenerate all transactions based on the new configuration
+            for (const transactionData of transactionsToCreate) {
+              try {
+                await this.transactionsService.createAutomatedTransaction(
+                  transactionData as Partial<Transaction>,
+                  userId,
+                  'recurring',
+                  `recurring_id:${updatedTransaction.id}`
+                );
+              } catch (error) {
+                this.logger.error(`Error creating transaction: ${error.message}`);
+              }
+            }
+          }
+        } else {
+          // If timing hasn't changed, just update the properties of past transactions
+          const pastTransactions = await this.transactionRepository.find({ 
+            where: { recurringTransaction: { id }, status: 'executed' },
+            relations: ['category', 'tags', 'bankAccount', 'creditCard']
+          });
+          
+          if (pastTransactions.length > 0) {
+            const updatedPastTransactions = pastTransactions.map(transaction => {
+              if (updateDto.name) transaction.description = updateDto.name;
+              if (updateDto.amount) transaction.amount = updateDto.amount;
+              if (updateDto.type) transaction.type = updateDto.type as NonNullable<Transaction['type']>;
+              if (updateDto.categoryId) transaction.category = { id: updateDto.categoryId } as Category;
+              return transaction;
+            });
+            
+            for (const transactionData of updatedPastTransactions) {
+              try {
+                await this.transactionsService.createAutomatedTransaction(
+                  transactionData as Partial<Transaction>,
+                  userId,
+                  'recurring',
+                  `recurring_id:${updatedTransaction.id}`
+                );
+              } catch (error) {
+                this.logger.error(`Error creating transaction: ${error.message}`);
+              }
+            }
+          }
+        }
+      } else if (timingChanged) {
+        // If timing has changed but we don't need to apply to past:
+        // Just delete and regenerate pending transactions
+        await this.transactionRepository.delete({ recurringTransaction: { id }, status: 'pending' });
+        const newTransactions = this.recurringTransactionGeneratorService.generateTransactions(updatedTransaction);
         
-        // Delete all existing transactions (both pending and executed)
-        await this.transactionRepository.delete({ recurringTransaction: { id } });
-        
-        // Generate all transactions from the start date until now
-        const allTransactions = this.recurringTransactionGeneratorService.generateTransactions(updatedTransaction);
-        
-        if (allTransactions.length > 0) {
-          const transactionsToCreate = allTransactions.map(transaction => {
+        if (newTransactions.length > 0) {
+          const transactionsToCreate = newTransactions.map(transaction => {
             return {
               description: transaction.description,
               amount: transaction.amount,
@@ -287,76 +387,16 @@ export class RecurringTransactionsService {
             }
           }
         }
-      } else {
-        // If timing hasn't changed, just update the properties of past transactions
-        const pastTransactions = await this.transactionRepository.find({ 
-          where: { recurringTransaction: { id }, status: 'executed' },
-          relations: ['category', 'tags', 'bankAccount', 'creditCard']
-        });
-        
-        if (pastTransactions.length > 0) {
-          const updatedPastTransactions = pastTransactions.map(transaction => {
-            if (updateDto.name) transaction.description = updateDto.name;
-            if (updateDto.amount) transaction.amount = updateDto.amount;
-            if (updateDto.type) transaction.type = updateDto.type as NonNullable<Transaction['type']>;
-            if (updateDto.categoryId) transaction.category = { id: updateDto.categoryId } as Category;
-            return transaction;
-          });
-          
-          for (const transactionData of updatedPastTransactions) {
-            try {
-              await this.transactionsService.createAutomatedTransaction(
-                transactionData as Partial<Transaction>,
-                userId,
-                'recurring',
-                `recurring_id:${updatedTransaction.id}`
-              );
-            } catch (error) {
-              this.logger.error(`Error creating transaction: ${error.message}`);
-            }
-          }
-        }
       }
-    } else if (timingChanged) {
-      // If timing has changed but we don't need to apply to past:
-      // Just delete and regenerate pending transactions
-      await this.transactionRepository.delete({ recurringTransaction: { id }, status: 'pending' });
-      const newTransactions = this.recurringTransactionGeneratorService.generateTransactions(updatedTransaction);
-      
-      if (newTransactions.length > 0) {
-        const transactionsToCreate = newTransactions.map(transaction => {
-          return {
-            description: transaction.description,
-            amount: transaction.amount,
-            type: transaction.type,
-            status: transaction.status,
-            executionDate: transaction.executionDate,
-            category: { id: updatedTransaction.category.id },
-            bankAccount: updatedTransaction.bankAccount ? { id: updatedTransaction.bankAccount.id } : null,
-            creditCard: updatedTransaction.creditCard ? { id: updatedTransaction.creditCard.id } : null,
-            tags: updatedTransaction.tags.map(tag => ({ id: tag.id })),
-            user: { id: userId },
-            source: 'recurring',
-            recurringTransaction: { id: updatedTransaction.id }
-          };
-        });
 
-        for (const transactionData of transactionsToCreate) {
-          try {
-            await this.transactionsService.createAutomatedTransaction(
-              transactionData as Partial<Transaction>,
-              userId,
-              'recurring',
-              `recurring_id:${updatedTransaction.id}`
-            );
-          } catch (error) {
-            this.logger.error(`Error creating transaction: ${error.message}`);
-          }
-        }
+      return updatedTransaction;
+    } catch (error) {
+      // Transform database errors into user-friendly errors
+      if (error.name === 'QueryFailedError' && error.code === '22007') {
+        throw new BadRequestException('Invalid date format in the update data. Please check your endDate field.');
       }
+      throw error;
     }
-
-    return updatedTransaction;
   }
 
   async remove(id: number, userId: number, deleteOption: 'all' | 'pending' | 'none'): Promise<void> {
@@ -421,13 +461,48 @@ export class RecurringTransactionsService {
       throw new NotFoundException('Recurring transaction not found');
     }
 
+    // Handle endDate in adjustPattern method
+    if (updateDto.endDate !== undefined) {
+      // Handle empty string or null case
+      if (updateDto.endDate === null || String(updateDto.endDate).trim() === '') {
+        recurringTransaction.endDate = null;
+        delete updateDto.endDate;
+      } else {
+        try {
+          // Convert to string explicitly if needed
+          const dateValue = typeof updateDto.endDate === 'string' 
+            ? updateDto.endDate 
+            : String(updateDto.endDate);
+          
+          const parsedDate = new Date(dateValue);
+          if (!isNaN(parsedDate.getTime())) {
+            recurringTransaction.endDate = parsedDate;
+          } else {
+            this.logger.warn(`Invalid endDate detected in adjustPattern: ${dateValue}, not updating this field`);
+            delete updateDto.endDate;
+          }
+        } catch (err) {
+          this.logger.warn(`Error parsing endDate in adjustPattern: ${err.message}, not updating this field`);
+          delete updateDto.endDate;
+        }
+      }
+    }
+
     // Update the recurring transaction with new pattern details
     Object.assign(recurringTransaction, updateDto);
     
     // Mark as confirmed by user since they adjusted it
     recurringTransaction.userConfirmed = true;
     
-    return this.recurringTransactionRepository.save(recurringTransaction);
+    try {
+      return await this.recurringTransactionRepository.save(recurringTransaction);
+    } catch (error) {
+      // Transform database errors into user-friendly errors
+      if (error.name === 'QueryFailedError' && error.code === '22007') {
+        throw new BadRequestException('Invalid date format in the update data. Please check your endDate field.');
+      }
+      throw error;
+    }
   }
 
   async detectAllPatterns(userId: number) {

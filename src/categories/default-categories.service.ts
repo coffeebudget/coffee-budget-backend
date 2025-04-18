@@ -13,7 +13,7 @@ export class DefaultCategoriesService {
     return [
       // 🏠 Home & Utilities
       'Rent', 'Mortgage', 'Electricity', 'Gas', 'Water', 'Internet & Phone',
-      'Housing Fees', 'Home Maintenance', 'Appliances',
+      'Housing Fees', 'Condominium Fees', 'Home Maintenance', 'Appliances',
 
       // 🚗 Transportation
       'Fuel', 'Car Insurance', 'Car Tax', 'Car Maintenance',
