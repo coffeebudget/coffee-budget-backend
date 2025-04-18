@@ -22,6 +22,7 @@ import { Workbook } from 'exceljs';
 import * as cheerio from 'cheerio';
 import { DuplicateTransactionChoice } from './dto/duplicate-transaction-choice.dto';
 import * as xlsx from 'xlsx';
+import { BankFileParserFactory } from './parsers';
 
 @Injectable()
 export class TransactionsService {
@@ -557,28 +558,59 @@ export class TransactionsService {
   async importTransactions(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
     this.logger.log(`Starting import for user ${userId} with format: ${importDto.bankFormat || 'generic'}`);
     
-    // Log a shorter version of the import data to avoid console flooding
-    this.logger.debug(`Import DTO summary: bankFormat=${importDto.bankFormat}, bankAccountId=${importDto.bankAccountId}, dateFormat=${importDto.dateFormat}`);
-
+    // Bank-specific import formats
     if (importDto.bankFormat) {
-      switch (importDto.bankFormat) {
-        case 'bnl_txt':
-          return this.importFromBnlTxt(importDto, userId);
-        case 'bnl_xls':
-          return this.importFromBnlXls(importDto, userId);
-        case 'webank':
-          return this.importFromWebankHtmlXls(importDto, userId);
-        case 'fineco':
-          return this.importFromFinecoXls(importDto, userId);
-        default:
-          throw new BadRequestException(`Unsupported bank format: ${importDto.bankFormat}`);
+      try {
+        const parser = BankFileParserFactory.getParser(importDto.bankFormat);
+        const parsedTransactions = await parser.parseFile(importDto.csvData || '', {
+          bankAccountId: importDto.bankAccountId,
+          creditCardId: importDto.creditCardId,
+          userId
+        });
+        
+        // Process parsed transactions before saving
+        for (const tx of parsedTransactions) {
+          // Calculate billing date for credit card transactions
+          if (tx.creditCard && tx.creditCard.id && tx.executionDate) {
+            // Fetch the credit card to get the billing day
+            const creditCard = await this.creditCardsRepository.findOne({
+              where: { id: tx.creditCard.id, user: { id: userId } }
+            });
+            
+            if (creditCard) {
+              tx.billingDate = this.calculateBillingDate(
+                tx.executionDate,
+                creditCard.billingDay
+              );
+            }
+          } else if (tx.bankAccount && tx.executionDate) {
+            // For bank account transactions, billing date equals execution date
+            tx.billingDate = new Date(tx.executionDate);
+          }
+        }
+        
+        // Save all the parsed transactions to the database
+        const createdTransactions = await Promise.all(
+          parsedTransactions.map(tx => 
+            this.createAutomatedTransaction(tx, userId, 'csv_import')
+          )
+        );
+        
+        // Process for recurring patterns
+        await this.processForRecurringPatterns(createdTransactions, userId);
+        
+        return createdTransactions;
+      } catch (error) {
+        this.logger.error(`Failed to import ${importDto.bankFormat} file: ${error.message}`);
+        throw new BadRequestException(`Failed to parse ${importDto.bankFormat} file: ${error.message}`);
       }
     }
-
+    
+    // Generic CSV import (keep your existing code here)
     if (!importDto.csvData || !importDto.columnMappings) {
       throw new BadRequestException('Missing CSV data or column mappings');
     }
-
+    
     // Check if the CSV data is base64 encoded and decode it if necessary
     let csvData = importDto.csvData;
     if (this.isBase64(csvData)) {
@@ -760,19 +792,9 @@ export class TransactionsService {
       }
     }
 
-    const detectedPatterns = await this.recurringPatternDetectorService.detectAllRecurringPatterns(userId);
-
-    for (const pattern of detectedPatterns) {
-      const fullTx = await this.transactionsRepository.findOne({
-        where: { id: pattern.similarTransactions[0].id  },
-        relations: ['user', 'category', 'tags', 'bankAccount', 'creditCard'],
-      });
-
-      if (fullTx) {
-        await this.recurringPatternDetectorService.detectAndProcessRecurringTransaction(fullTx);
-      }
-    }
-
+    // Process for recurring patterns
+    await this.processForRecurringPatterns(transactions, userId);
+    
     this.logger.log(`Successfully imported ${transactions.length} transactions`);
     return transactions;
   }
@@ -801,304 +823,20 @@ export class TransactionsService {
     return transaction;
   }
 
-  private async importFromBnlTxt(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    const transactions: Transaction[] = [];
-  
-    if (!importDto.csvData) {
-      throw new BadRequestException('Missing file content');
-    }
-  
-    const lines = importDto.csvData
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-  
-    const rowRegex = /^\d+\s+(\d{2}\/\d{2}\/\d{4})\s+\d{2}\/\d{2}\/\d{4}\s+\d+\s+(.*)\s+([+-]?[0-9.,]+)$/;
-  
-    for (const line of lines) {
-      const match = line.match(rowRegex);
-      if (!match) continue;
-  
-      const [_, dateStr, rawDescription, rawAmount] = match;
-  
-      const executionDate = parseDate(dateStr, 'dd/MM/yyyy', new Date());
-      const description = rawDescription.trim();
-  
-      // Convert to float
-      const normalizedAmount = parseLocalizedAmount(rawAmount);
-      const type = normalizedAmount >= 0 ? 'income' : 'expense';
-  
-      const transactionData: Partial<Transaction> = {
-        description,
-        amount: Math.abs(normalizedAmount),
-        type,
-        executionDate,
-      };
-  
-      if (importDto.bankAccountId) {
-        const bankAccount = await this.bankAccountsRepository.findOne({
-          where: { id: importDto.bankAccountId, user: { id: userId } },
-        });
-        if (!bankAccount) throw new BadRequestException('Bank account not found');
-        transactionData.bankAccount = bankAccount;
-      }
-  
-      const transaction = await this.createAutomatedTransaction(
-        transactionData,
-        userId,
-        'csv_import'
-      );
-      transactions.push(transaction);
-    }
-  
-    return transactions;
-  }
+  private async processForRecurringPatterns(transactions: Transaction[], userId: number): Promise<void> {
+    const detectedPatterns = await this.recurringPatternDetectorService.detectAllRecurringPatterns(userId);
 
-  private async importFromBnlXls(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    try {
-      if (!importDto.csvData) throw new BadRequestException('Missing XLS file content');
+    for (const pattern of detectedPatterns) {
+      const fullTx = await this.transactionsRepository.findOne({
+        where: { id: pattern.similarTransactions[0].id },
+        relations: ['user', 'category', 'tags', 'bankAccount', 'creditCard'],
+      });
 
-      const buffer = Buffer.from(importDto.csvData, 'base64');
-      
-      // Use xlsx library which has better compatibility with various Excel formats
-      const workbook = xlsx.read(buffer, { type: 'buffer' });
-      
-      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
-        throw new BadRequestException('No worksheets found in Excel file');
+      if (fullTx) {
+        await this.recurringPatternDetectorService.detectAndProcessRecurringTransaction(fullTx);
       }
-      
-      // Get first sheet
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      
-      // Convert to JSON
-      const rows = xlsx.utils.sheet_to_json(sheet, { header: 1, raw: false }) as any[][];
-      
-      // Find the header row (look for "Data contabile" in the first column)
-      let headerRowIndex = -1;
-      for (let i = 0; i < rows.length; i++) {
-        if (rows[i][0] === 'Data contabile') {
-          headerRowIndex = i;
-          break;
-        }
-      }
-      
-      if (headerRowIndex === -1) {
-        throw new BadRequestException('Could not find header row in BNL Excel file');
-      }
-      
-      // Map column indices
-      const dateIndex = 0;
-      const codeIndex = 2;
-      const descriptionIndex = 3;
-      const amountIndex = 4;
-      
-      const transactions: Transaction[] = [];
-      
-      // Process each data row
-      for (let i = headerRowIndex + 1; i < rows.length; i++) {
-        const row = rows[i] as any[];
-        if (!row[dateIndex] || row.length < 5) continue; // Skip empty rows
-        
-        try {
-          const dateStr = row[dateIndex] as string;
-          const description = row[descriptionIndex] as string;
-          const amountStr = row[amountIndex] as string;
-          
-          if (!dateStr || !description || !amountStr) continue;
-          
-          const executionDate = parseDate(dateStr, 'dd/MM/yyyy', new Date());
-          const amount = parseLocalizedAmount(amountStr);
-          const type = amount >= 0 ? 'income' : 'expense';
-          
-          const transactionData: Partial<Transaction> = {
-            description,
-            amount: Math.abs(amount),
-            type,
-            executionDate,
-            bankAccount: importDto.bankAccountId ? { id: importDto.bankAccountId } as BankAccount : undefined,
-          };
-          
-          transactions.push(transactionData as Transaction);
-        } catch (parseError) {
-          this.logger.warn(`Skipping row ${i} due to parsing error: ${parseError.message}`);
-        }
-      }
-      
-      // Save to DB
-      return Promise.all(
-        transactions.map(tx =>
-          this.createAutomatedTransaction(tx, userId, 'csv_import')
-        )
-      );
-    } catch (error) {
-      this.logger.error(`Failed to import BNL XLS file: ${error.message}`);
-      throw new BadRequestException('Failed to parse BNL file: ' + error.message);
     }
   }
-
-  private async importFromFinecoXls(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    if (!importDto.csvData) {
-      throw new BadRequestException('Missing XLS content');
-    }
-
-    const buffer = Buffer.from(importDto.csvData, 'base64');
-    const workbook = new Workbook();
-    await workbook.xlsx.load(buffer);
-
-    const sheet = workbook.worksheets[0];
-    const transactions: Transaction[] = [];
-
-    let headerFound = false;
-    let headers: string[] = [];
-
-    sheet.eachRow((row, rowIndex) => {
-      if (!headerFound) {
-        const rawValues = Array.isArray(row.values) ? row.values : [];
-        headers = rawValues
-          .slice(1) // skip the first index (0) which is always empty
-          .map((val) => (val !== undefined && val !== null ? String(val).trim() : ""));
-    
-        if (headers.includes("Data") && headers.includes("Descrizione_Completa")) {
-          headerFound = true;
-        }
-        return;
-      }
-
-      const rowValues = row.values as string[];
-
-      const getCell = (headerName: string): string =>
-        row.getCell(headers.indexOf(headerName) + 1).text.trim();
-
-      const dateStr = getCell("Data");
-      const entrateStr = getCell("Entrate");
-      const usciteStr = getCell("Uscite");
-      const description = getCell("Descrizione_Completa");
-      const tag = getCell("Descrizione");
-      const category = getCell("Moneymap");
-
-      if (!dateStr || !description) return;
-
-      const executionDate = parseDate(dateStr, "dd/MM/yyyy", new Date());
-
-      const amountRaw = entrateStr || usciteStr;
-      const type = entrateStr ? "income" : "expense";
-      const parsedAmount = parseLocalizedAmount(amountRaw);
-
-      const transactionData: Partial<Transaction> = {
-        description,
-        amount: Math.abs(parsedAmount),
-        type,
-        executionDate,
-        bankAccount: importDto.bankAccountId ? { id: importDto.bankAccountId } as BankAccount : undefined,
-      };
-
-      // ⬇️ Optional: Tag
-      if (tag) {
-        transactionData.tags = [{ id: -1, name: tag, transactions: [], user: { id: userId } as User, recurringTransactions: [] } as Tag]; // verrà gestito come creazione
-      }
-
-      // ⬇️ Optional: Category
-      if (category) {
-        transactionData.category = { id: -1, name: category } as Category;
-      }
-
-      transactions.push(transactionData as Transaction);
-    });
-
-    // Salvataggio con gestione tag e categoria (crea se non esiste)
-    const createdTransactions: Transaction[] = [];
-
-    for (const tx of transactions) {
-      const data = { ...tx };
-
-      // Gestione categoria
-      if (tx.category?.name) {
-        const existing = await this.categoriesService.findByName(tx.category.name, userId);
-        data.category = existing || await this.categoriesService.create({ name: tx.category.name }, { id: userId } as User);
-      }
-
-      // Gestione tag
-      if (tx.tags && tx.tags[0]?.name) {
-        const existing = await this.tagsService.findByName(tx.tags[0].name, userId);
-        data.tags = [existing || await this.tagsService.create({ name: tx.tags[0].name }, { id: userId } as User)];
-      }
-
-      const created = await this.createAutomatedTransaction(data, userId, "csv_import");
-      createdTransactions.push(created);
-    }
-
-    return createdTransactions;
-  }
-
-  private async importFromWebankHtmlXls(importDto: ImportTransactionDto, userId: number): Promise<Transaction[]> {
-    if (!importDto.csvData) {
-      throw new BadRequestException('Missing Webank XLS content');
-    }
-  
-    const html = Buffer.from(importDto.csvData, 'base64').toString('utf-8');
-    const $ = cheerio.load(html);
-    const rows = $('table tr');
-  
-    const parsedRows: {
-      executionDate: Date;
-      amount: number;
-      type: 'income' | 'expense';
-      description: string;
-      tagStr?: string;
-    }[] = [];
-  
-    rows.each((index, row) => {
-      const cells = $(row).find('td');
-      if (cells.length < 6) return;
-  
-      const valutaDateStr = $(cells[1]).text().trim(); // "Data Valuta"
-      const amountStr = $(cells[2]).text().trim();     // "Importo"
-      const description = $(cells[4]).text().trim();   // "Causale / Descrizione"
-      const tagStr = $(cells[5]).text().trim();        // "Canale"
-  
-      if (!valutaDateStr || !amountStr || !description) return;
-  
-      try {
-        const executionDate = parseDate(valutaDateStr, 'dd/MM/yyyy', new Date());
-        const parsedAmount = parseLocalizedAmount(amountStr);
-        const type = parsedAmount >= 0 ? 'income' : 'expense';
-  
-        parsedRows.push({
-          executionDate,
-          amount: Math.abs(parsedAmount),
-          type,
-          description,
-          tagStr,
-        });
-      } catch (error) {
-        console.warn(`[WEBANK IMPORT] Skipping row ${index + 1}: ${error}`);
-      }
-    });
-  
-    const transactions: Transaction[] = [];
-  
-    for (const row of parsedRows) {
-      const transactionData: Partial<Transaction> = {
-        description: row.description,
-        amount: row.amount,
-        type: row.type,
-        executionDate: row.executionDate,
-        bankAccount: importDto.bankAccountId ? { id: importDto.bankAccountId } as BankAccount : undefined,
-      };
-  
-      if (row.tagStr) {
-        transactionData.tags = await this.tagsService.resolveTagsFromString(row.tagStr, userId);
-      }
-  
-      const transaction = await this.createAutomatedTransaction(transactionData, userId, 'csv_import');
-      transactions.push(transaction);
-    }
-  
-    return transactions;
-  }
-  
-  
 
   async markTransactionAsRecurring(transaction: Transaction): Promise<void> {
     const recurringTransaction = await this.recurringPatternDetectorService.detectAndProcessRecurringTransaction(transaction);
