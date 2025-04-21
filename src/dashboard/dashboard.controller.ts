@@ -49,9 +49,13 @@ export class DashboardController {
     @Query('maxAmount', new ParseIntPipe({ optional: true })) maxAmount?: number,
     @Query('type') type?: 'income' | 'expense',
     @Query('searchTerm') searchTerm?: string,
+    @Query('orderBy') orderBy?: 'executionDate' | 'amount' | 'description',
+    @Query('orderDirection') orderDirection?: 'asc' | 'desc',
+    @Query('uncategorizedOnly') uncategorizedOnly?: string,
   ) {
     const parsedCategoryIds = categoryIds ? categoryIds.split(',').map(id => parseInt(id, 10)) : undefined;
     const parsedTagIds = tagIds ? tagIds.split(',').map(id => parseInt(id, 10)) : undefined;
+    const isUncategorizedOnly = uncategorizedOnly === 'true';
 
     return this.dashboardService.getFilteredTransactions(user.id, {
       startDate,
@@ -62,6 +66,9 @@ export class DashboardController {
       maxAmount,
       type,
       searchTerm,
+      orderBy,
+      orderDirection,
+      uncategorizedOnly: isUncategorizedOnly,
     });
   }
 

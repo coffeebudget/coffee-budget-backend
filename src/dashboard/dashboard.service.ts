@@ -205,6 +205,9 @@ export class DashboardService {
       maxAmount?: number;
       type?: 'income' | 'expense';
       searchTerm?: string;
+      orderBy?: 'executionDate' | 'amount' | 'description';
+      orderDirection?: 'asc' | 'desc';
+      uncategorizedOnly?: boolean;
     },
   ): Promise<Transaction[]> {
     const query = this.transactionsRepository.createQueryBuilder('transaction')
@@ -247,8 +250,26 @@ export class DashboardService {
       query.andWhere('transaction.description LIKE :searchTerm', { searchTerm: `%${filters.searchTerm}%` });
     }
     
-    // Order by execution date, newest first
-    query.orderBy('transaction.executionDate', 'DESC');
+    // Handle uncategorized filter
+    if (filters.uncategorizedOnly) {
+      query.andWhere('category.id IS NULL');
+    }
+    
+    // Handle ordering
+    if (filters.orderBy) {
+      const direction = filters.orderDirection ? filters.orderDirection.toUpperCase() as 'ASC' | 'DESC' : 'DESC';
+      
+      if (filters.orderBy === 'executionDate') {
+        query.orderBy('transaction.executionDate', direction);
+      } else if (filters.orderBy === 'amount') {
+        query.orderBy('ABS(transaction.amount)', direction);
+      } else if (filters.orderBy === 'description') {
+        query.orderBy('transaction.description', direction);
+      }
+    } else {
+      // Default ordering by execution date if not specified
+      query.orderBy('transaction.executionDate', 'DESC');
+    }
     
     return query.getMany();
   }
