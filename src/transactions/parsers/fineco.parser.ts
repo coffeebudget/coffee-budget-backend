@@ -4,6 +4,7 @@ import { Transaction } from '../transaction.entity';
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../../credit-cards/entities/credit-card.entity';
 import { Workbook } from 'exceljs';
+import { Tag } from '../../tags/entities/tag.entity';
 
 export class FinecoParser extends BaseParser {
   async parseFile(data: string, options: {
@@ -59,19 +60,31 @@ export class FinecoParser extends BaseParser {
       const type = entrateStr ? "income" : "expense";
       const parsedAmount = this.parseAmount(amountRaw);
 
-      // Generate enhanced description that includes tag and moneymap information
+      // Generate enhanced description that includes tag information
       let enhancedDescription = description;
       if (tag) enhancedDescription = `${enhancedDescription} [Tag: ${tag}]`;
-      if (moneymap) enhancedDescription = `${enhancedDescription} [Category: ${moneymap}]`;
 
-      transactions.push({
+      // Create transaction object
+      const transaction: Partial<Transaction> = {
         description: enhancedDescription,
         amount: Math.abs(parsedAmount),
         type,
         executionDate,
         bankAccount: options.bankAccountId ? { id: options.bankAccountId } as BankAccount : undefined,
-        creditCard: options.creditCardId ? { id: options.creditCardId } as CreditCard : undefined
-      });
+        creditCard: options.creditCardId ? { id: options.creditCardId } as CreditCard : undefined,
+      };
+
+      // Handle Moneymap as tags if present
+      if (moneymap) {
+        // Create tag objects from the Moneymap values
+        const tagNames = moneymap.split(':').map(part => part.trim()).filter(Boolean);
+        transaction.tags = tagNames.map(name => ({ 
+          name, 
+          user: { id: options.userId } 
+        } as Partial<Tag>)) as Tag[];
+      }
+
+      transactions.push(transaction);
     });
 
     return transactions;

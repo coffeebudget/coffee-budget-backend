@@ -25,6 +25,7 @@ describe('FinecoParser', () => {
   let parser: FinecoParser;
 
   beforeEach(async () => {
+    // Direct instantiation without TagsService since we're no longer using it
     parser = new FinecoParser();
     // Mock the logger to avoid console output during tests
     (parser as any).logger = { warn: jest.fn(), error: jest.fn() };
@@ -40,7 +41,7 @@ describe('FinecoParser', () => {
         .rejects.toThrow('Missing XLS content');
     });
 
-    it('should parse Fineco XLS format and include Moneymap as tags in description', async () => {
+    it('should parse Fineco XLS format and create tags from Moneymap values', async () => {
       // Mock the eachRow function to simulate Excel rows
       const mockHeaders = ['', 'Data', 'Entrate', 'Uscite', 'Descrizione_Completa', 'Descrizione', 'Moneymap'];
       
@@ -95,24 +96,42 @@ describe('FinecoParser', () => {
       // First transaction (income)
       expect(result[0]).toMatchObject({
         description: expect.stringContaining('Salary payment') && 
-                     expect.stringContaining('[Tag: Salary]') && 
-                     expect.stringContaining('[Category: Income:Salary]'),
+                     expect.stringContaining('[Tag: Salary]'),
         amount: 100.5,
         type: 'income',
         executionDate: expect.any(Date),
         bankAccount: { id: 123 }
       });
+      
+      // Check that the tags were created correctly
+      expect(result[0].tags).toBeDefined();
+      expect(result[0].tags).toHaveLength(2); // 'Income' and 'Salary' tags
+      expect(result[0].tags).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Income', user: { id: 1 } }),
+          expect.objectContaining({ name: 'Salary', user: { id: 1 } })
+        ])
+      );
 
       // Second transaction (expense)
       expect(result[1]).toMatchObject({
         description: expect.stringContaining('Supermarket purchase') && 
-                     expect.stringContaining('[Tag: Food]') && 
-                     expect.stringContaining('[Category: Expenses:Groceries]'),
+                     expect.stringContaining('[Tag: Food]'),
         amount: 50.25,
         type: 'expense',
         executionDate: expect.any(Date),
         bankAccount: { id: 123 }
       });
+      
+      // Check that the tags were created correctly
+      expect(result[1].tags).toBeDefined();
+      expect(result[1].tags).toHaveLength(2); // 'Expenses' and 'Groceries' tags
+      expect(result[1].tags).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'Expenses', user: { id: 1 } }),
+          expect.objectContaining({ name: 'Groceries', user: { id: 1 } })
+        ])
+      );
     });
 
     it('should handle rows with missing values', async () => {
@@ -158,9 +177,10 @@ describe('FinecoParser', () => {
       expect(result[0].description).toBe('Payment without tags');
       expect(result[0].amount).toBe(25.30);
       expect(result[0].type).toBe('expense');
+      expect(result[0].tags).toBeUndefined(); // No tags should be created
     });
 
-    it('should correctly parse the Fineco account statement format', async () => {
+    it('should correctly parse the Fineco account statement format and create tags', async () => {
       // Mock headers and metadata rows matching the screenshot format
       const mockRows = [
         { 
@@ -244,31 +264,40 @@ describe('FinecoParser', () => {
       // First transaction (income)
       expect(result[0]).toMatchObject({
         description: expect.stringContaining('Giroconto dal cc n. 1234567 / 01 saldo negativo') && 
-                     expect.stringContaining('[Tag: Giroconto]') && 
-                     expect.stringContaining('[Category: Altre Entrate]'),
+                     expect.stringContaining('[Tag: Giroconto]'),
         amount: 200,
         type: 'income',
-        bankAccount: { id: 123 }
+        tags: [
+          expect.objectContaining({ name: 'Altre Entrate', user: { id: 1 } })
+        ]
       });
 
-      // Second transaction (expense)
+      // Second transaction (expense) - with Internet Telefono e Tecnologia tags
       expect(result[1]).toMatchObject({
         description: expect.stringContaining('TELECOM SPA Addebito SDD fattura a Vs carico da IT12345678901') && 
-                     expect.stringContaining('[Tag: SEPA Direct Debit]') && 
-                     expect.stringContaining('[Category: Internet Telefono e Tecnologia]'),
+                     expect.stringContaining('[Tag: SEPA Direct Debit]'),
         amount: 63.66,
         type: 'expense',
-        bankAccount: { id: 123 }
+        tags: [
+          expect.objectContaining({ 
+            name: 'Internet Telefono e Tecnologia', 
+            user: { id: 1 } 
+          })
+        ]
       });
-
-      // Third transaction (expense)
+      
+      // Third transaction (expense) - with Altre spese tag
       expect(result[2]).toMatchObject({
         description: expect.stringContaining('Canone Mensile Conto Febbraio 2025') && 
-                     expect.stringContaining('[Tag: Canone Mensile Conto]') && 
-                     expect.stringContaining('[Category: Altre spese]'),
+                     expect.stringContaining('[Tag: Canone Mensile Conto]'),
         amount: 1.75,
         type: 'expense',
-        bankAccount: { id: 123 }
+        tags: [
+          expect.objectContaining({ 
+            name: 'Altre spese', 
+            user: { id: 1 } 
+          })
+        ]
       });
     });
 
