@@ -20,7 +20,7 @@ export class DefaultCategoriesService {
       'Public Transport', 'Parking / Tolls', 'Car / Scooter Rental',
 
       // 🛒 Daily Expenses
-      'Groceries', 'Pharmacy', 'Personal Care', 'Tobacco',
+      'Groceries', 'Pharmacy', 'Personal Care', 'Tobacco', 'Cash Withdrawals',
 
       // 🍽️ Restaurants & Bars
       'Restaurant', 'Cafe / Breakfast', 'Takeaway / Delivery',
