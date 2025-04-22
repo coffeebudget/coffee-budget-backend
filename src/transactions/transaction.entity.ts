@@ -36,6 +36,12 @@ export class Transaction {
   @ManyToOne(() => Category, (category) => category.transactions)
   category: Category;
 
+  @ManyToOne(() => Category, { nullable: true })
+  suggestedCategory: Category | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  suggestedCategoryName: string | null;
+
   @ManyToOne(() => BankAccount, (bankAccount) => bankAccount.transactions, { nullable: true })
   bankAccount: BankAccount | null;
 

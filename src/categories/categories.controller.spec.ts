@@ -3,6 +3,7 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
+import { KeywordStatsService } from './keyword-stats.service';
 import { User } from '../users/user.entity';
 import { Category } from './entities/category.entity';
 
@@ -11,6 +12,7 @@ describe('CategoriesController', () => {
   let categoriesService: CategoriesService;
   let keywordExtractionService: KeywordExtractionService;
   let defaultCategoriesService: DefaultCategoriesService;
+  let keywordStatsService: KeywordStatsService;
 
   const mockUser: User = {
     id: 1,
@@ -49,6 +51,14 @@ describe('CategoriesController', () => {
             getDefaultCategories: jest.fn(),
           },
         },
+        {
+          provide: KeywordStatsService,
+          useValue: {
+            getPopularKeywords: jest.fn().mockResolvedValue([]),
+            getTopKeywordsByCategorySuccess: jest.fn().mockResolvedValue([]),
+            trackKeywordUsage: jest.fn().mockResolvedValue({}),
+          },
+        },
       ],
     }).compile();
 
@@ -56,6 +66,7 @@ describe('CategoriesController', () => {
     categoriesService = module.get<CategoriesService>(CategoriesService);
     keywordExtractionService = module.get<KeywordExtractionService>(KeywordExtractionService);
     defaultCategoriesService = module.get<DefaultCategoriesService>(DefaultCategoriesService);
+    keywordStatsService = module.get<KeywordStatsService>(KeywordStatsService);
   });
 
   it('should be defined', () => {

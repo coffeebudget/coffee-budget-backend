@@ -9,13 +9,17 @@ import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
 import { DuplicateTransactionChoiceDto } from './dto/duplicate-transaction-choice.dto';
 import { ImportTransactionDto } from './dto/import-transaction.dto';
+import { CategoriesService } from '../categories/categories.service';
 
 @ApiTags('transactions')
 @ApiBearerAuth()
 @Controller('transactions')
 @UseGuards(AuthGuard('jwt'))
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly categoriesService: CategoriesService
+  ) {}
 
   @Post()
   @ApiResponse({ status: 201, description: 'Create a new transaction.' })
@@ -25,7 +29,24 @@ export class TransactionsController {
         throw new UnauthorizedException('User not authenticated or user ID missing');
       }
 
-      return await this.transactionsService.createAndSaveTransaction(createTransactionDto, user.id, createTransactionDto.duplicateChoice || undefined);
+      const transaction = await this.transactionsService.createAndSaveTransaction(
+        createTransactionDto, 
+        user.id, 
+        createTransactionDto.duplicateChoice || undefined
+      );
+      
+      // If transaction has a category, extract suggested keywords
+      if (transaction && transaction.category && transaction.description) {
+        const suggestedKeywords = await this.categoriesService.suggestKeywordsFromTransaction(transaction);
+        
+        // Return the transaction with suggested keywords
+        return {
+          ...transaction,
+          suggestedKeywords
+        };
+      }
+      
+      return transaction;
     } catch (error) {
       if (error instanceof ConflictException && error.message === 'Duplicate transaction detected') {
         // Return the conflict with details so the frontend can handle it
@@ -78,12 +99,25 @@ export class TransactionsController {
 
   @Patch(':id')
   @ApiResponse({ status: 200, description: 'Update a transaction.' })
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateTransactionDto: UpdateTransactionDto,
     @CurrentUser() user: User
-  ): Promise<Transaction> {
-    return this.transactionsService.update(id, updateTransactionDto, user.id);
+  ) {
+    const transaction = await this.transactionsService.update(id, updateTransactionDto, user.id);
+    
+    // If transaction has a category after update, extract suggested keywords
+    if (transaction && transaction.category && transaction.description) {
+      const suggestedKeywords = await this.categoriesService.suggestKeywordsFromTransaction(transaction);
+      
+      // Return the transaction with suggested keywords
+      return {
+        ...transaction,
+        suggestedKeywords
+      };
+    }
+    
+    return transaction;
   }
 
   @Delete(':id')

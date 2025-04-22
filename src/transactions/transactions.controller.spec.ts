@@ -4,6 +4,7 @@ import { TransactionsService } from './transactions.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Transaction } from './transaction.entity';
 import { Repository } from 'typeorm';
+import { CategoriesService } from '../categories/categories.service';
 
 describe('TransactionsController', () => {
   let controller: TransactionsController;
@@ -13,6 +14,12 @@ describe('TransactionsController', () => {
     create: jest.fn(),
     findAll: jest.fn(),
     findOne: jest.fn(),
+    createAndSaveTransaction: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const mockCategoriesService = {
+    suggestKeywordsFromTransaction: jest.fn().mockResolvedValue(['keyword1', 'keyword2']),
   };
 
   beforeEach(async () => {
@@ -22,6 +29,10 @@ describe('TransactionsController', () => {
         {
           provide: TransactionsService,
           useValue: mockTransactionsService,
+        },
+        {
+          provide: CategoriesService,
+          useValue: mockCategoriesService,
         },
         {
           provide: getRepositoryToken(Transaction),

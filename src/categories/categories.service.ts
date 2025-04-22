@@ -9,6 +9,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
+import { KeywordStatsService } from './keyword-stats.service';
 
 @Injectable()
 export class CategoriesService {
@@ -21,6 +22,7 @@ export class CategoriesService {
     private recurringTransactionsRepository: Repository<RecurringTransaction>,
     private transactionOperationsService: TransactionOperationsService,
     private keywordExtractionService: KeywordExtractionService,
+    private keywordStatsService: KeywordStatsService,
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto, user: User): Promise<Category> {    
@@ -295,13 +297,36 @@ export class CategoriesService {
   }
 
   async findUncategorizedTransactions(userId: number): Promise<Transaction[]> {
-    return this.transactionsRepository.find({
-      where: {
-        user: { id: userId },
-        category: { id: IsNull() }
-      },
-      order: { executionDate: 'DESC' }
+    const transactions = await this.transactionsRepository.find({
+      where: { user: { id: userId }, category: IsNull() },
+      relations: ['bankAccount', 'creditCard', 'tags', 'suggestedCategory'],
+      order: { executionDate: 'DESC' },
     });
+
+    // For any transactions without a suggestedCategory, try to suggest one
+    const transactionsToUpdate: Transaction[] = [];
+    
+    for (const transaction of transactions) {
+      if (!transaction.suggestedCategory && transaction.description) {
+        const suggestedCategory = await this.suggestCategoryForDescription(
+          transaction.description, 
+          userId
+        );
+        
+        if (suggestedCategory) {
+          transaction.suggestedCategory = suggestedCategory;
+          transaction.suggestedCategoryName = suggestedCategory.name;
+          transactionsToUpdate.push(transaction);
+        }
+      }
+    }
+    
+    // Update transactions with new suggested categories
+    if (transactionsToUpdate.length > 0) {
+      await this.transactionsRepository.save(transactionsToUpdate);
+    }
+    
+    return transactions;
   }
 
   async bulkCategorizeByKeyword(keyword: string, categoryId: number, userId: number): Promise<number> {
@@ -336,51 +361,45 @@ export class CategoriesService {
         }
       });
     } catch (error) {
-      // Fall back to simpler query + in-memory filtering
-      console.log('REGEXP_REPLACE not supported, falling back to simpler query', error);
-      
-      const allTransactions = await this.transactionsRepository.find({
+      // Fallback for databases that don't support REGEXP_REPLACE
+      transactions = await this.transactionsRepository.find({
         where: {
           user: { id: userId },
           category: IsNull(),
-          description: Raw(alias => `LOWER(${alias}) LIKE '%${normalizedKeyword}%'`)
         }
       });
       
-      // Filter in memory for better matching
-      transactions = allTransactions.filter(t => {
-        const normalizedDescription = t.description.toLowerCase()
+      // Filter locally
+      transactions = transactions.filter(t => {
+        if (!t.description) return false;
+        
+        const normalizedDesc = t.description.toLowerCase()
           .replace(/[^\w\s]/g, ' ')
           .trim()
           .replace(/\s+/g, ' ');
         
-        if (normalizedKeyword.includes(' ')) {
-          // For multi-word keywords, check if all words are present
-          const keywordWords = normalizedKeyword.split(' ');
-          const descriptionWords = normalizedDescription.split(' ');
-          
-          // Check if all keywords words appear in the description
-          return keywordWords.every(word => descriptionWords.includes(word));
-        } else {
-          // For single words, try to match whole words
-          const words = normalizedDescription.split(/\s+/);
-          return words.includes(normalizedKeyword);
-        }
+        return normalizedKeyword.includes(' ')
+          ? normalizedDesc.includes(normalizedKeyword)
+          : normalizedDesc.split(' ').includes(normalizedKeyword);
       });
     }
     
-    // If no transactions found, return 0
-    if (transactions.length === 0) {
-      return 0;
+    // Update each transaction with the category
+    if (transactions.length > 0) {
+      for (const transaction of transactions) {
+        transaction.category = category;
+      }
+      
+      await this.bulkUpdateTransactions(transactions);
+      
+      // Track keyword usage statistics
+      await this.keywordStatsService.trackKeywordUsage(
+        normalizedKeyword,
+        category,
+        { id: userId } as User,
+        true // Success
+      );
     }
-    
-    // Update all matching transactions with the category
-    for (const transaction of transactions) {
-      transaction.category = category;
-    }
-    
-    // Save all transactions in a single operation
-    await this.transactionsRepository.save(transactions);
     
     return transactions.length;
   }

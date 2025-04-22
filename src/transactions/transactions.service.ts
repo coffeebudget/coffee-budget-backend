@@ -105,6 +105,8 @@ export class TransactionsService {
     // Validation logic
     // const category = await this.categoriesService.findOne(createTransactionDto.categoryId, userId);
     let category: Category | null = null;
+    let suggestedCategory: Category | null = null;
+    
     if (createTransactionDto.categoryId) {
       category = await this.categoriesRepository.findOne({
         where: { id: createTransactionDto.categoryId, user: { id: userId } },
@@ -113,10 +115,14 @@ export class TransactionsService {
       if (!category) {
         throw new NotFoundException(`Category with ID ${createTransactionDto.categoryId} not found`);
       }
+    } else if (createTransactionDto.description) {
+      // If no category is selected, still store a suggested category
+      suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+        createTransactionDto.description,
+        userId
+      );
     }
 
-
-    
     // Validate payment method
     if ((bankAccountId && creditCardId) || (!bankAccountId && !creditCardId)) {
       throw new BadRequestException('You must provide either a bank account ID or a credit card ID, but not both.');
@@ -195,6 +201,8 @@ export class TransactionsService {
       amount: normalizedAmount,
       user: { id: userId },
       category: category || undefined,
+      suggestedCategory: !category && suggestedCategory ? suggestedCategory : undefined,
+      suggestedCategoryName: !category && suggestedCategory ? suggestedCategory.name : undefined,
       bankAccount: bankAccountId ? { id: bankAccountId } : null,
       creditCard: creditCardId ? { id: creditCardId } : null,
       status: status,

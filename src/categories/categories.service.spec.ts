@@ -8,6 +8,7 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
+import { KeywordStatsService } from './keyword-stats.service';
 import { User } from '../users/user.entity';
 
 describe('CategoriesService', () => {
@@ -17,6 +18,7 @@ describe('CategoriesService', () => {
   let recurringTransactionRepository: Repository<RecurringTransaction>;
   let transactionOperationsService: TransactionOperationsService;
   let keywordExtractionService: KeywordExtractionService;
+  let keywordStatsService: KeywordStatsService;
 
   const mockKeywordExtractionService = {
     extractKeywords: jest.fn().mockImplementation((text) => {
@@ -27,6 +29,13 @@ describe('CategoriesService', () => {
 
   const mockTransactionOperationsService = {
     getTransactionsByCategory: jest.fn(),
+  };
+
+  const mockKeywordStatsService = {
+    trackKeywordUsage: jest.fn().mockResolvedValue(null),
+    getKeywordStats: jest.fn().mockResolvedValue([]),
+    getPopularKeywords: jest.fn().mockResolvedValue([]),
+    getTopKeywordsByCategorySuccess: jest.fn().mockResolvedValue([]),
   };
 
   beforeEach(async () => {
@@ -70,6 +79,10 @@ describe('CategoriesService', () => {
           provide: KeywordExtractionService,
           useValue: mockKeywordExtractionService,
         },
+        {
+          provide: KeywordStatsService,
+          useValue: mockKeywordStatsService,
+        },
       ],
     }).compile();
 
@@ -79,6 +92,7 @@ describe('CategoriesService', () => {
     recurringTransactionRepository = module.get<Repository<RecurringTransaction>>(getRepositoryToken(RecurringTransaction));
     transactionOperationsService = module.get<TransactionOperationsService>(TransactionOperationsService);
     keywordExtractionService = module.get<KeywordExtractionService>(KeywordExtractionService);
+    keywordStatsService = module.get<KeywordStatsService>(KeywordStatsService);
   });
 
   it('should be defined', () => {
