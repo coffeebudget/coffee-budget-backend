@@ -4,9 +4,16 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ModuleRef } from '@nestjs/core';
 import { AuthService } from './auth/auth.service';
 import * as bodyParser from 'body-parser';
+import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // Set up logger with appropriate log levels based on environment
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const app = await NestFactory.create(AppModule, {
+    logger: isDevelopment 
+      ? ['error', 'warn', 'log', 'debug', 'verbose'] // Include all logs in development
+      : ['error', 'warn', 'log'],                    // Exclude debug logs in production
+  });
 
   const authService = app.get(AuthService);
   app.use((req, res, next) => {
@@ -34,5 +41,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 3002);
+  
+  Logger.log(`Application is running in ${isDevelopment ? 'development' : 'production'} mode`, 'Bootstrap');
+  Logger.log(`Server running on: ${await app.getUrl()}`, 'Bootstrap');
 }
 bootstrap();
