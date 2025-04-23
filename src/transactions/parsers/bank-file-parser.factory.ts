@@ -4,6 +4,7 @@ import { BnlTxtParser } from './bnl-txt.parser';
 import { BnlXlsParser } from './bnl-xls.parser';
 import { WebankParser } from './webank.parser'; 
 import { FinecoParser } from './fineco.parser';
+import { CartaImprontaParser } from './carta-impronta.parser';
 
 export class BankFileParserFactory {
   static getParser(bankFormat: string): BankFileParser {
@@ -16,6 +17,8 @@ export class BankFileParserFactory {
         return new WebankParser();
       case 'fineco':
         return new FinecoParser();
+      case 'carta_impronta':
+        return new CartaImprontaParser();
       default:
         throw new BadRequestException(`Unsupported bank format: ${bankFormat}`);
     }
