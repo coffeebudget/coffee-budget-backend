@@ -908,14 +908,62 @@ export class TransactionsService {
   }
 
   async findByRecurringTransactionId(recurringTransactionId: number, userId: number): Promise<Transaction[]> {
-    return this.transactionsRepository.find({
-      where: {
+    return this.transactionsRepository.find({ 
+      where: { 
         recurringTransaction: { id: recurringTransactionId },
         user: { id: userId }
       },
-      relations: ['category', 'tags', 'bankAccount', 'creditCard'],
-      order: { executionDate: 'DESC' }
+      relations: ['category', 'bankAccount', 'creditCard', 'tags', 'recurringTransaction']
     });
+  }
+
+  /**
+   * Bulk categorize transactions by their IDs
+   * @param transactionIds Array of transaction IDs to categorize
+   * @param categoryId ID of the category to assign
+   * @param userId User ID
+   * @returns Number of transactions that were categorized
+   */
+  async bulkCategorizeByIds(
+    transactionIds: number[], 
+    categoryId: number, 
+    userId: number
+  ): Promise<number> {
+    if (!transactionIds || !transactionIds.length) {
+      throw new BadRequestException('Transaction IDs array is required');
+    }
+
+    // Verify the category exists and belongs to the user
+    const category = await this.categoriesRepository.findOne({
+      where: { id: categoryId, user: { id: userId } },
+    });
+
+    if (!category) {
+      throw new NotFoundException(`Category with ID ${categoryId} not found`);
+    }
+
+    // Find all the transactions that belong to the user
+    const transactions = await this.transactionsRepository.find({
+      where: { 
+        id: In(transactionIds),
+        user: { id: userId } 
+      },
+      relations: ['category']
+    });
+
+    if (!transactions.length) {
+      return 0;
+    }
+
+    // Update the category for each transaction
+    for (const transaction of transactions) {
+      transaction.category = category;
+    }
+
+    // Save all transactions
+    await this.transactionsRepository.save(transactions);
+
+    return transactions.length;
   }
 
   async unlinkFromRecurringTransaction(
