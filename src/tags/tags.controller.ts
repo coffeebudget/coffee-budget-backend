@@ -4,9 +4,10 @@ import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { Tag } from './entities/tag.entity';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
+import { BulkTagDto } from './dto/bulk-tag.dto';
 
 @ApiTags('tags')
 @ApiBearerAuth()
@@ -47,5 +48,20 @@ export class TagsController {
   @ApiResponse({ status: 204, description: 'Delete a tag.' })
   remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User): Promise<void> {
     return this.tagsService.remove(id, user.id);
+  }
+
+  @Post('bulk-tag')
+  @ApiOperation({ summary: 'Bulk tag transactions by their IDs' })
+  @ApiResponse({ status: 200, description: 'Transactions tagged successfully' })
+  async bulkTag(
+    @Body() bulkTagDto: BulkTagDto,
+    @CurrentUser() user: User
+  ) {
+    const count = await this.tagsService.bulkTagByIds(
+      bulkTagDto.transaction_ids, 
+      bulkTagDto.tag_ids, 
+      user.id
+    );
+    return { count, message: `${count} transactions tagged successfully` };
   }
 }

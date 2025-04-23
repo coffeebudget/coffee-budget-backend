@@ -12,6 +12,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
 import { Request } from '@nestjs/common';
+import { KeywordStatsService } from './keyword-stats.service';
 
 @ApiTags('categories')
 @ApiBearerAuth()
@@ -22,6 +23,7 @@ export class CategoriesController {
     private readonly categoriesService: CategoriesService,
     private readonly keywordExtractionService: KeywordExtractionService,
     private readonly defaultCategoriesService: DefaultCategoriesService,
+    private readonly keywordStatsService: KeywordStatsService,
   ) {}
 
   @Post()
@@ -195,5 +197,20 @@ export class CategoriesController {
       user.id,
       applyTo
     );
+  }
+
+  @Get('keyword-stats')
+  @ApiOperation({ summary: 'Get keyword usage statistics' })
+  async getKeywordStats(@CurrentUser() user: User) {
+    return this.keywordStatsService.getPopularKeywords(user.id);
+  }
+
+  @Get('keyword-success-rates')
+  @ApiOperation({ summary: 'Get keyword success rates for categorization' })
+  async getKeywordSuccessRates(
+    @CurrentUser() user: User,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20
+  ) {
+    return this.keywordStatsService.getTopKeywordsByCategorySuccess(user.id, limit);
   }
 }

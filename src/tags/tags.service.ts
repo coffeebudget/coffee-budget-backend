@@ -121,4 +121,76 @@ export class TagsService {
   
     return tags;
   }
+
+  /**
+   * Bulk tag transactions by their IDs
+   * @param transactionIds Array of transaction IDs to tag
+   * @param tagIds Array of tag IDs to apply
+   * @param userId User ID
+   * @returns Number of transactions that were tagged
+   */
+  async bulkTagByIds(
+    transactionIds: number[], 
+    tagIds: number[], 
+    userId: number
+  ): Promise<number> {
+    if (!transactionIds || !transactionIds.length) {
+      throw new NotFoundException('Transaction IDs array is required');
+    }
+
+    if (!tagIds || !tagIds.length) {
+      throw new NotFoundException('Tag IDs array is required');
+    }
+
+    // Verify the tags exist and belong to the user
+    const tags = await this.tagsRepository.find({
+      where: { 
+        id: In(tagIds),
+        user: { id: userId } 
+      }
+    });
+
+    if (tags.length !== tagIds.length) {
+      throw new NotFoundException('One or more tags not found');
+    }
+
+    // Find all the transactions that belong to the user
+    const transactions = await this.transactionsRepository.find({
+      where: { 
+        id: In(transactionIds),
+        user: { id: userId } 
+      },
+      relations: ['tags']
+    });
+
+    if (!transactions.length) {
+      return 0;
+    }
+
+    // Add tags to each transaction
+    let modifiedCount = 0;
+
+    for (const transaction of transactions) {
+      const existingTagIds = transaction.tags.map(tag => tag.id);
+      let modified = false;
+      
+      for (const tag of tags) {
+        if (!existingTagIds.includes(tag.id)) {
+          transaction.tags.push(tag);
+          modified = true;
+        }
+      }
+      
+      if (modified) {
+        modifiedCount++;
+      }
+    }
+
+    // Save all transactions if any were modified
+    if (modifiedCount > 0) {
+      await this.transactionsRepository.save(transactions);
+    }
+
+    return modifiedCount;
+  }
 }
