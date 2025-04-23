@@ -22,7 +22,7 @@ export function parseDate(
     throw new BadRequestException('Date string is required');
   }
 
-  // Add debug logging
+  // Add debug logging (NestJS Logger will filter this based on config)
   logger.debug(`Attempting to parse date: "${dateString}" with format: "${dateFormat}"`);
 
   // For dd/MM/yyyy format (European format), handle it specially to avoid timezone issues

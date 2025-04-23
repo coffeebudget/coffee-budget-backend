@@ -4,18 +4,23 @@ import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from './transaction.entity';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiTags, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
 import { DuplicateTransactionChoiceDto } from './dto/duplicate-transaction-choice.dto';
 import { ImportTransactionDto } from './dto/import-transaction.dto';
+import { CategoriesService } from '../categories/categories.service';
+import { BulkCategorizeDto } from './dto/bulk-categorize.dto';
 
 @ApiTags('transactions')
 @ApiBearerAuth()
 @Controller('transactions')
 @UseGuards(AuthGuard('jwt'))
 export class TransactionsController {
-  constructor(private readonly transactionsService: TransactionsService) {}
+  constructor(
+    private readonly transactionsService: TransactionsService,
+    private readonly categoriesService: CategoriesService
+  ) {}
 
   @Post()
   @ApiResponse({ status: 201, description: 'Create a new transaction.' })
@@ -25,7 +30,24 @@ export class TransactionsController {
         throw new UnauthorizedException('User not authenticated or user ID missing');
       }
 
-      return await this.transactionsService.createAndSaveTransaction(createTransactionDto, user.id, createTransactionDto.duplicateChoice || undefined);
+      const transaction = await this.transactionsService.createAndSaveTransaction(
+        createTransactionDto, 
+        user.id, 
+        createTransactionDto.duplicateChoice || undefined
+      );
+      
+      // If transaction has a category, extract suggested keywords
+      if (transaction && transaction.category && transaction.description) {
+        const suggestedKeywords = await this.categoriesService.suggestKeywordsFromTransaction(transaction);
+        
+        // Return the transaction with suggested keywords
+        return {
+          ...transaction,
+          suggestedKeywords
+        };
+      }
+      
+      return transaction;
     } catch (error) {
       if (error instanceof ConflictException && error.message === 'Duplicate transaction detected') {
         // Return the conflict with details so the frontend can handle it
@@ -78,12 +100,25 @@ export class TransactionsController {
 
   @Patch(':id')
   @ApiResponse({ status: 200, description: 'Update a transaction.' })
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateTransactionDto: UpdateTransactionDto,
     @CurrentUser() user: User
-  ): Promise<Transaction> {
-    return this.transactionsService.update(id, updateTransactionDto, user.id);
+  ) {
+    const transaction = await this.transactionsService.update(id, updateTransactionDto, user.id);
+    
+    // If transaction has a category after update, extract suggested keywords
+    if (transaction && transaction.category && transaction.description) {
+      const suggestedKeywords = await this.categoriesService.suggestKeywordsFromTransaction(transaction);
+      
+      // Return the transaction with suggested keywords
+      return {
+        ...transaction,
+        suggestedKeywords
+      };
+    }
+    
+    return transaction;
   }
 
   @Delete(':id')
@@ -95,5 +130,20 @@ export class TransactionsController {
   @Post('import')
   async importTransactions(@Body() importDto: ImportTransactionDto, @CurrentUser() user: User) {
     return this.transactionsService.importTransactions(importDto, user.id);
+  }
+
+  @Post('bulk-categorize')
+  @ApiOperation({ summary: 'Bulk categorize transactions by their IDs' })
+  @ApiResponse({ status: 200, description: 'Transactions categorized successfully' })
+  async bulkCategorize(
+    @Body() bulkCategorizeDto: BulkCategorizeDto,
+    @CurrentUser() user: User
+  ) {
+    const count = await this.transactionsService.bulkCategorizeByIds(
+      bulkCategorizeDto.transaction_ids, 
+      bulkCategorizeDto.category_id, 
+      user.id
+    );
+    return { count, message: `${count} transactions categorized successfully` };
   }
 }

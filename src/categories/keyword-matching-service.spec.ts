@@ -6,6 +6,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
+import { KeywordStatsService } from './keyword-stats.service';
 
 describe('CategoriesService - Keyword Matching', () => {
   let service: CategoriesService;
@@ -49,6 +50,15 @@ describe('CategoriesService - Keyword Matching', () => {
           provide: KeywordExtractionService,
           useValue: {
             extractKeywords: jest.fn()
+          }
+        },
+        {
+          provide: KeywordStatsService,
+          useValue: {
+            trackKeywordUsage: jest.fn().mockResolvedValue(null),
+            getKeywordStats: jest.fn().mockResolvedValue([]),
+            getPopularKeywords: jest.fn().mockResolvedValue([]),
+            getTopKeywordsByCategorySuccess: jest.fn().mockResolvedValue([])
           }
         }
       ],

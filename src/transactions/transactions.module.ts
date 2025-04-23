@@ -27,7 +27,7 @@ import { RecurringTransactionsModule } from '../recurring-transactions/recurring
       Tag,
       RecurringTransaction
     ]),
-    forwardRef(() => CategoriesModule),
+    CategoriesModule,
     forwardRef(() => TagsModule),
     forwardRef(() => PendingDuplicatesModule),
     forwardRef(() => RecurringTransactionsModule),

@@ -8,14 +8,26 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 import { SharedModule } from '../shared/shared.module';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
+import { KeywordStats } from './entities/keyword-stats.entity';
+import { KeywordStatsService } from './keyword-stats.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, Transaction, RecurringTransaction]),
+    TypeOrmModule.forFeature([Category, Transaction, RecurringTransaction, KeywordStats]),
     SharedModule,
   ],
   controllers: [CategoriesController],
-  providers: [CategoriesService, KeywordExtractionService, DefaultCategoriesService],
-  exports: [CategoriesService, TypeOrmModule, DefaultCategoriesService],
+  providers: [
+    CategoriesService, 
+    KeywordExtractionService, 
+    DefaultCategoriesService,
+    KeywordStatsService
+  ],
+  exports: [
+    CategoriesService, 
+    TypeOrmModule, 
+    DefaultCategoriesService,
+    KeywordStatsService
+  ],
 })
 export class CategoriesModule {}
