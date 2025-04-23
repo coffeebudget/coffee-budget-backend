@@ -28,10 +28,24 @@ export class CartaImprontaParser extends BaseParser {
       // Load HTML with cheerio
       const $ = cheerio.load(htmlContent);
       
-      // Find the table with transactions
-      const table = $('#CCMO_CAIM');
+      this.logger.debug(`[CARTA_IMPRONTA IMPORT] HTML loaded successfully, length: ${htmlContent.length}`);
+      
+      // First look for the table with ID "CCMO_CAIM"
+      let table = $('table#CCMO_CAIM');
+      
+      // If not found by ID, try to find any table with the expected structure
+      if (!table.length) {
+        this.logger.debug('[CARTA_IMPRONTA IMPORT] Table not found by ID, trying alternative selectors');
+        table = $('table').filter(function() {
+          const headerCells = $(this).find('thead th');
+          return headerCells.length >= 5;
+        });
+      }
       
       if (!table.length) {
+        // List all tables found in the document for debugging
+        const tableCount = $('table').length;
+        this.logger.warn(`[CARTA_IMPRONTA IMPORT] No suitable table found (total tables: ${tableCount})`);
         throw new BadRequestException('Invalid CartaImpronta HTML format: table not found');
       }
       
@@ -42,7 +56,7 @@ export class CartaImprontaParser extends BaseParser {
         const cells = $(row).find('td');
         
         if (cells.length < 5) {
-          this.logger.warn(`[CARTA_IMPRONTA IMPORT] Skipping row ${index + 1}: Not enough cells`);
+          this.logger.warn(`[CARTA_IMPRONTA IMPORT] Skipping row ${index + 1}: Not enough cells (found ${cells.length}, expected at least 5)`);
           return; // continue to next row
         }
         
@@ -84,8 +98,15 @@ export class CartaImprontaParser extends BaseParser {
         }
       });
       
+      this.logger.debug(`[CARTA_IMPRONTA IMPORT] Found ${transactions.length} transactions`);
+      
+      if (transactions.length === 0) {
+        this.logger.warn('[CARTA_IMPRONTA IMPORT] No transactions found in the table');
+      }
+      
       return transactions;
     } catch (error) {
+      this.logger.error(`[CARTA_IMPRONTA IMPORT] Error parsing file: ${error.message}`);
       throw new BadRequestException(`Failed to parse CartaImpronta file: ${error.message}`);
     }
   }
