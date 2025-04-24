@@ -35,6 +35,9 @@ import { RecurringTransactionsModule } from '../recurring-transactions/recurring
   ],
   controllers: [TransactionsController],
   providers: [TransactionsService],
-  exports: [TransactionsService, TypeOrmModule],
+  exports: [
+    TransactionsService,
+    TypeOrmModule,
+  ],
 })
 export class TransactionsModule {}

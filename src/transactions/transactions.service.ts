@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, forwardRef, Inject, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, In, Not, IsNull, Stream } from 'typeorm';
+import { Repository, Between, In, Not, IsNull, Stream, Like, FindOptionsWhere, Raw } from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { ImportTransactionDto } from './dto/import-transaction.dto';
@@ -966,6 +966,95 @@ export class TransactionsService {
     return transactions.length;
   }
 
+  /**
+   * Bulk uncategorize transactions by their IDs (remove category)
+   * @param transactionIds Array of transaction IDs to uncategorize
+   * @param userId User ID
+   * @returns Number of transactions that were uncategorized
+   */
+  async bulkUncategorizeByIds(
+    transactionIds: number[], 
+    userId: number
+  ): Promise<number> {
+    if (!transactionIds || !transactionIds.length) {
+      throw new BadRequestException('Transaction IDs array is required');
+    }
+
+    // First check if the transactions exist
+    const transactions = await this.transactionsRepository.find({
+      where: { 
+        id: In(transactionIds),
+        user: { id: userId } 
+      }
+    });
+
+    if (!transactions.length) {
+      return 0;
+    }
+
+    // Use a query runner to execute direct SQL
+    const queryRunner = this.transactionsRepository.manager.connection.createQueryRunner();
+    await queryRunner.connect();
+    
+    try {
+      await queryRunner.startTransaction();
+      
+      // Direct SQL to set categoryId to NULL
+      const result = await queryRunner.manager.query(
+        `UPDATE "transaction" 
+         SET "categoryId" = NULL 
+         WHERE "id" IN (${transactionIds.join(',')}) 
+         AND "userId" = $1`,
+        [userId]
+      );
+      
+      await queryRunner.commitTransaction();
+      
+      // Count the number of affected rows
+      return transactions.length;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Accept a suggested category for a specific transaction
+   * @param transactionId The ID of the transaction to update
+   * @param userId The user ID
+   * @returns The updated transaction
+   */
+  async acceptSuggestedCategory(transactionId: number, userId: number): Promise<Transaction> {
+    // Find the transaction with its suggested category
+    const transaction = await this.transactionsRepository.findOne({
+      where: { 
+        id: transactionId,
+        user: { id: userId }
+      },
+      relations: ['suggestedCategory', 'category', 'bankAccount', 'creditCard', 'tags']
+    });
+
+    if (!transaction) {
+      throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+    }
+
+    if (!transaction.suggestedCategory) {
+      throw new BadRequestException(`Transaction has no suggested category`);
+    }
+
+    // Update the category to the suggested one
+    transaction.category = transaction.suggestedCategory;
+    
+    // Clear the suggested category after accepting it
+    transaction.suggestedCategory = null;
+    transaction.suggestedCategoryName = null;
+
+    // Save the transaction
+    return this.transactionsRepository.save(transaction);
+  }
+
   async unlinkFromRecurringTransaction(
     transactionId: number, 
     recurringTransactionId: number, 
@@ -991,4 +1080,99 @@ export class TransactionsService {
     return this.transactionsRepository.save(transaction);
   }
 
+  /**
+   * Enriches bank transactions with PayPal transaction details
+   * @param paypalTransactions Array of PayPal transactions
+   * @param userId User ID
+   * @param dateRangeForMatching Optional number of days to look forward for matching (default: 5)
+   * @returns Number of transactions that were enriched
+   */
+  async enrichTransactionsWithPayPal(
+    paypalTransactions: any[], 
+    userId: number,
+    dateRangeForMatching: number = 5
+  ): Promise<number> {
+    if (!paypalTransactions || paypalTransactions.length === 0) {
+      this.logger.log('No PayPal transactions to process');
+      return 0;
+    }
+
+    let enrichedCount = 0;
+    
+    // Filter out transactions with missing amounts or dates
+    const validPaypalTransactions = paypalTransactions.filter(
+      pt => pt.amount && pt.date
+    );
+
+    this.logger.log(`Processing ${validPaypalTransactions.length} valid PayPal transactions`);
+
+    for (const paypalTx of validPaypalTransactions) {
+      const amount = parseFloat(paypalTx.amount);
+      // Get date and create a range to account for processing differences
+      const txDate = new Date(paypalTx.date);
+      
+      // PayPal transaction dates often come before bank transaction dates
+      // So we look forward from the PayPal date
+      const startDate = new Date(txDate);
+      
+      const endDate = new Date(txDate);
+      endDate.setDate(endDate.getDate() + dateRangeForMatching);
+      
+      // Check if we have an expense (negative amount) or income (positive amount)
+      const isExpense = amount < 0;
+      const absAmount = Math.abs(amount);
+      
+      // Define search range for amount with tolerance
+      // For expenses (negative in PayPal), search for negative amounts in DB
+      // For income (positive in PayPal), search for positive amounts in DB
+      const searchAmount = isExpense ? -absAmount : absAmount;
+      
+      this.logger.debug(
+        `Searching for matches with PayPal transaction: ${paypalTx.name}, ` +
+        `amount ${amount} (${isExpense ? 'expense' : 'income'}, searching for ${searchAmount}), ` +
+        `between ${startDate.toISOString()} and ${endDate.toISOString()}`
+      );
+
+      // Find bank transactions with PayPal in the description and matching amount
+      const where: FindOptionsWhere<Transaction> = {
+        description: Raw(alias => `LOWER(${alias}) LIKE LOWER('%PayPal%')`),
+        amount: searchAmount, // Use the properly signed amount
+        executionDate: Between(startDate, endDate),
+        user: { id: userId },
+      };
+
+      const matchingTransactions = await this.transactionsRepository.find({
+        where,
+        relations: ['tags'],
+      });
+
+      if (matchingTransactions.length > 0) {
+        this.logger.debug(`Found ${matchingTransactions.length} matching transactions for PayPal transaction: ${paypalTx.name}, ${amount}, ${txDate.toISOString()}`);
+        
+        for (const transaction of matchingTransactions) {
+          // Store the original description
+          const originalDescription = transaction.description;
+          
+          // Create a more detailed description using PayPal data
+          const merchant = paypalTx.name || 'Unknown Merchant';
+          
+          // Append PayPal merchant info to the original description
+          const updatedDescription = `${originalDescription} (PayPal: ${merchant})`;
+
+          // Update the transaction description with more details
+          transaction.description = updatedDescription;
+
+          await this.transactionsRepository.save(transaction);
+          enrichedCount++;
+          
+          this.logger.debug(`Enriched transaction ID ${transaction.id}: "${originalDescription}" -> "${updatedDescription}"`);
+        }
+      } else {
+        this.logger.debug(`No matching transactions found for PayPal transaction: ${paypalTx.name}, ${amount}, ${txDate.toISOString()}`);
+      }
+    }
+
+    this.logger.log(`Enriched ${enrichedCount} transactions with PayPal data`);
+    return enrichedCount;
+  }
 }
