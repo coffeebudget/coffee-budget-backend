@@ -633,5 +633,118 @@ describe('TransactionsService', () => {
     });
   });
 
+  // Add a new describe block for PayPal enrichment
+  describe('enrichTransactionsWithPayPal', () => {
+    it('should enrich transactions with PayPal merchant information', async () => {
+      // Set up test data
+      const userId = 1;
+      const mockPayPalTransactions = [
+        {
+          date: new Date('2023-01-15'),
+          name: 'Netflix',
+          amount: -15.99,
+          status: 'Completata',
+          type: 'Pagamento'
+        },
+        {
+          date: new Date('2023-01-20'),
+          name: 'Amazon',
+          amount: -25.50,
+          status: 'Completata',
+          type: 'Pagamento'
+        }
+      ];
+      
+      // Mock existing transactions that match the PayPal transactions
+      const mockTransaction1 = {
+        id: 1,
+        description: 'Payment to PayPal',
+        amount: -15.99,
+        executionDate: new Date('2023-01-15'),
+        user: { id: userId },
+        tags: []
+      };
+      
+      const mockTransaction2 = {
+        id: 2,
+        description: 'PayPal *Payment',
+        amount: -25.50,
+        executionDate: new Date('2023-01-20'),
+        user: { id: userId },
+        tags: []
+      };
+      
+      // Setup repository mock return values
+      (transactionRepository.find as jest.Mock).mockImplementation((query) => {
+        // Logic to return appropriate mock transactions based on query
+        const amount = Math.abs(query.where.amount);
+        
+        if (amount === 15.99) {
+          return [mockTransaction1];
+        } else if (amount === 25.50) {
+          return [mockTransaction2];
+        }
+        
+        return [];
+      });
+      
+      // Mock save method to return the input with an id
+      (transactionRepository.save as jest.Mock).mockImplementation((entity) => 
+        Promise.resolve({ ...entity, id: entity.id || Math.floor(Math.random() * 1000) })
+      );
+      
+      // Call the method
+      const result = await service.enrichTransactionsWithPayPal(mockPayPalTransactions, userId);
+      
+      // Assertions
+      expect(result).toBe(2); // Should have enriched 2 transactions
+      
+      // Verify repository calls
+      expect(transactionRepository.find).toHaveBeenCalledTimes(2);
+      expect(transactionRepository.save).toHaveBeenCalledTimes(2);
+      
+      // Check that the transactions were updated with the correct descriptions
+      const savedCalls = (transactionRepository.save as jest.Mock).mock.calls;
+      
+      const savedTransaction1 = savedCalls.find(call => 
+        call[0].id === 1
+      )[0];
+      
+      const savedTransaction2 = savedCalls.find(call => 
+        call[0].id === 2
+      )[0];
+      
+      expect(savedTransaction1.description).toBe('PayPal: Netflix');
+      expect(savedTransaction2.description).toBe('PayPal: Amazon');
+    });
+    
+    it('should return 0 when no PayPal transactions are provided', async () => {
+      const result = await service.enrichTransactionsWithPayPal([], 1);
+      expect(result).toBe(0);
+      expect(transactionRepository.find).not.toHaveBeenCalled();
+    });
+    
+    it('should handle transactions with no matching bank records', async () => {
+      const mockPayPalTransactions = [
+        {
+          date: new Date('2023-01-25'),
+          name: 'Spotify',
+          amount: -9.99,
+          status: 'Completata',
+          type: 'Pagamento'
+        }
+      ];
+      
+      // Mock empty transaction result
+      (transactionRepository.find as jest.Mock).mockResolvedValue([]);
+      
+      const result = await service.enrichTransactionsWithPayPal(mockPayPalTransactions, 1);
+      
+      expect(result).toBe(0);
+      expect(transactionRepository.find).toHaveBeenCalledTimes(1);
+      expect(transactionRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
   // Additional tests can be added here for other scenarios
 });
