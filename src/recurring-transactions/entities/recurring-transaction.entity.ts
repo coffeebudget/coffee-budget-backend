@@ -1,10 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, ManyToMany, JoinTable } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTable } from "typeorm";
 import { User } from "../../users/user.entity";
 import { Category } from "../../categories/entities/category.entity";
 import { Tag } from "../../tags/entities/tag.entity";
 import { BankAccount } from "../../bank-accounts/entities/bank-account.entity";
 import { CreditCard } from "../../credit-cards/entities/credit-card.entity";
-import { Transaction } from "../../transactions/transaction.entity";
 
 @Entity()
 export class RecurringTransaction {
@@ -60,6 +59,16 @@ export class RecurringTransaction {
   @Column({ type: "timestamp", nullable: true })
   nextOccurrence: Date | null;
 
+  // Additional properties for date calculations in the analytics module
+  @Column({ type: "int", nullable: true })
+  dayOfMonth?: number;
+
+  @Column({ type: "int", nullable: true })
+  dayOfWeek?: number;
+
+  @Column({ type: "int", nullable: true })
+  month?: number;
+
   @Column({ default: false })
   userConfirmed: boolean;
 
@@ -82,6 +91,8 @@ export class RecurringTransaction {
   @ManyToOne(() => CreditCard, { nullable: true })
   creditCard: CreditCard | null;
 
-  @OneToMany(() => Transaction, (transaction) => transaction.recurringTransaction)
-  transactions: Transaction[];
+  // Helper method for frequency in a format easy to display in UI
+  get frequency(): string {
+    return `${this.frequencyEveryN > 1 ? `Every ${this.frequencyEveryN} ` : 'Every '}${this.frequencyType}`;
+  }
 }

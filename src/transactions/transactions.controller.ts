@@ -102,8 +102,16 @@ export class TransactionsController {
 
 
   @Post('import')
+  @ApiOperation({ summary: 'Import transactions from CSV or bank-specific file format' })
+  @ApiResponse({ status: 200, description: 'Import process started or completed successfully' })
   async importTransactions(@Body() importDto: ImportTransactionDto, @CurrentUser() user: User) {
-    return this.transactionsService.importTransactions(importDto, user.id);
+    const result = await this.transactionsService.importTransactions(importDto, user.id);
+    return {
+      importLogId: result.importLogId,
+      transactionsCount: result.transactions.length,
+      status: result.status,
+      message: `Import process ${result.status.toLowerCase()} with ${result.transactions.length} transactions`
+    };
   }
 
   @Post('bulk-categorize')

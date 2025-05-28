@@ -4,7 +4,7 @@ import { CreditCard } from "../credit-cards/entities/credit-card.entity";
 import { User } from "../users/user.entity";
 import { Category } from "../categories/entities/category.entity";
 import { Tag } from "../tags/entities/tag.entity";
-import { RecurringTransaction } from "../recurring-transactions/entities/recurring-transaction.entity";
+
 @Entity()
 export class Transaction {
   @PrimaryGeneratedColumn()
@@ -63,7 +63,4 @@ export class Transaction {
 
   @Column({ type: "varchar", length: 50, default: "manual" })
   source: string;
-
-  @ManyToOne(() => RecurringTransaction, (recurringTransaction) => recurringTransaction.transactions, { nullable: true })
-  recurringTransaction: RecurringTransaction | null;
 }

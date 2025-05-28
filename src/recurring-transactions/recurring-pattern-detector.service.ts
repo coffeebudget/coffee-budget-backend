@@ -1,11 +1,7 @@
-import { Injectable, forwardRef, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
-import { TransactionsService } from '../transactions/transactions.service';
-import { RecurringTransactionsService } from './recurring-transactions.service';
-import { RecurringTransaction } from './entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { Logger } from '@nestjs/common';
 
 export interface RecurringPattern {
@@ -13,27 +9,26 @@ export interface RecurringPattern {
   isRecurring: boolean;
   suggestedFrequency?: string;
   confidence?: number;
-  // Add other properties as needed
 }
 
+/**
+ * A simplified version of the pattern detector that only analyzes transaction patterns
+ * without linking them to recurring transactions
+ */
 @Injectable()
 export class RecurringPatternDetectorService {
   private readonly logger = new Logger(RecurringPatternDetectorService.name);
 
   constructor(
     @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionRepository: Repository<RecurringTransaction>,
-    @Inject(forwardRef(() => TransactionsService))
-    private transactionsService: TransactionsService,
-    private transactionOperationsService: TransactionOperationsService,
+    private transactionRepository: Repository<Transaction>
   ) {}
 
   async detectAllRecurringPatterns(userId: number): Promise<RecurringPattern[]> {
     const transactions = await this.transactionRepository.find({
       where: { user: { id: userId } },
       order: { executionDate: 'ASC' },
+      relations: ['category']
     });
 
     const clusters: Map<string, Transaction[]> = new Map();
@@ -57,7 +52,6 @@ export class RecurringPatternDetectorService {
     const results: RecurringPattern[] = [];
 
     for (const group of clusters.values()) {
-      
       if (group.length < 3) continue;
       
       // Allow flexible amounts
@@ -119,127 +113,6 @@ export class RecurringPatternDetectorService {
     };
   }
 
-  async detectAndProcessRecurringTransaction(transaction: Transaction): Promise<RecurringTransaction | null> {
-    this.logger.debug(`Starting detectAndProcessRecurringTransaction for transaction ID: ${transaction.id}`);
-    
-    const patternResult = await this.detectPatternForTransaction(transaction);
-    this.logger.debug(`Pattern detection result: similarTransactions=${patternResult.similarTransactions.length}, isRecurring=${patternResult.isRecurring}, suggestedFrequency=${patternResult.suggestedFrequency}`);
-
-    if (patternResult.similarTransactions.length < 3) {
-      this.logger.debug('Not enough similar transactions found (< 3). Returning null.');
-      return null;
-    }
-
-    this.logger.debug(`Checking for existing recurring transaction with name=${transaction.description}, amount=${transaction.amount}, frequency=${patternResult.suggestedFrequency}`);
-    const existing = await this.recurringTransactionRepository.findOne({
-      where: {
-        user: { id: transaction.user.id },
-        name: transaction.description,
-        amount: transaction.amount,
-        frequencyType: patternResult.suggestedFrequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
-      },
-      relations: ['category', 'bankAccount', 'creditCard', 'user'],
-    });
-
-    if (existing) {
-      this.logger.debug(`Found existing recurring transaction with ID: ${existing.id}. Linking transactions.`);
-      try {
-        await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, existing);
-        this.logger.debug('Successfully linked transactions to existing recurring transaction');
-      } catch (error) {
-        this.logger.error(`Error linking transactions to existing recurring: ${error.message}`);
-        this.logger.error(`Error stack: ${error.stack}`);
-      }
-      return existing;
-    }
-
-    const name = transaction.description ? 
-      (transaction.description.length > 255 ? 
-        transaction.description.substring(0, 255) : 
-        transaction.description) : 
-      'Recurring Transaction';
-    
-    this.logger.debug(`Creating new recurring transaction with name=${name}, amount=${transaction.amount}, type=${transaction.type}, frequency=${patternResult.suggestedFrequency}`);
-    
-    try {
-      const newRecurring = await this.recurringTransactionRepository.save(
-        this.recurringTransactionRepository.create({
-          name: name,
-          amount: transaction.amount,
-          category: { id: transaction.category.id },
-          startDate: this.findEarliestDate(patternResult.similarTransactions, transaction),
-          type: transaction.type,
-          frequencyType: patternResult.suggestedFrequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
-          frequencyEveryN: 1,
-          status: 'SCHEDULED',
-          user: { id: transaction.user.id },
-          userConfirmed: false,
-          bankAccount: transaction.bankAccount ? { id: transaction.bankAccount.id } : null,
-          creditCard: transaction.creditCard ? { id: transaction.creditCard.id } : null,
-          source: 'PATTERN_DETECTOR',
-        })
-      );
-      this.logger.debug(`Successfully created new recurring transaction with ID: ${newRecurring.id}`);
-
-      try {
-        this.logger.debug(`Attempting to link ${patternResult.similarTransactions.length} transactions to new recurring transaction`);
-        await this.transactionOperationsService.linkTransactionsToRecurring(patternResult.similarTransactions, newRecurring);
-        this.logger.debug('Successfully linked transactions to new recurring transaction');
-      } catch (error) {
-        this.logger.error(`Error linking transactions to new recurring: ${error.message}`);
-        this.logger.error(`Error stack: ${error.stack}`);
-      }
-      
-      return newRecurring;
-    } catch (error) {
-      this.logger.error(`Error creating recurring transaction: ${error.message}`);
-      this.logger.error(`Error stack: ${error.stack}`);
-      return null;
-    }
-  }
-
-  async createRecurringTransactionFromPattern(
-    pattern: RecurringPattern,
-    userId: number
-  ): Promise<RecurringTransaction | null> {
-    if (!pattern.isRecurring || pattern.similarTransactions.length < 2) {
-      return null;
-    }
-
-    // Get the first transaction as a template
-    const templateTransaction = pattern.similarTransactions[0];
-    
-    // Create the recurring transaction
-    const recurringTransaction = this.recurringTransactionRepository.create({
-      name: templateTransaction.description,
-      description: `Auto-detected recurring transaction: ${templateTransaction.description}`,
-      amount: templateTransaction.amount,
-      type: templateTransaction.type,
-      frequencyType: pattern.suggestedFrequency as 'daily' | 'weekly' | 'monthly' | 'yearly',
-      frequencyEveryN: 1,
-      user: { id: userId },
-      category: { id: templateTransaction.category.id },
-      bankAccount: { id: templateTransaction.bankAccount?.id },
-      creditCard: { id: templateTransaction.creditCard?.id },
-      source: 'PATTERN_DETECTOR',
-      status: 'SCHEDULED',
-      userConfirmed: false,
-      tags: [],
-      startDate: this.findEarliestDate(pattern.similarTransactions, templateTransaction),
-    });
-    
-    // Save the recurring transaction
-    const savedRecurringTransaction = await this.recurringTransactionRepository.save(recurringTransaction);
-    
-    // Link the transactions to the recurring transaction
-    await this.transactionOperationsService.linkTransactionsToRecurring(
-      pattern.similarTransactions,
-      savedRecurringTransaction
-    );
-    
-    return savedRecurringTransaction;
-  }
-
   private normalizeDescription(desc: string): string {
     return desc
       .toLowerCase()
@@ -251,58 +124,50 @@ export class RecurringPatternDetectorService {
   }
 
   private isFuzzyMatch(desc1: string, desc2: string): boolean {
-    const tokens1 = new Set(this.normalizeDescription(desc1).split(/\s+/));
-    const tokens2 = new Set(this.normalizeDescription(desc2).split(/\s+/));
-
-    const intersection = [...tokens1].filter(word => tokens2.has(word)).length;
-    const union = new Set([...tokens1, ...tokens2]).size;
-
-    const jaccard = intersection / union;
-    return jaccard >= 0.6; // threshold slightly raised for monthly grouping
+    if (!desc1 || !desc2) return false;
+    
+    const normalized1 = this.normalizeDescription(desc1);
+    const normalized2 = this.normalizeDescription(desc2);
+    
+    return normalized1 === normalized2 || 
+           normalized1.includes(normalized2) || 
+           normalized2.includes(normalized1);
   }
 
   private calculateIntervals(transactions: Transaction[]): number[] {
-    const dates = transactions
-      .map(tx => tx.executionDate)
-      .filter(d => d)
-      .sort((a, b) => (a!.getTime() - b!.getTime())) as Date[];
-
+    // Filter transactions that have executionDate before sorting
+    const validTransactions = transactions.filter(tx => tx.executionDate !== undefined && tx.executionDate !== null);
+    
+    const sortedTransactions = [...validTransactions].sort((a, b) => {
+      const dateA = a.executionDate as Date; // TypeScript cast since we filtered out undefined/null
+      const dateB = b.executionDate as Date; // TypeScript cast since we filtered out undefined/null
+      return dateA.getTime() - dateB.getTime();
+    });
+    
     const intervals: number[] = [];
-    for (let i = 1; i < dates.length; i++) {
-      const diff = Math.round((dates[i].getTime() - dates[i - 1].getTime()) / (1000 * 60 * 60 * 24));
-      intervals.push(diff);
+    for (let i = 1; i < sortedTransactions.length; i++) {
+      const dateA = sortedTransactions[i-1].executionDate as Date;
+      const dateB = sortedTransactions[i].executionDate as Date;
+      const daysDiff = Math.round((dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24));
+      intervals.push(daysDiff);
     }
+    
     return intervals;
   }
 
   private classifyFrequency(intervals: number[]): { frequency: string, confidence: number } | null {
-    if (intervals.length === 0) return null;
-
-    const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-    const stdDev = Math.sqrt(intervals.map(i => Math.pow(i - avg, 2)).reduce((a, b) => a + b, 0) / intervals.length);
-
-    let frequency: string | null = null;
-    if (avg >= 1 && avg <= 3) frequency = 'daily';
-    else if (avg >= 6 && avg <= 10) frequency = 'weekly';
-    else if (avg >= 25 && avg <= 40) frequency = 'monthly';
-    else if (avg >= 360 && avg <= 370) frequency = 'yearly';
-
-    if (!frequency) return null;
-
-    const confidence = Math.max(0.5, 1 - stdDev / avg);
-    return { frequency, confidence };
-  }
-
-  private findEarliestDate(transactions: Transaction[], currentTransaction: Transaction): Date {
-    const dates = transactions
-      .map(t => t.executionDate)
-      .filter(d => !!d) as Date[];
-
-    if (currentTransaction.executionDate) {
-      dates.push(currentTransaction.executionDate);
-    }
-
-    return dates.length > 0 ? new Date(Math.min(...dates.map(d => d.getTime()))) : new Date();
+    if (intervals.length < 2) return null;
+    
+    // Calculate the average interval
+    const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+    
+    // Classify based on average interval
+    if (avgInterval >= 25 && avgInterval <= 35) return { frequency: 'monthly', confidence: 0.8 };
+    if (avgInterval >= 6 && avgInterval <= 8) return { frequency: 'weekly', confidence: 0.8 };
+    if (avgInterval >= 350 && avgInterval <= 380) return { frequency: 'yearly', confidence: 0.7 };
+    if (avgInterval >= 0 && avgInterval <= 3) return { frequency: 'daily', confidence: 0.6 };
+    
+    return null;
   }
 }
 

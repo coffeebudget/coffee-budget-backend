@@ -41,7 +41,7 @@ export class PendingDuplicatesService {
     pendingDuplicate.newTransactionData = newTransactionData;
     pendingDuplicate.user = { id: userId } as User;
     pendingDuplicate.resolved = false;
-    pendingDuplicate.source = source as 'recurring' | 'csv_import' | 'api';
+    pendingDuplicate.source = source as 'csv_import' | 'api';
     pendingDuplicate.sourceReference = sourceReference || null;
     
     // Set the relation separately
@@ -63,31 +63,30 @@ export class PendingDuplicatesService {
       throw new NotFoundException(`Pending duplicate with ID ${pendingDuplicateId} not found`);
     }
     
-    let result: {
-      existingTransaction: Transaction | null;
-      newTransaction: Transaction | null;
-      resolved: boolean;
-    } = {
+    // Default result structure
+    let result = {
       existingTransaction: pendingDuplicate.existingTransaction,
-      newTransaction: null,
+      newTransaction: null as Transaction | null,
       resolved: true
     };
     
-    if (choice !== DuplicateTransactionChoice.IGNORE) {
+    // Process based on user choice - use the new enum values
+    if (choice !== DuplicateTransactionChoice.KEEP_EXISTING) {
       try {
-        // Use the shared service instead
-        const operationResult = await this.transactionOperationsService.handleDuplicateResolution(
-          pendingDuplicate.existingTransaction as Transaction, // Cast to non-null
+        // Use the TransactionOperationsService to handle the resolution
+        const resolvedTransaction = await this.transactionOperationsService.handleDuplicateResolution(
+          pendingDuplicate.existingTransaction as Transaction,
           pendingDuplicate.newTransactionData,
           userId,
           choice
         );
         
-        // Add the resolved property to the result
-        result   = {
-          ...operationResult,
-          resolved: true
-        };
+        // Update the result with the resolved transaction
+        if (choice === DuplicateTransactionChoice.MAINTAIN_BOTH) {
+          result.newTransaction = resolvedTransaction;
+        } else if (choice === DuplicateTransactionChoice.USE_NEW) {
+          result.existingTransaction = resolvedTransaction;
+        }
       } catch (error) {
         throw error;
       }

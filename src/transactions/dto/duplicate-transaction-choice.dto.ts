@@ -2,10 +2,9 @@ import { IsEnum } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum DuplicateTransactionChoice {
-  MERGE = 'merge',
-  IGNORE = 'ignore',
-  REPLACE = 'replace',
-  MAINTAIN_BOTH = 'maintain both'
+  MAINTAIN_BOTH = 'maintain both',
+  KEEP_EXISTING = 'keep existing',
+  USE_NEW = 'use new'
 }
 
 export class DuplicateTransactionChoiceDto {

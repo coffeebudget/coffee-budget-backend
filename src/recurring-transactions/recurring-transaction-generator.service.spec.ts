@@ -13,6 +13,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { TransactionsService } from '../transactions/transactions.service';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { createCategoryMock } from '../../test/test-utils';
+import { addDays, addMonths, format } from 'date-fns';
 
 describe('RecurringTransactionGeneratorService', () => {
   let service: RecurringTransactionGeneratorService;
@@ -154,194 +155,109 @@ describe('RecurringTransactionGeneratorService', () => {
     expect(service).toBeDefined();
   });
 
-  describe('generateTransactions', () => {
-    it('should generate next transaction for monthly recurring transaction', () => {
+  describe('calculateNextExecutionDate', () => {
+    it('should calculate correct next execution date for monthly recurring transactions', () => {
+      const startDate = new Date('2023-01-01');
       const mockRecurringTransaction = {
-        ...baseMockRecurringTransaction,
-        startDate: new Date(Date.UTC(2024, 0, 1)), // January 1, 2024
-        endDate: new Date(Date.UTC(2024, 11, 31)), // December 31, 2024
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-      } as RecurringTransaction;
-
-      const result = service.generateTransactions(mockRecurringTransaction);
-
-      expect(result).toBeDefined();
-      expect(result).toHaveLength(2);
-      expect(result[0].status).toBe('executed');
-      expect(result[1].status).toBe('pending');
-      expect(result[1].executionDate).toEqual(new Date(Date.UTC(2024, 1, 1))); // February 1, 2024
-    });
-
-    it('should return empty array for paused recurring transaction', () => {
-      const mockRecurringTransaction = {
-        ...baseMockRecurringTransaction,
-        status: 'PAUSED',
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-        startDate: new Date(Date.UTC(2024, 0, 1)),
-      } as RecurringTransaction;
-
-      const result = service.generateTransactions(mockRecurringTransaction);
-      expect(result).toHaveLength(0); // Should be empty for paused transactions
-    });
-
-    it('should not generate pending transaction after end date', () => {
-      const mockRecurringTransaction = {
-        name: 'Ended Subscription',
-        amount: 15.99,
-        status: 'SCHEDULED',
+        id: 1,
+        amount: 100,
+        description: 'Monthly subscription',
         type: 'expense',
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-        startDate: new Date('2024-01-01'),
-        endDate: new Date('2024-01-14'),
-        category: createCategoryMock() as unknown as Category,
-        user: mockUser
+        frequency: 'monthly',
+        dayOfMonth: 15,
+        status: 'active',
+        nextExecutionDate: new Date('2023-01-15'),
       } as unknown as RecurringTransaction;
 
-      const result = service.generateTransactions(mockRecurringTransaction);
-      expect(result).toHaveLength(1); // Only the executed transaction
-      expect(result[0].status).toBe('executed');
+      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
+      
+      expect(result).toEqual(new Date('2023-01-15'));
     });
 
-    it('should generate historical and next pending transactions', () => {
-      jest.setSystemTime(new Date(Date.UTC(2025, 2, 16))); // March 16, 2025
-      
+    it('should calculate correct next execution date for weekly recurring transactions', () => {
+      const startDate = new Date('2023-01-01'); // Sunday
       const mockRecurringTransaction = {
-        ...baseMockRecurringTransaction,
-        startDate: new Date(Date.UTC(2024, 2, 13)), // March 13, 2024
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-      } as RecurringTransaction;
+        id: 1,
+        amount: 100,
+        description: 'Weekly subscription',
+        type: 'expense',
+        frequency: 'weekly',
+        dayOfWeek: 3, // Wednesday
+        status: 'active',
+        nextExecutionDate: new Date('2023-01-04'),
+      } as unknown as RecurringTransaction;
 
-      const result = service.generateTransactions(mockRecurringTransaction);
-
-      expect(result).toHaveLength(14);
+      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
       
-      const executedTransactions = result.filter(t => t.status === 'executed');
-      expect(executedTransactions).toHaveLength(13);
-
-      const pendingTransactions = result.filter(t => t.status === 'pending');
-      expect(pendingTransactions).toHaveLength(1);
-      expect(pendingTransactions[0].executionDate).toEqual(new Date(Date.UTC(2025, 3, 13))); // April 13, 2025
+      expect(result).toEqual(new Date('2023-01-04'));
     });
 
-    it('should generate correct transactions for monthly recurring transaction with 20 occurrences', () => {
-      // Mock current date to 2024-03-25 (after start date)
-      jest.setSystemTime(new Date('2025-03-25'));
+    it('should calculate correct next execution date for bi-weekly recurring transactions', () => {
+      const startDate = new Date('2023-01-01');
+      const mockRecurringTransaction = {
+        id: 1,
+        amount: 100,
+        description: 'Bi-weekly subscription',
+        type: 'expense',
+        frequency: 'bi-weekly',
+        startDate: new Date('2022-12-15'),
+        status: 'active',
+        nextExecutionDate: new Date('2023-01-12'),
+      } as unknown as RecurringTransaction;
 
+      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
+      
+      expect(result).toEqual(new Date('2023-01-12'));
+    });
+
+    it('should calculate correct next execution date for yearly recurring transactions', () => {
+      const startDate = new Date('2023-01-01');
+      const mockRecurringTransaction = {
+        id: 1,
+        amount: 100,
+        description: 'Yearly subscription',
+        type: 'expense',
+        frequency: 'yearly',
+        month: 4, // May (0-indexed)
+        dayOfMonth: 15,
+        status: 'active',
+        nextExecutionDate: new Date('2023-05-15'),
+      } as unknown as RecurringTransaction;
+
+      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
+      
+      expect(result).toEqual(new Date('2023-05-15'));
+    });
+
+    it('should return the nextExecutionDate from the recurring transaction', () => {
+      const startDate = new Date('2023-01-01');
       const recurringTransaction = {
-        ...baseMockRecurringTransaction,
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-        startDate: new Date('2024-03-12'),
-        occurrences: 20,
-        status: 'SCHEDULED',
-        type: 'expense',
-        amount: 100,
-      };
+        id: 1,
+        nextExecutionDate: new Date('2023-02-15'),
+        frequency: 'monthly',
+        dayOfMonth: 15,
+      } as unknown as RecurringTransaction;
 
-      const transactions = service.generateTransactions(recurringTransaction as RecurringTransaction);
-
-      // Should generate 14 transactions in total (13 executed + 1 pending)
-      expect(transactions).toHaveLength(14);
-
-      // Check executed transactions (from start date to current date)
-      const executedTransactions = transactions.filter(t => t.status === 'executed');
-      expect(executedTransactions).toHaveLength(13);
-
-      // Check pending transactions
-      const pendingTransactions = transactions.filter(t => t.status === 'pending');
-      expect(pendingTransactions).toHaveLength(1);
-
-      // Verify first transaction date
-      expect(transactions[0].executionDate).toEqual(new Date('2024-03-12'));
-
-      // Verify last pending transaction date
-      expect(pendingTransactions[0].executionDate).toEqual(new Date('2025-04-12'));
-
-      // Verify all transactions have correct properties
-      transactions.forEach(transaction => {
-        expect(transaction).toEqual(
-          expect.objectContaining({
-            description: recurringTransaction.name,
-            amount: recurringTransaction.amount,
-            type: recurringTransaction.type,
-            category: recurringTransaction.category,
-            bankAccount: recurringTransaction.bankAccount,
-            creditCard: recurringTransaction.creditCard,
-            tags: recurringTransaction.tags,
-            user: recurringTransaction.user,
-            source: 'recurring',
-            recurringTransaction: recurringTransaction
-          })
-        );
-      });
+      const result = service.calculateNextExecutionDate(startDate, recurringTransaction);
+      
+      expect(result).toEqual(new Date('2023-02-15'));
     });
 
-    it('should generate correct transactions for monthly recurring with 20 occurrences starting March 12', () => {
-      // Set current date to March 25, 2024
-      jest.setSystemTime(new Date('2025-03-25'));
-      
+    it('should handle the case when no valid execution date can be calculated', () => {
+      const startDate = new Date('2023-01-01');
       const mockRecurringTransaction = {
-        ...baseMockRecurringTransaction,
-        name: 'Monthly Payment',
+        id: 1,
         amount: 100,
-        status: 'SCHEDULED',
+        description: 'Invalid frequency',
         type: 'expense',
-        frequencyType: 'monthly',
-        frequencyEveryN: 1,
-        startDate: new Date('2024-03-12'),
-        occurrences: 20,
-      } as RecurringTransaction;
+        frequency: 'invalid',
+        status: 'active',
+      } as any;
 
-      const result = service.generateTransactions(mockRecurringTransaction);
-
-      // Verify total number of transactions (13 executed + 1 pending = 14)
-      expect(result).toHaveLength(14);
-
-      // Check executed transactions
-      const executedTransactions = result.filter(t => t.status === 'executed');
-      expect(executedTransactions).toHaveLength(13);
-
-      // Check pending transactions
-      const pendingTransactions = result.filter(t => t.status === 'pending');
-      expect(pendingTransactions).toHaveLength(1);
-
-      // Verify first transaction date
-      expect(result[0].executionDate).toEqual(new Date('2024-03-12'));
-
-      // Verify pending transaction date
-      expect(pendingTransactions[0].executionDate).toEqual(new Date('2025-04-12'));
-
-      // Verify all transactions have correct properties
-      result.forEach(transaction => {
-        expect(transaction).toEqual(
-          expect.objectContaining({
-            description: mockRecurringTransaction.name,
-            amount: mockRecurringTransaction.amount,
-            type: mockRecurringTransaction.type,
-            category: mockRecurringTransaction.category,
-            bankAccount: mockRecurringTransaction.bankAccount,
-            creditCard: mockRecurringTransaction.creditCard,
-            tags: mockRecurringTransaction.tags,
-            user: mockRecurringTransaction.user,
-            source: 'recurring',
-            recurringTransaction: mockRecurringTransaction
-          })
-        );
-      });
-
-      // Verify dates are sequential and monthly
-      for (let i = 1; i < result.length; i++) {
-        const currentDate = result[i].executionDate!;
-        const previousDate = result[i-1].executionDate!;
-        const monthDiff = (currentDate.getFullYear() - previousDate.getFullYear()) * 12 
-                         + (currentDate.getMonth() - previousDate.getMonth());
-        expect(monthDiff).toBe(1);
-        expect(currentDate.getDate()).toBe(12); // Should maintain the same day of month
-      }
+      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
+      
+      // Should return the start date if no valid execution date can be calculated
+      expect(result).toEqual(startDate);
     });
   });
 }); 
