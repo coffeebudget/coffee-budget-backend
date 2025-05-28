@@ -64,4 +64,15 @@ export class TagsController {
     );
     return { count, message: `${count} transactions tagged successfully` };
   }
+
+  @Post('cleanup-duplicates')
+  @ApiOperation({ summary: 'Clean up duplicate tags by merging them' })
+  @ApiResponse({ status: 200, description: 'Duplicate tags cleaned up successfully' })
+  async cleanupDuplicates(@CurrentUser() user: User) {
+    const result = await this.tagsService.cleanupDuplicateTags(user.id);
+    return {
+      ...result,
+      message: `Found ${result.duplicateTagsFound} duplicate tags, merged ${result.tagsMerged}, updated ${result.transactionsUpdated} transactions`
+    };
+  }
 }

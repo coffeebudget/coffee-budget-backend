@@ -74,14 +74,11 @@ export class FinecoParser extends BaseParser {
         creditCard: options.creditCardId ? { id: options.creditCardId } as CreditCard : undefined,
       };
 
-      // Handle Moneymap as tags if present
+      // Instead of creating tag objects directly, store tag names to be processed later
       if (moneymap) {
-        // Create tag objects from the Moneymap values
         const tagNames = moneymap.split(':').map(part => part.trim()).filter(Boolean);
-        transaction.tags = tagNames.map(name => ({ 
-          name, 
-          user: { id: options.userId } 
-        } as Partial<Tag>)) as Tag[];
+        // Store tag names in a custom property that will be processed by TransactionsService
+        (transaction as any).tagNames = tagNames;
       }
 
       transactions.push(transaction);

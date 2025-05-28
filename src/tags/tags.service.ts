@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CreateTagDto } from './dto/create-tag.dto';
@@ -10,6 +10,8 @@ import { TransactionOperationsService } from '../shared/transaction-operations.s
 
 @Injectable()
 export class TagsService {
+  private readonly logger = new Logger(TagsService.name);
+
   constructor(
     @InjectRepository(Tag)
     private tagsRepository: Repository<Tag>,
@@ -192,5 +194,113 @@ export class TagsService {
     }
 
     return modifiedCount;
+  }
+
+  /**
+   * Cleans up duplicate tags for a user by merging them into single tags
+   * @param userId The user ID
+   * @returns Object with counts of how many tags were processed and merged
+   */
+  async cleanupDuplicateTags(userId: number): Promise<{ 
+    duplicateTagsFound: number;
+    tagsMerged: number;
+    transactionsUpdated: number;
+  }> {
+    this.logger.log(`Starting duplicate tag cleanup for user ${userId}`);
+    
+    // Get all tags for the user
+    const allTags = await this.tagsRepository.find({
+      where: { user: { id: userId } }
+    });
+    
+    // Group tags by name
+    const tagsByName: Record<string, Tag[]> = {};
+    allTags.forEach(tag => {
+      const normalizedName = tag.name.trim().toLowerCase();
+      if (!tagsByName[normalizedName]) {
+        tagsByName[normalizedName] = [];
+      }
+      tagsByName[normalizedName].push(tag);
+    });
+    
+    // Filter for names that have duplicates
+    const duplicateGroups = Object.values(tagsByName).filter(group => group.length > 1);
+    
+    let totalMerged = 0;
+    let totalTransactionsUpdated = 0;
+    
+    // Process each group of duplicates
+    for (const group of duplicateGroups) {
+      // Sort by ID (keeping the oldest tag)
+      const sortedTags = [...group].sort((a, b) => a.id - b.id);
+      const primaryTag = sortedTags[0]; // Keep the first (oldest) tag
+      const duplicateTags = sortedTags.slice(1); // Tags to merge
+      const duplicateIds = duplicateTags.map(t => t.id);
+      
+      this.logger.debug(`Merging ${duplicateTags.length} duplicates of tag "${primaryTag.name}" (ID: ${primaryTag.id})`);
+      
+      // Find transactions using any of the duplicate tags
+      const transactions = await this.transactionsRepository.find({
+        where: {
+          user: { id: userId },
+          tags: { id: In(duplicateIds) }
+        },
+        relations: ['tags']
+      });
+      
+      // Update each transaction to use the primary tag instead of duplicates
+      for (const transaction of transactions) {
+        // Filter out the duplicate tags
+        transaction.tags = transaction.tags.filter(tag => !duplicateIds.includes(tag.id));
+        
+        // Add the primary tag if it's not already there
+        if (!transaction.tags.some(tag => tag.id === primaryTag.id)) {
+          transaction.tags.push(primaryTag);
+        }
+      }
+      
+      // Save all updated transactions
+      if (transactions.length > 0) {
+        await this.transactionsRepository.save(transactions);
+        totalTransactionsUpdated += transactions.length;
+      }
+      
+      // Find recurring transactions using any of the duplicate tags
+      const recurringTransactions = await this.recurringTransactionsRepository.find({
+        where: {
+          user: { id: userId },
+          tags: { id: In(duplicateIds) }
+        },
+        relations: ['tags']
+      });
+      
+      // Update each recurring transaction to use the primary tag instead of duplicates
+      for (const recurringTx of recurringTransactions) {
+        // Filter out the duplicate tags
+        recurringTx.tags = recurringTx.tags.filter(tag => !duplicateIds.includes(tag.id));
+        
+        // Add the primary tag if it's not already there
+        if (!recurringTx.tags.some(tag => tag.id === primaryTag.id)) {
+          recurringTx.tags.push(primaryTag);
+        }
+      }
+      
+      // Save all updated recurring transactions
+      if (recurringTransactions.length > 0) {
+        await this.recurringTransactionsRepository.save(recurringTransactions);
+      }
+      
+      // Delete the duplicate tags
+      await this.tagsRepository.delete(duplicateIds);
+      totalMerged += duplicateIds.length;
+    }
+    
+    this.logger.log(`Completed duplicate tag cleanup for user ${userId}: merged ${totalMerged} tags, updated ${totalTransactionsUpdated} transactions`);
+    
+    return {
+      duplicateTagsFound: duplicateGroups.reduce((sum, group) => sum + group.length - 1, 0),
+      tagsMerged: totalMerged,
+      transactionsUpdated: totalTransactionsUpdated
+    };
   }
 }
