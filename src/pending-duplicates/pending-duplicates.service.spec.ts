@@ -226,7 +226,7 @@ describe('PendingDuplicatesService', () => {
       )).rejects.toThrow(NotFoundException);
     });
 
-    it('should handle IGNORE choice even if resolution throws an error', async () => {
+    it('should handle KEEP_EXISTING choice even if resolution throws an error', async () => {
       const mockPendingDuplicate = {
         id: 1,
         existingTransaction: { id: 1, description: 'Existing Transaction', amount: 100 },
@@ -242,7 +242,7 @@ describe('PendingDuplicatesService', () => {
       const result = await service.resolvePendingDuplicate(
         1,
         1,
-        DuplicateTransactionChoice.IGNORE
+        DuplicateTransactionChoice.KEEP_EXISTING
       );
 
       expect(result).toEqual({

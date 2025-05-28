@@ -12,6 +12,7 @@ export interface MonthlyIncomeExpense {
   month: string;
   income: number;
   expenses: number;
+  date?: Date;
 }
 
 @Injectable()
@@ -69,8 +70,8 @@ export class DashboardService {
   async getMonthlyIncomeAndExpenses(
     userId: number,
     numberOfMonths: number = 6,
-  ): Promise<{ month: string; income: number; expenses: number }[]> {
-    const result: { month: string; income: number; expenses: number }[] = [];
+  ): Promise<{ month: string; income: number; expenses: number; date: Date }[]> {
+    const result: { month: string; income: number; expenses: number; date: Date }[] = [];
     const currentDate = new Date();
 
     for (let i = 0; i < numberOfMonths; i++) {
@@ -78,36 +79,37 @@ export class DashboardService {
       const start = startOfMonth(date);
       const end = endOfMonth(date);
       
-      // Use queryBuilder instead of find to apply the exclusion filter
-      const monthlyData = await this.transactionsRepository
+      // Get income total - Apply the same category filter as expenses
+      const incomeResult = await this.transactionsRepository
         .createQueryBuilder('transaction')
-        .leftJoinAndSelect('transaction.category', 'category')
-        .select('transaction.type', 'type')
-        .addSelect('SUM(ABS(transaction.amount))', 'total')
+        .leftJoin('transaction.category', 'category')
+        .select('SUM(transaction.amount)', 'total')
         .where('transaction.user.id = :userId', { userId })
+        .andWhere('transaction.type = :type', { type: 'income' })
         .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
-        .andWhere('(transaction.type = :income OR (category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false))', 
-          { income: 'income' })
-        .groupBy('transaction.type')
-        .getRawMany();
+        .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+        .getRawOne();
       
-      // Initialize with zeros
-      let income = 0;
-      let expenses = 0;
+      // Get expense total with exclusions
+      const expenseResult = await this.transactionsRepository
+        .createQueryBuilder('transaction')
+        .leftJoin('transaction.category', 'category')
+        .select('SUM(ABS(transaction.amount))', 'total')
+        .where('transaction.user.id = :userId', { userId })
+        .andWhere('transaction.type = :type', { type: 'expense' })
+        .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+        .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+        .getRawOne();
       
-      // Process the results
-      monthlyData.forEach(item => {
-        if (item.type === 'income') {
-          income = Number(item.total);
-        } else if (item.type === 'expense') {
-          expenses = Number(item.total);
-        }
-      });
+      // Process the results with proper type handling
+      const income = Number(incomeResult?.total || 0);
+      const expenses = Number(expenseResult?.total || 0);
 
       result.unshift({
         month: format(date, 'MMM yyyy'),
         income,
         expenses,
+        date: date
       });
     }
 
@@ -135,10 +137,12 @@ export class DashboardService {
     // Get income total
     const incomeResult = await this.transactionsRepository
       .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
       .select('SUM(transaction.amount)', 'total')
       .where('transaction.user.id = :userId', { userId })
       .andWhere('transaction.type = :type', { type: 'income' })
       .andWhere('transaction.executionDate BETWEEN :start AND :end', { start, end })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
       .getRawOne();
   
     // Get expense total with exclusions
@@ -246,6 +250,9 @@ export class DashboardService {
       query.andWhere('transaction.type = :type', { type: filters.type });
     }
     
+    // Apply category exclusion filter to all transactions regardless of type
+    query.andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)');
+    
     if (filters.searchTerm) {
       query.andWhere('transaction.description LIKE :searchTerm', { searchTerm: `%${filters.searchTerm}%` });
     }
@@ -294,12 +301,23 @@ export class DashboardService {
     mode: 'historical' | 'recurring' = 'historical',
   ): Promise<{ month: string; income: number; expenses: number; projectedBalance: number }[]> {
     const startingBalance = (await this.getCurrentBalance(userId)).currentBalance;
+    
+    console.log(`Generating ${months} months cash flow forecast using ${mode} mode`);
   
+    let forecast;
     if (mode === 'historical') {
-      return this.forecastFromHistoricalData(userId, months, startingBalance);
+      forecast = await this.forecastFromHistoricalData(userId, months, startingBalance);
+    } else {
+      forecast = await this.forecastFromRecurringTransactions(userId, months, startingBalance);
     }
-  
-    return this.forecastFromRecurringTransactions(userId, months, startingBalance);
+    
+    // Log April 2025 forecast if it exists
+    const april2025 = forecast.find(f => f.month === 'Apr 2025');
+    if (april2025) {
+      console.log('April 2025 forecast:', april2025);
+    }
+    
+    return forecast;
   }
   
   private async forecastFromHistoricalData(
@@ -310,19 +328,36 @@ export class DashboardService {
     const today = new Date();
     
     // Get past months data with excluded categories already filtered out
-    const pastMonths = await this.getMonthlyIncomeAndExpenses(userId, 6);
+    // Get more months of data for a better sample size if available
+    const pastMonths = await this.getMonthlyIncomeAndExpenses(userId, 12);
 
     if (pastMonths.length === 0) return [];
 
     let projectedBalance = startingBalance;
     const forecast: { month: string; income: number; expenses: number; projectedBalance: number }[] = [];
 
+    // Use a debug log to inspect historical data
+    console.log('Historical data for forecasting:', JSON.stringify(pastMonths.map(m => ({ 
+      month: m.month, 
+      income: m.income, 
+      expenses: m.expenses 
+    }))));
+
     for (let i = 0; i < months; i++) {
       const date = addMonths(today, i);
       const month = format(date, 'MMM yyyy');
 
-      // Rotate through historical months cyclically
-      const historical = pastMonths[i % pastMonths.length];
+      // Rotate through historical months cyclically, using month position for more realistic seasonal patterns
+      // This makes April 2025 use data from the most recent April, etc.
+      const monthIndex = date.getMonth(); // 0-11
+      
+      // Find historical data for the same month if available
+      const matchingMonthData = pastMonths.find(m => {
+        return m.date.getMonth() === monthIndex;
+      });
+      
+      // Use matching month data if found, otherwise use the first available month
+      const historical = matchingMonthData || pastMonths[0];
       const income = historical.income;
       const expenses = historical.expenses;
 
@@ -343,9 +378,14 @@ export class DashboardService {
     let projectedBalance = startingBalance;
     const forecast: { month: string; income: number; expenses: number; projectedBalance: number }[] = [];
   
-    const recurringTransactions = await this.recurringTransactionRepository.find({
-      where: { user: { id: userId }, status: 'SCHEDULED' },
-    });
+    // Get recurring transactions that are scheduled and exclude those with categories marked excludeFromExpenseAnalytics
+    const recurringTransactions = await this.recurringTransactionRepository
+      .createQueryBuilder('recTransaction')
+      .leftJoinAndSelect('recTransaction.category', 'category')
+      .where('recTransaction.user.id = :userId', { userId })
+      .andWhere('recTransaction.status = :status', { status: 'SCHEDULED' })
+      .andWhere('(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)')
+      .getMany();
   
     for (let i = 0; i < months; i++) {
       const date = addMonths(today, i);

@@ -286,7 +286,7 @@ describe('TransactionsService', () => {
       const result = await service.createAndSaveTransaction(
         createDto, 
         mockUserId, 
-        DuplicateTransactionChoice.REPLACE
+        DuplicateTransactionChoice.USE_NEW
       );
       
       expect(result).toBeDefined();
@@ -383,7 +383,7 @@ describe('TransactionsService', () => {
       const result = await service.createAndSaveTransaction(
         createTransactionDto as any,
         mockUserId,
-        DuplicateTransactionChoice.MERGE
+        DuplicateTransactionChoice.MAINTAIN_BOTH
       );
 
       expect((service as any).mergeTransactions).toHaveBeenCalledWith(
@@ -570,7 +570,7 @@ describe('TransactionsService', () => {
       );
     });
 
-    it('should handle IGNORE choice correctly', async () => {
+    it('should handle KEEP_EXISTING choice correctly', async () => {
       const existingTransaction = {
         id: 50,
         description: 'Existing Transaction',
@@ -595,7 +595,7 @@ describe('TransactionsService', () => {
         existingTransaction as Transaction,
         newTransactionData,
         mockUserId,
-        DuplicateTransactionChoice.IGNORE
+        DuplicateTransactionChoice.KEEP_EXISTING
       );
 
       expect(result).toEqual({
