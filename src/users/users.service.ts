@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { CategoriesService } from '../categories/categories.service';
 import { DefaultCategoriesService } from '../categories/default-categories.service';
-
 
 @Injectable()
 export class UserService {
@@ -27,18 +30,22 @@ export class UserService {
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     // Check if user already exists
     const existingUser = await this.usersRepository.findOne({
-      where: { auth0Id: createUserDto.auth0Id }
+      where: { auth0Id: createUserDto.auth0Id },
     });
-    
+
     if (existingUser) {
-      throw new BadRequestException(`User with Auth0 ID ${createUserDto.auth0Id} already exists`);
+      throw new BadRequestException(
+        `User with Auth0 ID ${createUserDto.auth0Id} already exists`,
+      );
     }
 
     const user = this.usersRepository.create(createUserDto);
     const savedUser = await this.usersRepository.save(user);
 
     // Create default categories for the new user
-    await this.defaultCategoriesService.createDefaultCategoriesForUser(savedUser);
+    await this.defaultCategoriesService.createDefaultCategoriesForUser(
+      savedUser,
+    );
 
     return savedUser;
   }

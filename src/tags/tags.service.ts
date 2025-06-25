@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { CreateTagDto } from './dto/create-tag.dto';
@@ -6,7 +11,6 @@ import { Tag } from './entities/tag.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { User } from '../users/user.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
 
 @Injectable()
 export class TagsService {
@@ -19,7 +23,6 @@ export class TagsService {
     private transactionsRepository: Repository<Transaction>,
     @InjectRepository(RecurringTransaction)
     private recurringTransactionsRepository: Repository<RecurringTransaction>,
-    private transactionOperationsService: TransactionOperationsService,
   ) {}
 
   async create(createTagDto: CreateTagDto, user: User): Promise<Tag> {
@@ -28,7 +31,9 @@ export class TagsService {
       where: { name: createTagDto.name },
     });
     if (existingTag) {
-      throw new ConflictException(`Tag with name ${createTagDto.name} already exists`);
+      throw new ConflictException(
+        `Tag with name ${createTagDto.name} already exists`,
+      );
     }
 
     const tag = this.tagsRepository.create({
@@ -56,16 +61,22 @@ export class TagsService {
     return tag;
   }
 
-  async update(id: number, updateTagDto: Partial<Tag>, userId: number): Promise<Tag> {
+  async update(
+    id: number,
+    updateTagDto: Partial<Tag>,
+    userId: number,
+  ): Promise<Tag> {
     await this.findOne(id, userId); // Necessary to ensure the tag exists and belongs to the user
-    
+
     // Check if the new name already exists
     if (updateTagDto.name) {
       const existingTag = await this.tagsRepository.findOne({
-        where: { name: updateTagDto.name, user: { id: userId } }, 
+        where: { name: updateTagDto.name, user: { id: userId } },
       });
       if (existingTag && existingTag.id !== id) {
-        throw new ConflictException(`Tag with name ${updateTagDto.name} already exists`);
+        throw new ConflictException(
+          `Tag with name ${updateTagDto.name} already exists`,
+        );
       }
     }
 
@@ -74,7 +85,8 @@ export class TagsService {
   }
 
   async remove(id: number, userId: number): Promise<void> {
-    const queryRunner = this.tagsRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.tagsRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -83,18 +95,24 @@ export class TagsService {
       const tag = await this.findOne(id, userId);
 
       // Check if tag is used in any transactions
-      const transactionsWithTag = await queryRunner.manager.find('Transaction', {
-        where: { tags: { id }, user: { id: userId } }
-      });
+      const transactionsWithTag = await queryRunner.manager.find(
+        'Transaction',
+        {
+          where: { tags: { id }, user: { id: userId } },
+        },
+      );
 
       if (transactionsWithTag.length > 0) {
         throw new ConflictException(
-          `Cannot delete tag: it is used in ${transactionsWithTag.length} transaction(s)`
+          `Cannot delete tag: it is used in ${transactionsWithTag.length} transaction(s)`,
         );
       }
 
-      const result = await queryRunner.manager.delete('Tag', { id, user: { id: userId } });
-      
+      const result = await queryRunner.manager.delete('Tag', {
+        id,
+        user: { id: userId },
+      });
+
       if (result.affected === 0) {
         throw new NotFoundException(`Tag with ID ${id} not found`);
       }
@@ -109,18 +127,25 @@ export class TagsService {
   }
 
   async findByName(name: string, userId: number): Promise<Tag | null> {
-    return this.tagsRepository.findOne({ where: { name, user: { id: userId } } });
+    return this.tagsRepository.findOne({
+      where: { name, user: { id: userId } },
+    });
   }
 
   async resolveTagsFromString(input: string, userId: number): Promise<Tag[]> {
-    const tagNames = input.split(/[,;/]/).map(t => t.trim()).filter(Boolean);
+    const tagNames = input
+      .split(/[,;/]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
     const tags: Tag[] = [];
-  
+
     for (const name of tagNames) {
       const existing = await this.findByName(name, userId);
-      tags.push(existing ?? await this.create({ name }, { id: userId } as User));
+      tags.push(
+        existing ?? (await this.create({ name }, { id: userId } as User)),
+      );
     }
-  
+
     return tags;
   }
 
@@ -132,9 +157,9 @@ export class TagsService {
    * @returns Number of transactions that were tagged
    */
   async bulkTagByIds(
-    transactionIds: number[], 
-    tagIds: number[], 
-    userId: number
+    transactionIds: number[],
+    tagIds: number[],
+    userId: number,
   ): Promise<number> {
     if (!transactionIds || !transactionIds.length) {
       throw new NotFoundException('Transaction IDs array is required');
@@ -146,10 +171,10 @@ export class TagsService {
 
     // Verify the tags exist and belong to the user
     const tags = await this.tagsRepository.find({
-      where: { 
+      where: {
         id: In(tagIds),
-        user: { id: userId } 
-      }
+        user: { id: userId },
+      },
     });
 
     if (tags.length !== tagIds.length) {
@@ -158,11 +183,11 @@ export class TagsService {
 
     // Find all the transactions that belong to the user
     const transactions = await this.transactionsRepository.find({
-      where: { 
+      where: {
         id: In(transactionIds),
-        user: { id: userId } 
+        user: { id: userId },
       },
-      relations: ['tags']
+      relations: ['tags'],
     });
 
     if (!transactions.length) {
@@ -173,16 +198,16 @@ export class TagsService {
     let modifiedCount = 0;
 
     for (const transaction of transactions) {
-      const existingTagIds = transaction.tags.map(tag => tag.id);
+      const existingTagIds = transaction.tags.map((tag) => tag.id);
       let modified = false;
-      
+
       for (const tag of tags) {
         if (!existingTagIds.includes(tag.id)) {
           transaction.tags.push(tag);
           modified = true;
         }
       }
-      
+
       if (modified) {
         modifiedCount++;
       }
@@ -201,106 +226,120 @@ export class TagsService {
    * @param userId The user ID
    * @returns Object with counts of how many tags were processed and merged
    */
-  async cleanupDuplicateTags(userId: number): Promise<{ 
+  async cleanupDuplicateTags(userId: number): Promise<{
     duplicateTagsFound: number;
     tagsMerged: number;
     transactionsUpdated: number;
   }> {
     this.logger.log(`Starting duplicate tag cleanup for user ${userId}`);
-    
+
     // Get all tags for the user
     const allTags = await this.tagsRepository.find({
-      where: { user: { id: userId } }
+      where: { user: { id: userId } },
     });
-    
+
     // Group tags by name
     const tagsByName: Record<string, Tag[]> = {};
-    allTags.forEach(tag => {
+    allTags.forEach((tag) => {
       const normalizedName = tag.name.trim().toLowerCase();
       if (!tagsByName[normalizedName]) {
         tagsByName[normalizedName] = [];
       }
       tagsByName[normalizedName].push(tag);
     });
-    
+
     // Filter for names that have duplicates
-    const duplicateGroups = Object.values(tagsByName).filter(group => group.length > 1);
-    
+    const duplicateGroups = Object.values(tagsByName).filter(
+      (group) => group.length > 1,
+    );
+
     let totalMerged = 0;
     let totalTransactionsUpdated = 0;
-    
+
     // Process each group of duplicates
     for (const group of duplicateGroups) {
       // Sort by ID (keeping the oldest tag)
       const sortedTags = [...group].sort((a, b) => a.id - b.id);
       const primaryTag = sortedTags[0]; // Keep the first (oldest) tag
       const duplicateTags = sortedTags.slice(1); // Tags to merge
-      const duplicateIds = duplicateTags.map(t => t.id);
-      
-      this.logger.debug(`Merging ${duplicateTags.length} duplicates of tag "${primaryTag.name}" (ID: ${primaryTag.id})`);
-      
+      const duplicateIds = duplicateTags.map((t) => t.id);
+
+      this.logger.debug(
+        `Merging ${duplicateTags.length} duplicates of tag "${primaryTag.name}" (ID: ${primaryTag.id})`,
+      );
+
       // Find transactions using any of the duplicate tags
       const transactions = await this.transactionsRepository.find({
         where: {
           user: { id: userId },
-          tags: { id: In(duplicateIds) }
+          tags: { id: In(duplicateIds) },
         },
-        relations: ['tags']
+        relations: ['tags'],
       });
-      
+
       // Update each transaction to use the primary tag instead of duplicates
       for (const transaction of transactions) {
         // Filter out the duplicate tags
-        transaction.tags = transaction.tags.filter(tag => !duplicateIds.includes(tag.id));
-        
+        transaction.tags = transaction.tags.filter(
+          (tag) => !duplicateIds.includes(tag.id),
+        );
+
         // Add the primary tag if it's not already there
-        if (!transaction.tags.some(tag => tag.id === primaryTag.id)) {
+        if (!transaction.tags.some((tag) => tag.id === primaryTag.id)) {
           transaction.tags.push(primaryTag);
         }
       }
-      
+
       // Save all updated transactions
       if (transactions.length > 0) {
         await this.transactionsRepository.save(transactions);
         totalTransactionsUpdated += transactions.length;
       }
-      
+
       // Find recurring transactions using any of the duplicate tags
-      const recurringTransactions = await this.recurringTransactionsRepository.find({
-        where: {
-          user: { id: userId },
-          tags: { id: In(duplicateIds) }
-        },
-        relations: ['tags']
-      });
-      
+      const recurringTransactions =
+        await this.recurringTransactionsRepository.find({
+          where: {
+            user: { id: userId },
+            tags: { id: In(duplicateIds) },
+          },
+          relations: ['tags'],
+        });
+
       // Update each recurring transaction to use the primary tag instead of duplicates
       for (const recurringTx of recurringTransactions) {
         // Filter out the duplicate tags
-        recurringTx.tags = recurringTx.tags.filter(tag => !duplicateIds.includes(tag.id));
-        
+        recurringTx.tags = recurringTx.tags.filter(
+          (tag) => !duplicateIds.includes(tag.id),
+        );
+
         // Add the primary tag if it's not already there
-        if (!recurringTx.tags.some(tag => tag.id === primaryTag.id)) {
+        if (!recurringTx.tags.some((tag) => tag.id === primaryTag.id)) {
           recurringTx.tags.push(primaryTag);
         }
       }
-      
+
       // Save all updated recurring transactions
       if (recurringTransactions.length > 0) {
         await this.recurringTransactionsRepository.save(recurringTransactions);
       }
-      
+
       // Delete the duplicate tags
       await this.tagsRepository.delete(duplicateIds);
       totalMerged += duplicateIds.length;
     }
-    
-    this.logger.log(`Completed duplicate tag cleanup for user ${userId}: merged ${totalMerged} tags, updated ${totalTransactionsUpdated} transactions`);
-    
+
+    this.logger.log(
+      `Completed duplicate tag cleanup for user ${userId}: merged ${totalMerged} tags, updated ${totalTransactionsUpdated} transactions`,
+    );
+
     return {
-      duplicateTagsFound: duplicateGroups.reduce((sum, group) => sum + group.length - 1, 0),
+      duplicateTagsFound: duplicateGroups.reduce(
+        (sum, group) => sum + group.length - 1,
+        0,
+      ),
       tagsMerged: totalMerged,
-      transactionsUpdated: totalTransactionsUpdated
+      transactionsUpdated: totalTransactionsUpdated,
     };
   }
 }

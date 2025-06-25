@@ -13,7 +13,7 @@ describe('WebankParser', () => {
     parser = new WebankParser();
     // Mock the logger to avoid console output during tests
     (parser as any).logger = { warn: jest.fn(), error: jest.fn() };
-    
+
     // Reset mocks between tests
     jest.clearAllMocks();
   });
@@ -24,8 +24,9 @@ describe('WebankParser', () => {
 
   describe('parseFile', () => {
     it('should throw BadRequestException if data is empty', async () => {
-      await expect(parser.parseFile('', { userId: 1 }))
-        .rejects.toThrow('Missing Webank HTML content');
+      await expect(parser.parseFile('', { userId: 1 })).rejects.toThrow(
+        'Missing Webank HTML content',
+      );
     });
 
     it('should extract transactions from Webank HTML content', async () => {
@@ -80,40 +81,45 @@ describe('WebankParser', () => {
       // Create mock parsed transactions to return
       const mockTransactions = [
         {
-          description: 'BON.DA INPS ASSEGNO UNICO PER 2 FIGLI/O PER I L PERIODO DA 01-03-2025 A 31-03-2025',
+          description:
+            'BON.DA INPS ASSEGNO UNICO PER 2 FIGLI/O PER I L PERIODO DA 01-03-2025 A 31-03-2025',
           amount: 150.75,
           type: 'income',
           executionDate: new Date('2025-03-20'),
-          bankAccount: { id: 123 }
+          bankAccount: { id: 123 },
         },
         {
           description: 'vostra disposizione - vs.disp. rif. mb123456789',
-          amount: 450.00,
+          amount: 450.0,
           type: 'expense',
           executionDate: new Date('2025-03-18'),
-          bankAccount: { id: 123 }
+          bankAccount: { id: 123 },
         },
         {
-          description: 'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a',
+          description:
+            'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a',
           amount: 13.99,
           type: 'expense',
           executionDate: new Date('2025-03-11'),
-          bankAccount: { id: 123 }
-        }
+          bankAccount: { id: 123 },
+        },
       ];
 
       // Mock the protected methods
-      (parser as any).parseDate = jest.fn()
+      (parser as any).parseDate = jest
+        .fn()
         .mockReturnValueOnce(new Date('2025-03-20'))
         .mockReturnValueOnce(new Date('2025-03-18'))
         .mockReturnValueOnce(new Date('2025-03-11'));
-      
-      (parser as any).parseAmount = jest.fn()
+
+      (parser as any).parseAmount = jest
+        .fn()
         .mockReturnValueOnce(150.75)
-        .mockReturnValueOnce(-450.00)
+        .mockReturnValueOnce(-450.0)
         .mockReturnValueOnce(-13.99);
-      
-      (parser as any).determineTransactionType = jest.fn()
+
+      (parser as any).determineTransactionType = jest
+        .fn()
         .mockReturnValueOnce('income')
         .mockReturnValueOnce('expense')
         .mockReturnValueOnce('expense');
@@ -123,24 +129,37 @@ describe('WebankParser', () => {
         // This would normally return the cell nodes, but we're just mocking the text function
         return {
           text: jest.fn().mockImplementation(() => {
-            if (cell === 1) { // Date Valuta column
-              return ['20/03/2025', '18/03/2025', '11/03/2025'][mockCellFinder.callCount++ % 3];
-            } else if (cell === 2) { // Amount column
-              return ['150,75', '-450,00', '-13,99'][mockCellFinder.callCount++ % 3];
-            } else if (cell === 4) { // Description column
+            if (cell === 1) {
+              // Date Valuta column
+              return ['20/03/2025', '18/03/2025', '11/03/2025'][
+                mockCellFinder.callCount++ % 3
+              ];
+            } else if (cell === 2) {
+              // Amount column
+              return ['150,75', '-450,00', '-13,99'][
+                mockCellFinder.callCount++ % 3
+              ];
+            } else if (cell === 4) {
+              // Description column
               return [
                 'BON.DA INPS ASSEGNO UNICO PER 2 FIGLI/O PER I L PERIODO DA 01-03-2025 A 31-03-2025',
                 'vostra disposizione - vs.disp. rif. mb123456789',
-                'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a'
+                'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a',
               ][mockCellFinder.callCount++ % 3];
             }
             return '';
           }),
           // Add a trim method for the parser
           trim: jest.fn().mockImplementation(() => {
-            return ['20/03/2025', '18/03/2025', '11/03/2025', 
-                   '150,75', '-450,00', '-13,99'][mockCellFinder.callCount++ % 6];
-          })
+            return [
+              '20/03/2025',
+              '18/03/2025',
+              '11/03/2025',
+              '150,75',
+              '-450,00',
+              '-13,99',
+            ][mockCellFinder.callCount++ % 6];
+          }),
         };
       };
       mockCellFinder.callCount = 0;
@@ -155,19 +174,19 @@ describe('WebankParser', () => {
               callback(1, {}); // First transaction
               callback(2, {}); // Second transaction
               callback(3, {}); // Third transaction
-            }
+            },
           };
         } else if (selector.includes('td')) {
           // Simulate finding TD cells
           return {
-            length: 6 // Simulate 6 cells for our transactions
+            length: 6, // Simulate 6 cells for our transactions
           };
         } else {
           // Called with a row object, return a finder function for TD cells
           return {
             find: jest.fn().mockReturnValue({
-              length: 6
-            })
+              length: 6,
+            }),
           };
         }
       });
@@ -182,20 +201,20 @@ describe('WebankParser', () => {
               callback(1, {}); // First transaction
               callback(2, {}); // Second transaction
               callback(3, {}); // Third transaction
-            }
+            },
           };
         } else if (typeof selector === 'object') {
           // This is for $(row).find('td')
           return {
             find: jest.fn().mockReturnValue({
-              length: 6 // Simulate 6 cells
-            })
+              length: 6, // Simulate 6 cells
+            }),
           };
         } else if (Array.isArray(selector)) {
           // This is for accessing a specific cell like $(cells[1])
           return mockCellFinder(Number(selector));
         }
-        
+
         return { each: jest.fn() };
       });
 
@@ -216,9 +235,9 @@ describe('WebankParser', () => {
       });
 
       // Execute with test data
-      const result = await parser.parseFile(sampleHtml, { 
+      const result = await parser.parseFile(sampleHtml, {
         userId: 1,
-        bankAccountId: 123
+        bankAccountId: 123,
       });
 
       // Restore original method
@@ -226,30 +245,32 @@ describe('WebankParser', () => {
 
       // Verify results
       expect(result).toHaveLength(3);
-      
+
       // Check the first transaction (income)
       expect(result[0]).toMatchObject({
-        description: 'BON.DA INPS ASSEGNO UNICO PER 2 FIGLI/O PER I L PERIODO DA 01-03-2025 A 31-03-2025',
+        description:
+          'BON.DA INPS ASSEGNO UNICO PER 2 FIGLI/O PER I L PERIODO DA 01-03-2025 A 31-03-2025',
         amount: 150.75,
         type: 'income',
-        bankAccount: { id: 123 }
+        bankAccount: { id: 123 },
       });
 
       // Check the second transaction (expense)
       expect(result[1]).toMatchObject({
         description: 'vostra disposizione - vs.disp. rif. mb123456789',
-        amount: 450.00,
+        amount: 450.0,
         type: 'expense',
-        bankAccount: { id: 123 }
+        bankAccount: { id: 123 },
       });
 
       // Check the third transaction (expense)
       expect(result[2]).toMatchObject({
-        description: 'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a',
+        description:
+          'addebito diretto sdd - sdd core: paypal europe s.a.r.l. et cie s.c.a',
         amount: 13.99,
         type: 'expense',
-        bankAccount: { id: 123 }
+        bankAccount: { id: 123 },
       });
     });
   });
-}); 
+});

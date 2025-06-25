@@ -10,4 +10,4 @@ export default registerAs('database', () => ({
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   synchronize: process.env.NODE_ENV !== 'production',
   logging: process.env.DB_LOGGING === 'true',
-})); 
+}));

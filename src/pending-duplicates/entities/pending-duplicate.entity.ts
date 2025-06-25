@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
 import { Transaction } from '../../transactions/transaction.entity';
 import { User } from '../../users/user.entity';
 
@@ -28,7 +35,7 @@ export class PendingDuplicate {
   user: User;
 
   @CreateDateColumn()
-  createdAt: Date;  
+  createdAt: Date;
 
   @Column({ default: false })
   resolved: boolean;

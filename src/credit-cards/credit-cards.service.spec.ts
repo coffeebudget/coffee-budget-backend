@@ -8,14 +8,16 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { Repository } from 'typeorm';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
-import { NotFoundException } from '@nestjs/common'; 
+import { NotFoundException } from '@nestjs/common';
 
 describe('CreditCardsService', () => {
   let service: CreditCardsService;
   let mockCreditCardsRepository: Partial<Repository<CreditCard>>;
   let mockBankAccountsRepository: Partial<Repository<BankAccount>>;
   let mockTransactionRepository: Partial<Repository<Transaction>>;
-  let mockRecurringTransactionRepository: Partial<Repository<RecurringTransaction>>;
+  let mockRecurringTransactionRepository: Partial<
+    Repository<RecurringTransaction>
+  >;
   let mockTransactionOperationsService: Partial<TransactionOperationsService>;
 
   const mockUser = { id: 1, email: 'test@example.com', auth0Id: 'auth0|123' };
@@ -89,7 +91,7 @@ describe('CreditCardsService', () => {
         availableCredit: 1000,
         currentBalance: 0,
         billingDay: 15,
-        interestRate: 0.15
+        interestRate: 0.15,
       };
 
       const expectedCreditCard = {
@@ -97,8 +99,12 @@ describe('CreditCardsService', () => {
         user: mockUser,
       };
 
-      (mockCreditCardsRepository.create as jest.Mock).mockReturnValue(expectedCreditCard);
-      (mockCreditCardsRepository.save as jest.Mock).mockResolvedValue(expectedCreditCard);
+      (mockCreditCardsRepository.create as jest.Mock).mockReturnValue(
+        expectedCreditCard,
+      );
+      (mockCreditCardsRepository.save as jest.Mock).mockResolvedValue(
+        expectedCreditCard,
+      );
 
       const result = await service.create(createDto, mockUser as any);
 

@@ -18,21 +18,21 @@ export class CreateKeywordStatsTable1745434452 implements MigrationInterface {
         CONSTRAINT "PK_keyword_stats" PRIMARY KEY ("id")
       )
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE "keyword_stats" 
       ADD CONSTRAINT "FK_keyword_stats_category" 
       FOREIGN KEY ("categoryId") REFERENCES "category"("id") 
       ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
-    
+
     await queryRunner.query(`
       ALTER TABLE "keyword_stats" 
       ADD CONSTRAINT "FK_keyword_stats_user" 
       FOREIGN KEY ("userId") REFERENCES "user"("id") 
       ON DELETE NO ACTION ON UPDATE NO ACTION
     `);
-    
+
     // Add index on keyword and userId for performance
     await queryRunner.query(`
       CREATE INDEX "IDX_keyword_stats_keyword_user" 
@@ -42,8 +42,12 @@ export class CreateKeywordStatsTable1745434452 implements MigrationInterface {
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`DROP INDEX "IDX_keyword_stats_keyword_user"`);
-    await queryRunner.query(`ALTER TABLE "keyword_stats" DROP CONSTRAINT "FK_keyword_stats_user"`);
-    await queryRunner.query(`ALTER TABLE "keyword_stats" DROP CONSTRAINT "FK_keyword_stats_category"`);
+    await queryRunner.query(
+      `ALTER TABLE "keyword_stats" DROP CONSTRAINT "FK_keyword_stats_user"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "keyword_stats" DROP CONSTRAINT "FK_keyword_stats_category"`,
+    );
     await queryRunner.query(`DROP TABLE "keyword_stats"`);
   }
-} 
+}

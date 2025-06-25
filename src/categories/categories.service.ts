@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository, Raw } from 'typeorm';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -7,7 +11,6 @@ import { Category } from './entities/category.entity';
 import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 
@@ -20,25 +23,31 @@ export class CategoriesService {
     private transactionsRepository: Repository<Transaction>,
     @InjectRepository(RecurringTransaction)
     private recurringTransactionsRepository: Repository<RecurringTransaction>,
-    private transactionOperationsService: TransactionOperationsService,
     private keywordExtractionService: KeywordExtractionService,
     private keywordStatsService: KeywordStatsService,
   ) {}
 
-  async create(createCategoryDto: CreateCategoryDto, user: User): Promise<Category> {    
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    user: User,
+  ): Promise<Category> {
     const existingCategory = await this.categoriesRepository.findOne({
-      where: { 
+      where: {
         name: createCategoryDto.name,
-        user: { id: user.id }
+        user: { id: user.id },
       },
     });
     if (existingCategory) {
-      throw new ConflictException(`Category with name ${createCategoryDto.name} already exists for this user`);
+      throw new ConflictException(
+        `Category with name ${createCategoryDto.name} already exists for this user`,
+      );
     }
 
     // Process keywords if they exist
     if (createCategoryDto.keywords) {
-      createCategoryDto.keywords = createCategoryDto.keywords.map(k => k.trim().toLowerCase());
+      createCategoryDto.keywords = createCategoryDto.keywords.map((k) =>
+        k.trim().toLowerCase(),
+      );
     }
 
     const category = this.categoriesRepository.create({
@@ -48,9 +57,13 @@ export class CategoriesService {
     return this.categoriesRepository.save(category);
   }
 
-  async update(id: number, updateCategoryDto: UpdateCategoryDto, userId: number): Promise<Category> {
+  async update(
+    id: number,
+    updateCategoryDto: UpdateCategoryDto,
+    userId: number,
+  ): Promise<Category> {
     const category = await this.findOne(id, userId); // Ensure it exists and belongs to the user
-  
+
     // Prevent duplicate name
     if (updateCategoryDto.name && updateCategoryDto.name !== category.name) {
       const existingCategory = await this.categoriesRepository.findOne({
@@ -59,26 +72,32 @@ export class CategoriesService {
           user: { id: userId },
         },
       });
-  
+
       if (existingCategory && existingCategory.id !== id) {
-        throw new ConflictException(`Category with name ${updateCategoryDto.name} already exists for this user`);
+        throw new ConflictException(
+          `Category with name ${updateCategoryDto.name} already exists for this user`,
+        );
       }
     }
-  
+
     // Merge only fields that are defined
-    if (updateCategoryDto.name !== undefined) category.name = updateCategoryDto.name;
+    if (updateCategoryDto.name !== undefined)
+      category.name = updateCategoryDto.name;
     if (updateCategoryDto.keywords !== undefined) {
-      category.keywords = updateCategoryDto.keywords.map(k => k.trim().toLowerCase());
+      category.keywords = updateCategoryDto.keywords.map((k) =>
+        k.trim().toLowerCase(),
+      );
     }
 
-    if (updateCategoryDto.excludeFromExpenseAnalytics !== undefined) 
-      category.excludeFromExpenseAnalytics = updateCategoryDto.excludeFromExpenseAnalytics;
-    if (updateCategoryDto.analyticsExclusionReason !== undefined) 
-      category.analyticsExclusionReason = updateCategoryDto.analyticsExclusionReason;
-  
+    if (updateCategoryDto.excludeFromExpenseAnalytics !== undefined)
+      category.excludeFromExpenseAnalytics =
+        updateCategoryDto.excludeFromExpenseAnalytics;
+    if (updateCategoryDto.analyticsExclusionReason !== undefined)
+      category.analyticsExclusionReason =
+        updateCategoryDto.analyticsExclusionReason;
+
     return this.categoriesRepository.save(category);
   }
-  
 
   async findAll(userId: number): Promise<Category[]> {
     return this.categoriesRepository.find({
@@ -92,16 +111,17 @@ export class CategoriesService {
       where: { id, user: { id: userId } },
       relations: ['user'],
     });
-    
+
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
-    
+
     return category;
   }
 
   async remove(id: number, userId: number): Promise<void> {
-    const queryRunner = this.categoriesRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.categoriesRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -110,19 +130,25 @@ export class CategoriesService {
       const category = await this.findOne(id, userId);
 
       // Check if category is used in any transactions
-      const transactionsWithCategory = await queryRunner.manager.find('Transaction', {
-        where: { category: { id }, user: { id: userId } }
-      });
+      const transactionsWithCategory = await queryRunner.manager.find(
+        'Transaction',
+        {
+          where: { category: { id }, user: { id: userId } },
+        },
+      );
 
       if (transactionsWithCategory.length > 0) {
         throw new ConflictException(
-          `Cannot delete category: it is used in ${transactionsWithCategory.length} transaction(s)`
+          `Cannot delete category: it is used in ${transactionsWithCategory.length} transaction(s)`,
         );
       }
 
       // Perform the deletion
-      const result = await queryRunner.manager.delete('Category', { id, user: { id: userId } });
-      
+      const result = await queryRunner.manager.delete('Category', {
+        id,
+        user: { id: userId },
+      });
+
       if (result.affected === 0) {
         throw new NotFoundException(`Category with ID ${id} not found`);
       }
@@ -137,148 +163,215 @@ export class CategoriesService {
   }
 
   async findByName(name: string, userId: number): Promise<Category | null> {
-    return this.categoriesRepository.findOne({ where: { name, user: { id: userId } } });
+    return this.categoriesRepository.findOne({
+      where: { name, user: { id: userId } },
+    });
   }
 
   public async createDefaultCategoriesForUser(user: User): Promise<void> {
     const defaultNames = [
       // 🏠 Casa & Utenze
-      'Affitto', 'Mutuo', 'Energia elettrica', 'Gas', 'Acqua', 'Internet e telefono',
-      'Spese condominiali', 'Manutenzione casa', 'Elettrodomestici',
-  
+      'Affitto',
+      'Mutuo',
+      'Energia elettrica',
+      'Gas',
+      'Acqua',
+      'Internet e telefono',
+      'Spese condominiali',
+      'Manutenzione casa',
+      'Elettrodomestici',
+
       // 🚗 Trasporti
-      'Carburante', 'Assicurazione auto', 'Bollo auto', 'Manutenzione auto',
-      'Mezzi pubblici', 'Parcheggi / pedaggi', 'Noleggi auto / scooter',
-  
+      'Carburante',
+      'Assicurazione auto',
+      'Bollo auto',
+      'Manutenzione auto',
+      'Mezzi pubblici',
+      'Parcheggi / pedaggi',
+      'Noleggi auto / scooter',
+
       // 🛒 Spese quotidiane
-      'Spesa alimentare', 'Farmacia', 'Cura personale', 'Tabacchi',
-  
+      'Spesa alimentare',
+      'Farmacia',
+      'Cura personale',
+      'Tabacchi',
+
       // 🍽️ Ristoranti & bar
-      'Ristorante', 'Bar / colazione', 'Take away / delivery',
-  
+      'Ristorante',
+      'Bar / colazione',
+      'Take away / delivery',
+
       // 🛍️ Shopping
-      'Abbigliamento', 'Elettronica', 'Regali', 'Libri / media',
-  
+      'Abbigliamento',
+      'Elettronica',
+      'Regali',
+      'Libri / media',
+
       // 🎓 Istruzione & formazione
-      'Scuola / università', 'Libri scolastici', 'Corsi / abbonamenti educativi',
-  
+      'Scuola / università',
+      'Libri scolastici',
+      'Corsi / abbonamenti educativi',
+
       // ⚕️ Salute
-      'Visite mediche', 'Analisi / esami', 'Assicurazioni sanitarie',
-  
+      'Visite mediche',
+      'Analisi / esami',
+      'Assicurazioni sanitarie',
+
       // 👶 Famiglia & figli
-      'Asilo / scuola', 'Abbigliamento bambini', 'Baby sitter', 'Attività ricreative',
-  
+      'Asilo / scuola',
+      'Abbigliamento bambini',
+      'Baby sitter',
+      'Attività ricreative',
+
       // 🎉 Tempo libero
-      'Viaggi', 'Abbonamenti streaming', 'Cinema / teatro', 'Eventi / concerti', 'Sport / palestra',
-  
+      'Viaggi',
+      'Abbonamenti streaming',
+      'Cinema / teatro',
+      'Eventi / concerti',
+      'Sport / palestra',
+
       // 💼 Lavoro & professione
-      'Spese professionali', 'Utenze business', 'Materiale da ufficio',
-  
+      'Spese professionali',
+      'Utenze business',
+      'Materiale da ufficio',
+
       // 💸 Finanza personale
-      'Risparmi', 'Investimenti', 'Donazioni', 'Commissioni bancarie'
+      'Risparmi',
+      'Investimenti',
+      'Donazioni',
+      'Commissioni bancarie',
     ];
-  
-    const categoryRepo = this.categoriesRepository.manager.getRepository(Category);
-  
-    const categories = defaultNames.map(name => categoryRepo.create({ name, user }));
+
+    const categoryRepo =
+      this.categoriesRepository.manager.getRepository(Category);
+
+    const categories = defaultNames.map((name) =>
+      categoryRepo.create({ name, user }),
+    );
     await categoryRepo.save(categories);
   }
-  
+
   /**
    * Suggest a category for a transaction description
    */
-  async suggestCategoryForDescription(description: string, userId: number): Promise<Category | null> {
+  async suggestCategoryForDescription(
+    description: string,
+    userId: number,
+  ): Promise<Category | null> {
     if (!description) {
       return null;
     }
 
     // Get all categories with keywords for this user
     const categories = await this.categoriesRepository.find({
-      where: { user: { id: userId } }
+      where: { user: { id: userId } },
     });
 
     // Extract keywords from the description
-    const descriptionKeywords = this.keywordExtractionService.extractKeywords(description);
-    
+    const descriptionKeywords =
+      this.keywordExtractionService.extractKeywords(description);
+
     // Score each category based on keyword matches
-    const categoryScores = categories.map(category => {
+    const categoryScores = categories.map((category) => {
       if (!category.keywords || category.keywords.length === 0) {
         return { category, score: 0 };
       }
 
       let score = 0;
-      
+
       // Check for exact matches
       for (const keyword of category.keywords) {
         // Multi-word keywords get higher scores
         const wordCount = keyword.split(' ').length;
         const baseScore = wordCount * 2; // Multi-word phrases get higher base scores
-        
+
         if (description.toLowerCase().includes(keyword.toLowerCase())) {
           // Exact match in description
           score += baseScore * 2;
-        } else if (descriptionKeywords.some(k => k === keyword.toLowerCase())) {
+        } else if (
+          descriptionKeywords.some((k) => k === keyword.toLowerCase())
+        ) {
           // Exact match in extracted keywords
           score += baseScore;
         }
       }
-      
+
       return { category, score };
     });
-    
+
     // Sort by score (highest first) and get the best match
     categoryScores.sort((a, b) => b.score - a.score);
-    
+
     // Only suggest if the score is above a threshold
     if (categoryScores.length > 0 && categoryScores[0].score > 0) {
       return categoryScores[0].category;
     }
-    
+
     return null;
   }
 
   /**
    * Suggest keywords from a transaction description
    */
-  async suggestKeywordsFromTransaction(transaction: Transaction): Promise<string[]> {
+  async suggestKeywordsFromTransaction(
+    transaction: Transaction,
+  ): Promise<string[]> {
     if (!transaction.description) {
       return [];
     }
-    
-    return this.keywordExtractionService.extractKeywords(transaction.description);
+
+    return this.keywordExtractionService.extractKeywords(
+      transaction.description,
+    );
   }
 
-  async suggestKeywordsForCategory(categoryId: number, userId: number): Promise<string[]> {
-    return this.keywordExtractionService.suggestKeywordsForCategory(categoryId, userId);
+  async suggestKeywordsForCategory(
+    categoryId: number,
+    userId: number,
+  ): Promise<string[]> {
+    return this.keywordExtractionService.suggestKeywordsForCategory(
+      categoryId,
+      userId,
+    );
   }
 
-  async addKeywordToCategory(categoryId: number, keyword: string, userId: number): Promise<Category> {
+  async addKeywordToCategory(
+    categoryId: number,
+    keyword: string,
+    userId: number,
+  ): Promise<Category> {
     const category = await this.findOne(categoryId, userId);
-    
+
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
-    
+
     // Normalize the keyword - remove punctuation, trim, and normalize spaces
-    const normalizedKeyword = keyword.trim().toLowerCase()
+    const normalizedKeyword = keyword
+      .trim()
+      .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .trim()
       .replace(/\s+/g, ' ');
-    
+
     // Check if the keyword already exists
     if (!category.keywords) {
       category.keywords = [];
     }
-    
+
     if (!category.keywords.includes(normalizedKeyword)) {
       category.keywords.push(normalizedKeyword);
       await this.categoriesRepository.save(category);
     }
-    
+
     return category;
   }
 
-  async removeKeywordFromCategory(categoryId: number, keyword: string, userId: number): Promise<Category> {
+  async removeKeywordFromCategory(
+    categoryId: number,
+    keyword: string,
+    userId: number,
+  ): Promise<Category> {
     const category = await this.findOne(categoryId, userId);
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
@@ -286,13 +379,15 @@ export class CategoriesService {
 
     // Normalize keyword
     const normalizedKeyword = keyword.toLowerCase().trim();
-    
+
     // Remove keyword if it exists
     if (category.keywords && category.keywords.includes(normalizedKeyword)) {
-      category.keywords = category.keywords.filter(k => k !== normalizedKeyword);
+      category.keywords = category.keywords.filter(
+        (k) => k !== normalizedKeyword,
+      );
       await this.categoriesRepository.save(category);
     }
-    
+
     return category;
   }
 
@@ -305,14 +400,14 @@ export class CategoriesService {
 
     // For any transactions without a suggestedCategory, try to suggest one
     const transactionsToUpdate: Transaction[] = [];
-    
+
     for (const transaction of transactions) {
       if (!transaction.suggestedCategory && transaction.description) {
         const suggestedCategory = await this.suggestCategoryForDescription(
-          transaction.description, 
-          userId
+          transaction.description,
+          userId,
         );
-        
+
         if (suggestedCategory) {
           transaction.suggestedCategory = suggestedCategory;
           transaction.suggestedCategoryName = suggestedCategory.name;
@@ -320,35 +415,41 @@ export class CategoriesService {
         }
       }
     }
-    
+
     // Update transactions with new suggested categories
     if (transactionsToUpdate.length > 0) {
       await this.transactionsRepository.save(transactionsToUpdate);
     }
-    
+
     return transactions;
   }
 
-  async bulkCategorizeByKeyword(keyword: string, categoryId: number, userId: number): Promise<number> {
+  async bulkCategorizeByKeyword(
+    keyword: string,
+    categoryId: number,
+    userId: number,
+  ): Promise<number> {
     const category = await this.findOne(categoryId, userId);
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
 
     // Normalize the keyword - remove punctuation, normalize spaces and trim
-    const normalizedKeyword = keyword.trim().toLowerCase()
+    const normalizedKeyword = keyword
+      .trim()
+      .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .trim()
       .replace(/\s+/g, ' ');
-    
+
     // Add the keyword to the category if it's not already there
     if (!category.keywords.includes(normalizedKeyword)) {
       category.keywords.push(normalizedKeyword);
       await this.categoriesRepository.save(category);
     }
-    
+
     let transactions: Transaction[] = [];
-    
+
     try {
       // Try with REGEXP_REPLACE if available
       transactions = await this.transactionsRepository.find({
@@ -356,9 +457,15 @@ export class CategoriesService {
           user: { id: userId },
           category: IsNull(),
           description: normalizedKeyword.includes(' ')
-            ? Raw(alias => `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) LIKE '%${normalizedKeyword}%'`)
-            : Raw(alias => `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) ~ '\\y${normalizedKeyword}\\y'`)
-        }
+            ? Raw(
+                (alias) =>
+                  `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) LIKE '%${normalizedKeyword}%'`,
+              )
+            : Raw(
+                (alias) =>
+                  `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) ~ '\\y${normalizedKeyword}\\y'`,
+              ),
+        },
       });
     } catch (error) {
       // Fallback for databases that don't support REGEXP_REPLACE
@@ -366,41 +473,42 @@ export class CategoriesService {
         where: {
           user: { id: userId },
           category: IsNull(),
-        }
+        },
       });
-      
+
       // Filter locally
-      transactions = transactions.filter(t => {
+      transactions = transactions.filter((t) => {
         if (!t.description) return false;
-        
-        const normalizedDesc = t.description.toLowerCase()
+
+        const normalizedDesc = t.description
+          .toLowerCase()
           .replace(/[^\w\s]/g, ' ')
           .trim()
           .replace(/\s+/g, ' ');
-        
+
         return normalizedKeyword.includes(' ')
           ? normalizedDesc.includes(normalizedKeyword)
           : normalizedDesc.split(' ').includes(normalizedKeyword);
       });
     }
-    
+
     // Update each transaction with the category
     if (transactions.length > 0) {
       for (const transaction of transactions) {
         transaction.category = category;
       }
-      
+
       await this.bulkUpdateTransactions(transactions);
-      
+
       // Track keyword usage statistics
       await this.keywordStatsService.trackKeywordUsage(
         normalizedKeyword,
         category,
         { id: userId } as User,
-        true // Success
+        true, // Success
       );
     }
-    
+
     return transactions.length;
   }
 
@@ -408,33 +516,36 @@ export class CategoriesService {
    * Learn keywords from a transaction and add them to a category
    */
   async learnKeywordsFromTransaction(
-    categoryId: number, 
-    transactionId: number, 
-    userId: number
+    categoryId: number,
+    transactionId: number,
+    userId: number,
   ): Promise<Category> {
     // Find the transaction
     const transaction = await this.transactionsRepository.findOne({
-      where: { id: transactionId, user: { id: userId } }
+      where: { id: transactionId, user: { id: userId } },
     });
-    
+
     if (!transaction) {
-      throw new NotFoundException(`Transaction with ID ${transactionId} not found`);
+      throw new NotFoundException(
+        `Transaction with ID ${transactionId} not found`,
+      );
     }
-    
+
     // Get suggested keywords from the transaction
-    const suggestedKeywords = await this.suggestKeywordsFromTransaction(transaction);
-    
+    const suggestedKeywords =
+      await this.suggestKeywordsFromTransaction(transaction);
+
     // Find the category
     const category = await this.findOne(categoryId, userId);
     if (!category) {
       throw new NotFoundException(`Category with ID ${categoryId} not found`);
     }
-    
+
     // Add each suggested keyword to the category
     for (const keyword of suggestedKeywords) {
       await this.addKeywordToCategory(categoryId, keyword, userId);
     }
-    
+
     // Return the updated category
     return this.findOne(categoryId, userId);
   }
@@ -443,90 +554,101 @@ export class CategoriesService {
    * Find potentially affected transactions when adding keywords
    */
   async findTransactionsMatchingKeyword(
-    keyword: string, 
-    userId: number, 
-    onlyUncategorized: boolean = false
-  ): Promise<{transactions: Transaction[], categoryCounts: Record<string, number>}> {
+    keyword: string,
+    userId: number,
+    onlyUncategorized: boolean = false,
+  ): Promise<{
+    transactions: Transaction[];
+    categoryCounts: Record<string, number>;
+  }> {
     // Normalize the keyword by removing punctuation and extra spaces
     // The replace(/\s+/g, ' ') ensures we normalize multiple spaces to a single space
-    const normalizedKeyword = keyword.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')  // Replace non-word chars with spaces
-      .trim()                    // Remove leading/trailing spaces
-      .replace(/\s+/g, ' ');     // Normalize multiple spaces to single spaces
-    
+    const normalizedKeyword = keyword
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ') // Replace non-word chars with spaces
+      .trim() // Remove leading/trailing spaces
+      .replace(/\s+/g, ' '); // Normalize multiple spaces to single spaces
+
     // Build query conditions
     const conditions: any = {
-      user: { id: userId }
+      user: { id: userId },
     };
-    
+
     // Add category condition if only looking for uncategorized
     if (onlyUncategorized) {
       conditions.category = IsNull();
     }
-    
+
     try {
       // Try to use REGEXP_REPLACE if available (PostgreSQL)
       // Note: We use double spaces in the regex to ensure we capture sequences of spaces properly
-      conditions.description = Raw(alias => 
-        `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) LIKE '%${normalizedKeyword}%'`
+      conditions.description = Raw(
+        (alias) =>
+          `LOWER(REGEXP_REPLACE(REGEXP_REPLACE(${alias}, '[^a-zA-Z0-9 ]', ' ', 'g'), ' +', ' ', 'g')) LIKE '%${normalizedKeyword}%'`,
       );
-      
+
       // Find matching transactions
       const transactions = await this.transactionsRepository.find({
         where: conditions,
         relations: ['category'],
-        take: 1000 // Limit for performance
+        take: 1000, // Limit for performance
       });
-      
+
       // Count by category
       const categoryCounts: Record<string, number> = {};
-      transactions.forEach(t => {
+      transactions.forEach((t) => {
         const categoryName = t.category ? t.category.name : 'Uncategorized';
         categoryCounts[categoryName] = (categoryCounts[categoryName] || 0) + 1;
       });
-      
+
       return { transactions, categoryCounts };
     } catch (error) {
       // If REGEXP_REPLACE fails, fall back to a simpler approach
-      console.log('REGEXP_REPLACE not supported, falling back to simpler query', error);
-      
+      console.log(
+        'REGEXP_REPLACE not supported, falling back to simpler query',
+        error,
+      );
+
       // Use standard LIKE query
-      conditions.description = Raw(alias => `LOWER(${alias}) LIKE '%${normalizedKeyword}%'`);
-      
+      conditions.description = Raw(
+        (alias) => `LOWER(${alias}) LIKE '%${normalizedKeyword}%'`,
+      );
+
       // Find matching transactions
       const transactions = await this.transactionsRepository.find({
         where: conditions,
         relations: ['category'],
-        take: 1000
+        take: 1000,
       });
-      
+
       // Filter results in-memory for better matching
-      const filteredTransactions = transactions.filter(t => {
-        const normalizedDescription = t.description.toLowerCase()
-          .replace(/[^\w\s]/g, ' ')  // Replace punctuation with spaces
-          .trim()                    // Remove leading/trailing spaces
-          .replace(/\s+/g, ' ');     // Normalize multiple spaces to single spaces
-        
+      const filteredTransactions = transactions.filter((t) => {
+        const normalizedDescription = t.description
+          .toLowerCase()
+          .replace(/[^\w\s]/g, ' ') // Replace punctuation with spaces
+          .trim() // Remove leading/trailing spaces
+          .replace(/\s+/g, ' '); // Normalize multiple spaces to single spaces
+
         // For multi-word keywords, check if all words are present rather than exact substring
         if (normalizedKeyword.includes(' ')) {
           const keywordWords = normalizedKeyword.split(' ');
           const descriptionWords = normalizedDescription.split(' ');
-          
+
           // Check if all keywords words appear in the description
-          return keywordWords.every(word => descriptionWords.includes(word));
+          return keywordWords.every((word) => descriptionWords.includes(word));
         }
-        
+
         // For single-word keywords, use direct inclusion
         return normalizedDescription.includes(normalizedKeyword);
       });
-      
+
       // Count by category
       const categoryCounts: Record<string, number> = {};
-      filteredTransactions.forEach(t => {
+      filteredTransactions.forEach((t) => {
         const categoryName = t.category ? t.category.name : 'Uncategorized';
         categoryCounts[categoryName] = (categoryCounts[categoryName] || 0) + 1;
       });
-      
+
       return { transactions: filteredTransactions, categoryCounts };
     }
   }
@@ -538,7 +660,7 @@ export class CategoriesService {
     if (transactions.length === 0) {
       return;
     }
-    
+
     await this.transactionsRepository.save(transactions);
   }
 
@@ -554,37 +676,45 @@ export class CategoriesService {
     categoryId: number,
     keyword: string,
     userId: number,
-    applyTo: 'none' | 'uncategorized' | 'all' | string[] = 'none'
+    applyTo: 'none' | 'uncategorized' | 'all' | string[] = 'none',
   ): Promise<{ category: Category; transactionsUpdated: number }> {
     // Add the keyword to the category
-    const updatedCategory = await this.addKeywordToCategory(categoryId, keyword, userId);
-    
+    const updatedCategory = await this.addKeywordToCategory(
+      categoryId,
+      keyword,
+      userId,
+    );
+
     let updatedCount = 0;
-    
+
     // Apply to existing transactions based on the applyTo option
     if (applyTo === 'uncategorized') {
       // Only apply to uncategorized transactions
-      updatedCount = await this.bulkCategorizeByKeyword(keyword, categoryId, userId);
+      updatedCount = await this.bulkCategorizeByKeyword(
+        keyword,
+        categoryId,
+        userId,
+      );
     } else if (applyTo === 'all') {
       // Apply to all matching transactions
       const { transactions } = await this.findTransactionsMatchingKeyword(
         keyword,
         userId,
-        false // Not only uncategorized
+        false, // Not only uncategorized
       );
 
       // Update all transactions to use this category
       if (transactions.length > 0) {
-        const transactionsToUpdate = transactions.filter(t => 
-          !t.category || t.category.id !== categoryId
+        const transactionsToUpdate = transactions.filter(
+          (t) => !t.category || t.category.id !== categoryId,
         );
-        
+
         if (transactionsToUpdate.length > 0) {
           // Update the category for each transaction
           for (const transaction of transactionsToUpdate) {
             transaction.category = { id: categoryId } as any;
           }
-          
+
           // Save all transactions
           await this.bulkUpdateTransactions(transactionsToUpdate);
           updatedCount = transactionsToUpdate.length;
@@ -592,13 +722,19 @@ export class CategoriesService {
       }
     } else if (Array.isArray(applyTo)) {
       // Apply to specific categories
-      const { transactions } = await this.findTransactionsMatchingKeyword(keyword, userId, false);
-      
+      const { transactions } = await this.findTransactionsMatchingKeyword(
+        keyword,
+        userId,
+        false,
+      );
+
       // Filter transactions to only those in specified categories (or uncategorized)
-      const filteredTransactions = transactions.filter(t => {
+      const filteredTransactions = transactions.filter((t) => {
         const currentCategory = t.category ? t.category.name : 'Uncategorized';
-        return applyTo.includes(currentCategory) && 
-               (!t.category || t.category.id !== categoryId);
+        return (
+          applyTo.includes(currentCategory) &&
+          (!t.category || t.category.id !== categoryId)
+        );
       });
 
       // Update filtered transactions
@@ -606,17 +742,17 @@ export class CategoriesService {
         for (const transaction of filteredTransactions) {
           transaction.category = { id: categoryId } as any;
         }
-        
+
         // Save all transactions
         await this.bulkUpdateTransactions(filteredTransactions);
         updatedCount = filteredTransactions.length;
       }
     }
-    
+
     // Return results
     return {
       category: updatedCategory,
-      transactionsUpdated: updatedCount
+      transactionsUpdated: updatedCount,
     };
   }
 }

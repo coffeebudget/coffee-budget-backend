@@ -16,7 +16,11 @@ import { Tag } from '../tags/entities/tag.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicates.module';
+import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-duplicates.module';
 import { RecurringTransactionsModule } from '../recurring-transactions/recurring-transactions.module';
+import { GocardlessModule } from '../gocardless/gocardless.module';
+import { TransactionOperationsService } from './transaction-operations.service';
+import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 @Module({
   imports: [
@@ -26,21 +30,29 @@ import { RecurringTransactionsModule } from '../recurring-transactions/recurring
       BankAccount,
       CreditCard,
       Category,
-      Tag
+      Tag,
+      PendingDuplicate,
     ]),
     CategoriesModule,
     forwardRef(() => TagsModule),
     forwardRef(() => PendingDuplicatesModule),
+    PreventedDuplicatesModule,
     forwardRef(() => RecurringTransactionsModule),
     SharedModule,
     BankAccountsModule,
     CreditCardsModule,
+    GocardlessModule,
   ],
   controllers: [TransactionsController, ImportLogsController],
-  providers: [TransactionsService, ImportLogsService],
+  providers: [
+    TransactionsService,
+    ImportLogsService,
+    TransactionOperationsService,
+  ],
   exports: [
     TransactionsService,
     ImportLogsService,
+    TransactionOperationsService,
     TypeOrmModule,
   ],
 })

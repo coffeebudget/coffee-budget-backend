@@ -17,8 +17,9 @@ describe('BnlTxtParser', () => {
 
   describe('parseFile', () => {
     it('should throw BadRequestException if data is empty', async () => {
-      await expect(parser.parseFile('', { userId: 1 }))
-        .rejects.toThrow('Missing file content');
+      await expect(parser.parseFile('', { userId: 1 })).rejects.toThrow(
+        'Missing file content',
+      );
     });
 
     it('should parse BNL TXT format correctly', async () => {
@@ -28,20 +29,20 @@ describe('BnlTxtParser', () => {
         2 05/02/2023 07/02/2023 456 Another description  -50.25
       `;
 
-      const result = await parser.parseFile(sampleData, { 
+      const result = await parser.parseFile(sampleData, {
         userId: 1,
-        bankAccountId: 123
+        bankAccountId: 123,
       });
 
       expect(result).toHaveLength(2);
-      
+
       // First transaction
       expect(result[0]).toMatchObject({
         description: 'Some description',
-        amount: 100.50,
+        amount: 100.5,
         type: 'income',
         executionDate: expect.any(Date),
-        bankAccount: { id: 123 }
+        bankAccount: { id: 123 },
       });
 
       // Second transaction
@@ -50,7 +51,7 @@ describe('BnlTxtParser', () => {
         amount: 50.25,
         type: 'expense',
         executionDate: expect.any(Date),
-        bankAccount: { id: 123 }
+        bankAccount: { id: 123 },
       });
     });
 

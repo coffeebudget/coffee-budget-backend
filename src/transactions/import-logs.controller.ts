@@ -1,4 +1,11 @@
-import { Controller, Get, Param, UseGuards, ParseIntPipe, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  ParseIntPipe,
+  NotFoundException,
+} from '@nestjs/common';
 import { ImportLogsService } from './import-logs.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/user.decorator';
@@ -18,11 +25,14 @@ export class ImportLogsController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User) {
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ) {
     const importLog = await this.importLogsService.findOne(id, user.id);
     if (!importLog) {
       throw new NotFoundException(`Import log with ID ${id} not found`);
     }
     return importLog;
   }
-} 
+}

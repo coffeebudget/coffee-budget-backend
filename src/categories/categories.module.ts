@@ -10,24 +10,32 @@ import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
 import { KeywordStats } from './entities/keyword-stats.entity';
 import { KeywordStatsService } from './keyword-stats.service';
+import { AiCategorizationService } from './ai-categorization.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, Transaction, RecurringTransaction, KeywordStats]),
+    TypeOrmModule.forFeature([
+      Category,
+      Transaction,
+      RecurringTransaction,
+      KeywordStats,
+    ]),
     SharedModule,
   ],
   controllers: [CategoriesController],
   providers: [
-    CategoriesService, 
-    KeywordExtractionService, 
+    CategoriesService,
+    KeywordExtractionService,
     DefaultCategoriesService,
-    KeywordStatsService
+    KeywordStatsService,
+    AiCategorizationService,
   ],
   exports: [
-    CategoriesService, 
-    TypeOrmModule, 
+    CategoriesService,
+    TypeOrmModule,
     DefaultCategoriesService,
-    KeywordStatsService
+    KeywordStatsService,
+    AiCategorizationService,
   ],
 })
 export class CategoriesModule {}

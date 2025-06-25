@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
@@ -6,7 +12,6 @@ import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 import { CreditCard } from './entities/credit-card.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { User } from '../users/user.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 
@@ -21,12 +26,14 @@ export class CreditCardsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(RecurringTransaction)
     private recurringTransactionRepository: Repository<RecurringTransaction>,
-    private transactionOperationsService: TransactionOperationsService,
   ) {}
 
-  async create(createCreditCardDto: CreateCreditCardDto, user: User): Promise<CreditCard> {
+  async create(
+    createCreditCardDto: CreateCreditCardDto,
+    user: User,
+  ): Promise<CreditCard> {
     const { bankAccountId, ...creditCardData } = createCreditCardDto;
-    
+
     let bankAccount: BankAccount | null = null;
     if (bankAccountId) {
       // Ensure bankAccountId is an integer
@@ -36,21 +43,23 @@ export class CreditCardsService {
 
       // Find the bank account and ensure it belongs to the user
       bankAccount = await this.bankAccountsRepository.findOne({
-        where: { 
+        where: {
           id: bankAccountId,
-          user: { id: user.id }
-        }
+          user: { id: user.id },
+        },
       });
 
       if (!bankAccount) {
-        throw new NotFoundException(`Bank account with ID ${bankAccountId} not found`);
+        throw new NotFoundException(
+          `Bank account with ID ${bankAccountId} not found`,
+        );
       }
     }
 
     const creditCard = this.creditCardsRepository.create({
       ...creditCardData,
       user,
-      bankAccount: bankAccount || undefined
+      bankAccount: bankAccount || undefined,
     });
 
     return this.creditCardsRepository.save(creditCard);
@@ -72,17 +81,21 @@ export class CreditCardsService {
       where: { id, user: { id: userId } },
       relations: ['user', 'bankAccount'],
     });
-    
+
     if (!creditCard) {
       throw new NotFoundException(`Credit Card with ID ${id} not found`);
     }
-    
+
     return creditCard;
   }
 
-  async update(id: number, updateCreditCardDto: UpdateCreditCardDto, userId: number): Promise<CreditCard> {
+  async update(
+    id: number,
+    updateCreditCardDto: UpdateCreditCardDto,
+    userId: number,
+  ): Promise<CreditCard> {
     const { bankAccountId, ...updateData } = updateCreditCardDto;
-    
+
     // First check if the credit card exists and belongs to the user
     const creditCard = await this.findOne(id, userId);
 
@@ -90,18 +103,30 @@ export class CreditCardsService {
     if (updateData.creditLimit !== undefined && updateData.creditLimit < 0) {
       throw new BadRequestException('Credit limit cannot be negative');
     }
-    if (updateData.availableCredit !== undefined && updateData.availableCredit < 0) {
+    if (
+      updateData.availableCredit !== undefined &&
+      updateData.availableCredit < 0
+    ) {
       throw new BadRequestException('Available credit cannot be negative');
     }
-    if (updateData.currentBalance !== undefined && updateData.currentBalance < 0) {
+    if (
+      updateData.currentBalance !== undefined &&
+      updateData.currentBalance < 0
+    ) {
       throw new BadRequestException('Current balance cannot be negative');
     }
     if (updateData.interestRate !== undefined && updateData.interestRate < 0) {
       throw new BadRequestException('Interest rate cannot be negative');
     }
     if (updateData.billingDay !== undefined) {
-      if (!Number.isInteger(updateData.billingDay) || updateData.billingDay < 1 || updateData.billingDay > 31) {
-        throw new BadRequestException('Billing day must be an integer between 1 and 31');
+      if (
+        !Number.isInteger(updateData.billingDay) ||
+        updateData.billingDay < 1 ||
+        updateData.billingDay > 31
+      ) {
+        throw new BadRequestException(
+          'Billing day must be an integer between 1 and 31',
+        );
       }
     }
 
@@ -112,10 +137,12 @@ export class CreditCardsService {
         bankAccountToUpdate = null;
       } else {
         const bankAccount = await this.bankAccountsRepository.findOne({
-          where: { id: bankAccountId, user: { id: userId } }
+          where: { id: bankAccountId, user: { id: userId } },
         });
         if (!bankAccount) {
-          throw new NotFoundException(`Bank account with ID ${bankAccountId} not found`);
+          throw new NotFoundException(
+            `Bank account with ID ${bankAccountId} not found`,
+          );
         }
         bankAccountToUpdate = bankAccount;
       }
@@ -125,10 +152,10 @@ export class CreditCardsService {
     const updatedCreditCard = await this.creditCardsRepository.save({
       ...creditCard,
       ...updateData,
-      bankAccount: bankAccountToUpdate || undefined
+      bankAccount: bankAccountToUpdate || undefined,
     });
 
-    return this.findOne(id, userId);  
+    return this.findOne(id, userId);
   }
 
   async remove(id: number, userId: number): Promise<void> {
@@ -136,7 +163,8 @@ export class CreditCardsService {
       throw new BadRequestException('Credit Card ID must be an integer');
     }
 
-    const queryRunner = this.creditCardsRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.creditCardsRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -145,18 +173,24 @@ export class CreditCardsService {
       const creditCard = await this.findOne(id, userId);
 
       // Check if credit card is used in any transactions
-      const transactionsWithCreditCard = await queryRunner.manager.find('Transaction', {
-        where: { creditCard: { id }, user: { id: userId } }
-      });
+      const transactionsWithCreditCard = await queryRunner.manager.find(
+        'Transaction',
+        {
+          where: { creditCard: { id }, user: { id: userId } },
+        },
+      );
 
       if (transactionsWithCreditCard.length > 0) {
         throw new ConflictException(
-          `Cannot delete credit card: it is used in ${transactionsWithCreditCard.length} transaction(s)`
+          `Cannot delete credit card: it is used in ${transactionsWithCreditCard.length} transaction(s)`,
         );
       }
 
-      const result = await queryRunner.manager.delete('CreditCard', { id, user: { id: userId } });
-      
+      const result = await queryRunner.manager.delete('CreditCard', {
+        id,
+        user: { id: userId },
+      });
+
       if (result.affected === 0) {
         throw new NotFoundException(`Credit Card with ID ${id} not found`);
       }

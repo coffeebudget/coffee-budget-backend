@@ -10,9 +10,17 @@ export class UpdateBankAccountDto extends PartialType(CreateBankAccountDto) {
   @ApiProperty({ description: 'Balance of the bank account', required: false })
   balance?: number;
 
-  @ApiProperty({ description: 'Currency of the bank account', required: false, enum: Currency })
+  @ApiProperty({
+    description: 'Currency of the bank account',
+    required: false,
+    enum: Currency,
+  })
   currency?: Currency;
 
-  @ApiProperty({ description: 'Type of the bank account', enum: ['Checking', 'Savings', 'Deposit', 'Investment', 'Loan'], required: false })
+  @ApiProperty({
+    description: 'Type of the bank account',
+    enum: ['Checking', 'Savings', 'Deposit', 'Investment', 'Loan'],
+    required: false,
+  })
   type?: string;
 }

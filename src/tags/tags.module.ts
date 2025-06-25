@@ -8,12 +8,12 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 import { SharedModule } from '../shared/shared.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Tag, Transaction, RecurringTransaction]),
-        SharedModule,
-    ],
-    providers: [TagsService],
-    controllers: [TagsController],
-    exports: [TagsService, TypeOrmModule], // Export the service and TypeOrmModule
+  imports: [
+    TypeOrmModule.forFeature([Tag, Transaction, RecurringTransaction]),
+    SharedModule,
+  ],
+  providers: [TagsService],
+  controllers: [TagsController],
+  exports: [TagsService, TypeOrmModule], // Export the service and TypeOrmModule
 })
 export class TagsModule {}

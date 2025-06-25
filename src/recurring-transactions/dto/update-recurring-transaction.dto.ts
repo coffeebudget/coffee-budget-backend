@@ -1,15 +1,31 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsDateString, IsArray, IsBoolean } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  IsBoolean,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { PartialType } from '@nestjs/swagger';
 import { CreateRecurringTransactionDto } from './create-recurring-transaction.dto';
 
-export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTransactionDto) {
-  @ApiProperty({ description: 'Name of the recurring transaction', required: false })
+export class UpdateRecurringTransactionDto extends PartialType(
+  CreateRecurringTransactionDto,
+) {
+  @ApiProperty({
+    description: 'Name of the recurring transaction',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   name?: string;
 
-  @ApiProperty({ description: 'Description of the recurring transaction', required: false })
+  @ApiProperty({
+    description: 'Description of the recurring transaction',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   description?: string;
@@ -19,7 +35,10 @@ export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTr
   @IsOptional()
   amount?: number;
 
-  @ApiProperty({ enum: ['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'], required: false })
+  @ApiProperty({
+    enum: ['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'],
+    required: false,
+  })
   @IsEnum(['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'])
   @IsOptional()
   status?: 'SCHEDULED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
@@ -34,7 +53,10 @@ export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTr
   @IsOptional()
   frequencyEveryN?: number;
 
-  @ApiProperty({ enum: ['daily', 'weekly', 'monthly', 'yearly'], required: false })
+  @ApiProperty({
+    enum: ['daily', 'weekly', 'monthly', 'yearly'],
+    required: false,
+  })
   @IsEnum(['daily', 'weekly', 'monthly', 'yearly'])
   @IsOptional()
   frequencyType?: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -44,17 +66,23 @@ export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTr
   @IsNumber()
   occurrences?: number;
 
-  @ApiProperty({ description: 'Start date of the recurring transaction', required: false })
+  @ApiProperty({
+    description: 'Start date of the recurring transaction',
+    required: false,
+  })
   @IsOptional()
   @IsDateString()
   startDate?: Date;
 
-  @ApiProperty({ description: 'End date of the recurring transaction', required: false })
+  @ApiProperty({
+    description: 'End date of the recurring transaction',
+    required: false,
+  })
   @IsOptional()
   @IsDateString()
   endDate?: Date;
 
-  @ApiProperty({ description: 'Category ID' })  
+  @ApiProperty({ description: 'Category ID' })
   @IsNumber()
   @IsOptional()
   categoryId?: number;
@@ -75,7 +103,7 @@ export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTr
   @IsOptional()
   creditCardId?: number;
 
-  @IsNumber() 
+  @IsNumber()
   userId: number;
 
   @ApiProperty({ description: 'Apply to past', required: false })
@@ -87,7 +115,10 @@ export class UpdateRecurringTransactionDto extends PartialType(CreateRecurringTr
   @IsOptional()
   userConfirmed?: boolean;
 
-  @ApiProperty({ description: 'Source of the recurringtransaction', required: false })
+  @ApiProperty({
+    description: 'Source of the recurringtransaction',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   source?: 'MANUAL' | 'PATTERN_DETECTOR';

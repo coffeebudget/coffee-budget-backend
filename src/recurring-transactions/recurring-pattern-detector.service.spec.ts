@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { RecurringPatternDetectorService, RecurringPattern } from './recurring-pattern-detector.service';
+import {
+  RecurringPatternDetectorService,
+  RecurringPattern,
+} from './recurring-pattern-detector.service';
 import { RecurringTransactionsService } from './recurring-transactions.service';
 import { TransactionOperationsService } from '../shared/transaction-operations.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -11,7 +14,6 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
 import { Category } from '../categories/entities/category.entity';
 import { User } from '../users/user.entity';
 import { createCategoryMock } from '../../test/test-utils';
-
 
 describe('RecurringPatternDetectorService', () => {
   let service: RecurringPatternDetectorService;
@@ -30,12 +32,13 @@ describe('RecurringPatternDetectorService', () => {
             create: jest.fn().mockResolvedValue({
               id: 1,
               name: 'Netflix Subscription',
-              description: 'Auto-detected recurring transaction: Netflix Subscription',
+              description:
+                'Auto-detected recurring transaction: Netflix Subscription',
               amount: 15.99,
               type: 'expense',
               frequencyType: 'monthly',
               frequencyValue: 1,
-              user: { id: 1 }
+              user: { id: 1 },
             }),
             findAll: jest.fn(),
           },
@@ -77,13 +80,15 @@ describe('RecurringPatternDetectorService', () => {
       ],
     }).compile();
 
-    service = module.get<RecurringPatternDetectorService>(RecurringPatternDetectorService);
+    service = module.get<RecurringPatternDetectorService>(
+      RecurringPatternDetectorService,
+    );
     transactionRepository = module.get<Repository<Transaction>>(
       getRepositoryToken(Transaction),
     );
-    recurringTransactionRepository = module.get<Repository<RecurringTransaction>>(
-      getRepositoryToken(RecurringTransaction),
-    );
+    recurringTransactionRepository = module.get<
+      Repository<RecurringTransaction>
+    >(getRepositoryToken(RecurringTransaction));
     transactionOperationsService = module.get<TransactionOperationsService>(
       TransactionOperationsService,
     );
@@ -104,57 +109,61 @@ describe('RecurringPatternDetectorService', () => {
   it('should detect recurring patterns in a large dataset', async () => {
     // Create more realistic test data with consistent dates (exactly 1 month apart)
     const mockTransactions = [
-      { 
-        id: 1, 
-        user: { id: 1 }, 
-        executionDate: new Date('2024-02-26'), 
-        amount: 1000, 
+      {
+        id: 1,
+        user: { id: 1 },
+        executionDate: new Date('2024-02-26'),
+        amount: 1000,
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
         category: createCategoryMock(),
-        tags: []
+        tags: [],
       },
-      { 
-        id: 2, 
-        user: { id: 1 }, 
-        executionDate: new Date('2024-03-26'), 
-        amount: 1000, 
+      {
+        id: 2,
+        user: { id: 1 },
+        executionDate: new Date('2024-03-26'),
+        amount: 1000,
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
         category: createCategoryMock(),
-        tags: []
+        tags: [],
       },
-      { 
-        id: 3, 
-        user: { id: 1 }, 
-        executionDate: new Date('2024-04-26'), 
-        amount: 1000, 
+      {
+        id: 3,
+        user: { id: 1 },
+        executionDate: new Date('2024-04-26'),
+        amount: 1000,
         description: 'Monthly Rent Payment',
         type: 'expense',
         status: 'completed',
         category: createCategoryMock(),
-        tags: []
+        tags: [],
       },
     ];
 
     // Mock the repository's find method to return our test data
-    (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+    (transactionRepository.find as jest.Mock).mockResolvedValue(
+      mockTransactions,
+    );
 
-    const testTransaction = { 
-      id: 4, 
-      user: { id: 1 }, 
-      executionDate: new Date('2024-05-26'), 
-      amount: 1000, 
+    const testTransaction = {
+      id: 4,
+      user: { id: 1 },
+      executionDate: new Date('2024-05-26'),
+      amount: 1000,
       description: 'Monthly Rent Payment',
       type: 'expense',
       status: 'completed',
       category: createCategoryMock(),
-      tags: []
+      tags: [],
     };
 
-    const result = await service.detectPatternForTransaction(testTransaction as unknown as Transaction);
+    const result = await service.detectPatternForTransaction(
+      testTransaction as unknown as Transaction,
+    );
 
     expect(result.isRecurring).toBe(true);
     expect(result.suggestedFrequency).toBe('monthly');
@@ -165,17 +174,17 @@ describe('RecurringPatternDetectorService', () => {
   it('should normalize descriptions correctly', () => {
     // Access the method if it's public or create a test wrapper
     const normalizeDescription = service['normalizeDescription']?.bind(service);
-    
+
     // Skip this test if the method doesn't exist
     if (!normalizeDescription) {
       return;
     }
-    
+
     // Run the method and check the results
     const redHatResult = normalizeDescription('RED HAT S.R.L. 01/2025');
     const amazonResult = normalizeDescription('Amazon Music*CP7X24EL5');
     const paypalResult = normalizeDescription('PAYPAL *ELSA SPEAK');
-    
+
     // Test that the method removes special characters and normalizes case
     expect(redHatResult.includes('red hat')).toBe(true);
     expect(amazonResult.includes('amazon music')).toBe(true);
@@ -186,12 +195,12 @@ describe('RecurringPatternDetectorService', () => {
   it('should calculate intervals between transactions correctly', () => {
     // Access the method if it's public or create a test wrapper
     const calculateIntervals = service['calculateIntervals']?.bind(service);
-    
+
     // Skip this test if the method doesn't exist
     if (!calculateIntervals) {
       return;
     }
-    
+
     // Create test transactions with known intervals
     const testTransactions = [
       { executionDate: new Date('2024-01-01') },
@@ -199,12 +208,12 @@ describe('RecurringPatternDetectorService', () => {
       { executionDate: new Date('2024-03-01') },
       { executionDate: new Date('2024-04-01') },
     ] as Transaction[];
-    
+
     const intervals = calculateIntervals(testTransactions);
-    
+
     // Updated expectations to match actual behavior
     expect(intervals.length).toBe(3);
-    intervals.forEach(interval => {
+    intervals.forEach((interval) => {
       expect(interval).toBeGreaterThanOrEqual(29); // Changed from 30 to 29
       expect(interval).toBeLessThanOrEqual(31);
     });
@@ -214,22 +223,22 @@ describe('RecurringPatternDetectorService', () => {
   it('should classify frequency patterns correctly', () => {
     // Access the method if it's public or create a test wrapper
     const classifyFrequency = service['classifyFrequency']?.bind(service);
-    
+
     // Skip this test if the method doesn't exist
     if (!classifyFrequency) {
       return;
     }
-    
+
     // Test monthly pattern
     const monthlyIntervals = [30, 31, 30, 31, 30];
     const monthlyPattern = classifyFrequency(monthlyIntervals);
     expect(monthlyPattern?.frequency).toBe('monthly');
-    
+
     // Test weekly pattern
     const weeklyIntervals = [7, 7, 7, 7, 7];
     const weeklyPattern = classifyFrequency(weeklyIntervals);
     expect(weeklyPattern?.frequency).toBe('weekly');
-    
+
     // Test yearly pattern
     const yearlyIntervals = [365, 365, 366]; // Account for leap year
     const yearlyPattern = classifyFrequency(yearlyIntervals);
@@ -243,23 +252,27 @@ describe('RecurringPatternDetectorService', () => {
         similarTransactions: [],
         isRecurring: true,
         suggestedFrequency: 'monthly',
-        confidence: 0.9
+        confidence: 0.9,
       },
       {
         similarTransactions: [],
         isRecurring: true,
         suggestedFrequency: 'monthly',
-        confidence: 0.5
-      }
+        confidence: 0.5,
+      },
     ];
-    
-    jest.spyOn(service, 'detectAllRecurringPatterns').mockResolvedValue(mockPatterns);
-    
+
+    jest
+      .spyOn(service, 'detectAllRecurringPatterns')
+      .mockResolvedValue(mockPatterns);
+
     const patterns = await service.detectAllRecurringPatterns(1);
-    
+
     // Verify the patterns are sorted by confidence (highest first)
     for (let i = 1; i < patterns.length; i++) {
-      expect(patterns[i-1].confidence || 0).toBeGreaterThanOrEqual(patterns[i].confidence || 0);
+      expect(patterns[i - 1].confidence || 0).toBeGreaterThanOrEqual(
+        patterns[i].confidence || 0,
+      );
     }
   });
 
@@ -270,14 +283,14 @@ describe('RecurringPatternDetectorService', () => {
         description: 'Netflix Subscription',
         amount: 15.99,
         date: new Date('2023-01-01'),
-        user: { 
+        user: {
           id: 1,
           auth0Id: 'auth0|123456',
           email: 'test@example.com',
           bankAccounts: [],
           creditCards: [],
-          category: createCategoryMock(),   
-        }
+          category: createCategoryMock(),
+        },
       };
 
       const similarTransactions = [
@@ -286,55 +299,60 @@ describe('RecurringPatternDetectorService', () => {
           description: 'Netflix Subscription',
           amount: 15.99,
           date: new Date('2023-02-01'),
-          user: { 
+          user: {
             id: 1,
             auth0Id: 'auth0|123456',
             email: 'test@example.com',
             bankAccounts: [],
             creditCards: [],
             category: createCategoryMock(),
-          }
+          },
         },
         {
           id: 3,
           description: 'Netflix Subscription',
           amount: 15.99,
           date: new Date('2023-03-01'),
-          user: { 
+          user: {
             id: 1,
             auth0Id: 'auth0|123456',
             email: 'test@example.com',
             bankAccounts: [],
             creditCards: [],
             category: createCategoryMock(),
-          }
-        }
+          },
+        },
       ];
 
       const recurringTransaction = {
         id: 1,
         name: 'Netflix Subscription',
-        description: 'Auto-detected recurring transaction: Netflix Subscription',
+        description:
+          'Auto-detected recurring transaction: Netflix Subscription',
         amount: 15.99,
         type: 'expense',
         frequencyType: 'monthly',
         frequencyValue: 1,
-        user: { 
+        user: {
           id: 1,
           auth0Id: 'auth0|123456',
           email: 'test@example.com',
           bankAccounts: [],
           creditCards: [],
           category: createCategoryMock(),
-        }
+        },
       };
 
       // Mock the actual implementation of detectAndProcessRecurringTransaction
-      jest.spyOn(service, 'detectAndProcessRecurringTransaction').mockResolvedValue(recurringTransaction as any);
+      jest
+        .spyOn(service, 'detectAndProcessRecurringTransaction')
+        .mockResolvedValue(recurringTransaction as any);
 
-      const result = await service.detectAndProcessRecurringTransaction(transaction as any);
+      const result = await service.detectAndProcessRecurringTransaction(
+        transaction as any,
+      );
 
       expect(result).toEqual(recurringTransaction);
     });
   });
-}); 
+});

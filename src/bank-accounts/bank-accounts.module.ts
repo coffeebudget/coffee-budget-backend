@@ -25,7 +25,7 @@ import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicate
       CreditCard,
       Category,
       Tag,
-      PendingDuplicate
+      PendingDuplicate,
     ]),
     UsersModule,
     forwardRef(() => CategoriesModule),

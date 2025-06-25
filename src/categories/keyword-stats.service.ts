@@ -18,30 +18,30 @@ export class KeywordStatsService {
    * Track keyword usage
    */
   async trackKeywordUsage(
-    keyword: string, 
-    category: Category | null, 
-    user: User, 
-    success: boolean = false
+    keyword: string,
+    category: Category | null,
+    user: User,
+    success: boolean = false,
   ): Promise<KeywordStats | null> {
     try {
       // Normalize the keyword
       const normalizedKeyword = keyword.trim().toLowerCase();
-      
+
       // Find existing stats
       let stats = await this.keywordStatsRepository.findOne({
-        where: category 
-          ? { 
+        where: category
+          ? {
               keyword: normalizedKeyword,
               user: { id: user.id },
-              category: { id: category.id }
+              category: { id: category.id },
             }
           : {
               keyword: normalizedKeyword,
               user: { id: user.id },
-              category: IsNull()
-            }
+              category: IsNull(),
+            },
       });
-      
+
       if (!stats) {
         stats = this.keywordStatsRepository.create({
           keyword: normalizedKeyword,
@@ -51,17 +51,20 @@ export class KeywordStatsService {
           successCount: 0,
         });
       }
-      
+
       // Update stats
       stats.count++;
       if (success) {
         stats.successCount++;
       }
       stats.lastUsed = new Date();
-      
+
       return this.keywordStatsRepository.save(stats);
     } catch (error) {
-      this.logger.error(`Error tracking keyword usage: ${error.message}`, error.stack);
+      this.logger.error(
+        `Error tracking keyword usage: ${error.message}`,
+        error.stack,
+      );
       // Don't throw, just return null to avoid breaking the main process
       return null;
     }
@@ -82,14 +85,16 @@ export class KeywordStatsService {
   /**
    * Get popular keywords for a user
    */
-  async getPopularKeywords(userId: number): Promise<{ keyword: string; count: number; success: number }[]> {
+  async getPopularKeywords(
+    userId: number,
+  ): Promise<{ keyword: string; count: number; success: number }[]> {
     const stats = await this.keywordStatsRepository.find({
       where: { user: { id: userId } },
       order: { count: 'DESC' },
       take: 50,
     });
-    
-    return stats.map(stat => ({
+
+    return stats.map((stat) => ({
       keyword: stat.keyword,
       count: stat.count,
       success: stat.successCount,
@@ -100,11 +105,11 @@ export class KeywordStatsService {
    * Get top keywords by success rate (for categorizations)
    */
   async getTopKeywordsByCategorySuccess(
-    userId: number, 
-    limit: number = 20
+    userId: number,
+    limit: number = 20,
   ): Promise<{ keyword: string; category: Category; successRate: number }[]> {
     const stats = await this.keywordStatsRepository.find({
-      where: { 
+      where: {
         user: { id: userId },
         category: IsNull(),
       },
@@ -112,14 +117,14 @@ export class KeywordStatsService {
       order: { successCount: 'DESC' },
       take: limit * 2, // Fetch more since we'll filter some out
     });
-    
+
     return stats
-      .filter(stat => stat.count > 0 && stat.category !== null)  
-      .map(stat => ({
+      .filter((stat) => stat.count > 0 && stat.category !== null)
+      .map((stat) => ({
         keyword: stat.keyword,
         category: stat.category as Category, // Safe cast since we filtered nulls
         successRate: (stat.successCount / stat.count) * 100,
       }))
       .slice(0, limit); // Limit to requested amount
   }
-} 
+}

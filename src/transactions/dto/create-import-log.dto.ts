@@ -15,4 +15,4 @@ export class CreateImportLogDto {
   metadata?: Record<string, any>;
   startTime?: Date;
   endTime?: Date;
-} 
+}

@@ -25,7 +25,7 @@ import { CreditCard } from '../credit-cards/entities/credit-card.entity';
       Category,
       Tag,
       BankAccount,
-      CreditCard
+      CreditCard,
     ]),
     forwardRef(() => CategoriesModule),
     forwardRef(() => TagsModule),
@@ -42,7 +42,7 @@ import { CreditCard } from '../credit-cards/entities/credit-card.entity';
   exports: [
     RecurringTransactionsService,
     RecurringTransactionGeneratorService,
-    RecurringPatternDetectorService
+    RecurringPatternDetectorService,
   ],
 })
 export class RecurringTransactionsModule {}

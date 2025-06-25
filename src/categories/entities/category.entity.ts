@@ -1,7 +1,15 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { Transaction } from "../../transactions/transaction.entity";
-import { User } from "../../users/user.entity";
-import { RecurringTransaction } from "../../recurring-transactions/entities/recurring-transaction.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Transaction } from '../../transactions/transaction.entity';
+import { User } from '../../users/user.entity';
+import { RecurringTransaction } from '../../recurring-transactions/entities/recurring-transaction.entity';
 
 @Entity()
 export class Category {
@@ -11,7 +19,7 @@ export class Category {
   @Column()
   name: string;
 
-  @Column("text", { array: true, default: [] })
+  @Column('text', { array: true, default: [] })
   keywords: string[];
 
   @OneToMany(() => Transaction, (transaction) => transaction.category)
@@ -20,7 +28,10 @@ export class Category {
   @ManyToOne(() => User, (user) => user.categories)
   user: User;
 
-  @OneToMany(() => RecurringTransaction, (recurringTransaction) => recurringTransaction.category)
+  @OneToMany(
+    () => RecurringTransaction,
+    (recurringTransaction) => recurringTransaction.category,
+  )
   recurringTransactions: RecurringTransaction[];
 
   @Column({ default: false })

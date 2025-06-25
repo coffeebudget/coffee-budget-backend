@@ -42,6 +42,12 @@ export class RecurringTransactionsController {
     return this.recurringTransactionsService.findAll(user.id);
   }
 
+  @Get('unconfirmed-patterns')
+  @ApiOperation({ summary: 'Get unconfirmed recurring patterns' })
+  getUnconfirmedPatterns(@User() user: UserEntity) {
+    return this.recurringTransactionsService.getUnconfirmedPatterns(user.id);
+  }
+
   @Get('patterns')
   @ApiOperation({ summary: 'Detect recurring patterns from user transactions' })
   detectPatterns(@User() user: UserEntity) {

@@ -25,8 +25,8 @@ describe('TagsService', () => {
       release: jest.fn(),
       manager: {
         find: jest.fn().mockResolvedValue([]),
-        delete: jest.fn().mockResolvedValue({ affected: 0 })
-      }
+        delete: jest.fn().mockResolvedValue({ affected: 0 }),
+      },
     };
 
     const tagsRepositoryMock = {
@@ -44,14 +44,14 @@ describe('TagsService', () => {
         orderBy: jest.fn().mockReturnThis(),
         execute: jest.fn().mockReturnValue({
           affected: 1,
-          raw: []
-        })
+          raw: [],
+        }),
       }),
       manager: {
         connection: {
-          createQueryRunner: jest.fn().mockReturnValue(queryRunner)
-        }
-      }
+          createQueryRunner: jest.fn().mockReturnValue(queryRunner),
+        },
+      },
     };
 
     const transactionsRepositoryMock = {
@@ -103,7 +103,9 @@ describe('TagsService', () => {
     service = module.get<TagsService>(TagsService);
     tagsRepository = module.get(getRepositoryToken(Tag));
     transactionsRepository = module.get(getRepositoryToken(Transaction));
-    recurringTransactionsRepository = module.get(getRepositoryToken(RecurringTransaction));
+    recurringTransactionsRepository = module.get(
+      getRepositoryToken(RecurringTransaction),
+    );
     transactionOperationsService = module.get(TransactionOperationsService);
   });
 
@@ -114,30 +116,36 @@ describe('TagsService', () => {
   it('should throw a NotFoundException when trying to remove a tag that does not exist', async () => {
     const tagId = 1;
     const mockUserId = 1;
-    
+
     // Mock that the tag does not exist
     tagsRepository.findOne.mockResolvedValue(null);
-    
-    await expect(service.remove(tagId, mockUserId)).rejects.toThrow(NotFoundException);
+
+    await expect(service.remove(tagId, mockUserId)).rejects.toThrow(
+      NotFoundException,
+    );
   });
 
   it('should successfully remove a tag when it exists and is not associated with transactions', async () => {
     const tagId = 1;
     const mockUserId = 1;
-    
+
     // Mock that the tag exists
-    tagsRepository.findOne.mockResolvedValue({ id: tagId, name: 'Test Tag', user: { id: mockUserId } });
-    
+    tagsRepository.findOne.mockResolvedValue({
+      id: tagId,
+      name: 'Test Tag',
+      user: { id: mockUserId },
+    });
+
     // Mock that there are no transactions using this tag
     transactionsRepository.find.mockResolvedValue([]);
     recurringTransactionsRepository.find.mockResolvedValue([]);
-    
+
     // Mock the query runner's manager.delete to return affected: 1
     const queryRunner = tagsRepository.manager.connection.createQueryRunner();
     queryRunner.manager.delete.mockResolvedValue({ affected: 1 });
-    
+
     await service.remove(tagId, mockUserId);
-    
+
     expect(queryRunner.connect).toHaveBeenCalled();
     expect(queryRunner.startTransaction).toHaveBeenCalled();
     expect(queryRunner.commitTransaction).toHaveBeenCalled();

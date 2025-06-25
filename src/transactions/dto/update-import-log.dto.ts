@@ -10,4 +10,4 @@ export class UpdateImportLogDto {
   logs?: string;
   metadata?: Record<string, any>;
   endTime?: Date;
-} 
+}

@@ -1,4 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query, ParseIntPipe, Optional } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UseGuards,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { DashboardService } from './dashboard.service';
 import { CurrentUser } from '../auth/user.decorator';
@@ -16,10 +22,19 @@ export class DashboardController {
   @Get('expense-distribution')
   async getExpenseDistribution(
     @CurrentUser() user: User,
-    @Query('startDate', ParseDatePipe) startDate: Date = new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    @Query('startDate', ParseDatePipe)
+    startDate: Date = new Date(
+      new Date().getFullYear(),
+      new Date().getMonth(),
+      1,
+    ),
     @Query('endDate', ParseDatePipe) endDate: Date = new Date(),
   ) {
-    return this.dashboardService.getExpenseDistributionByCategory(user.id, startDate, endDate);
+    return this.dashboardService.getExpenseDistributionByCategory(
+      user.id,
+      startDate,
+      endDate,
+    );
   }
 
   @Get('monthly-summary')
@@ -45,16 +60,30 @@ export class DashboardController {
     @Query('endDate', ParseDatePipe) endDate?: Date,
     @Query('categoryIds') categoryIds?: string,
     @Query('tagIds') tagIds?: string,
-    @Query('minAmount', new ParseIntPipe({ optional: true })) minAmount?: number,
-    @Query('maxAmount', new ParseIntPipe({ optional: true })) maxAmount?: number,
+    @Query('minAmount', new ParseIntPipe({ optional: true }))
+    minAmount?: number,
+    @Query('maxAmount', new ParseIntPipe({ optional: true }))
+    maxAmount?: number,
     @Query('type') type?: 'income' | 'expense',
     @Query('searchTerm') searchTerm?: string,
     @Query('orderBy') orderBy?: 'executionDate' | 'amount' | 'description',
     @Query('orderDirection') orderDirection?: 'asc' | 'desc',
     @Query('uncategorizedOnly') uncategorizedOnly?: string,
+    @Query('bankAccountIds') bankAccountIds?: string,
+    @Query('creditCardIds') creditCardIds?: string,
   ) {
-    const parsedCategoryIds = categoryIds ? categoryIds.split(',').map(id => parseInt(id, 10)) : undefined;
-    const parsedTagIds = tagIds ? tagIds.split(',').map(id => parseInt(id, 10)) : undefined;
+    const parsedCategoryIds = categoryIds
+      ? categoryIds.split(',').map((id) => parseInt(id, 10))
+      : undefined;
+    const parsedTagIds = tagIds
+      ? tagIds.split(',').map((id) => parseInt(id, 10))
+      : undefined;
+    const parsedBankAccountIds = bankAccountIds
+      ? bankAccountIds.split(',').map((id) => parseInt(id, 10))
+      : undefined;
+    const parsedCreditCardIds = creditCardIds
+      ? creditCardIds.split(',').map((id) => parseInt(id, 10))
+      : undefined;
     const isUncategorizedOnly = uncategorizedOnly === 'true';
 
     return this.dashboardService.getFilteredTransactions(user.id, {
@@ -69,6 +98,8 @@ export class DashboardController {
       orderBy,
       orderDirection,
       uncategorizedOnly: isUncategorizedOnly,
+      bankAccountIds: parsedBankAccountIds,
+      creditCardIds: parsedCreditCardIds,
     });
   }
 
@@ -81,7 +112,7 @@ export class DashboardController {
   async getCashFlowForecast(
     @Query('mode') mode: 'recurring' | 'historical' = 'historical',
     @Query('months') months = 24,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ) {
     return this.dashboardService.getCashFlowForecast(user.id, months, mode);
   }
@@ -90,6 +121,4 @@ export class DashboardController {
   async getSavingsPlan(@CurrentUser() user: User) {
     return this.dashboardService.getSavingsPlanByCategory(user.id);
   }
-
-  
-} 
+}

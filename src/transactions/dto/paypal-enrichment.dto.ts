@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class PayPalEnrichmentDto {
   @ApiProperty({
     description: 'The PayPal CSV content',
-    example: 'CSV data as string'
+    example: 'CSV data as string',
   })
   @IsString()
   csvData: string;
@@ -12,9 +12,9 @@ export class PayPalEnrichmentDto {
   @ApiProperty({
     description: 'Date range (in days) to look for matching transactions',
     example: 5,
-    required: false
+    required: false,
   })
   @IsNumber()
   @IsOptional()
   dateRangeForMatching?: number;
-} 
+}

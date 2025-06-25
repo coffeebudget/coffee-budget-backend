@@ -8,4 +8,4 @@ export class AuthService {
   async validateUser(auth0Id: string) {
     return this.userService.findByAuth0Id(auth0Id);
   }
-} 
+}

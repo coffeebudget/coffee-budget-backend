@@ -10,7 +10,12 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([CreditCard, BankAccount, Transaction, RecurringTransaction]),
+    TypeOrmModule.forFeature([
+      CreditCard,
+      BankAccount,
+      Transaction,
+      RecurringTransaction,
+    ]),
     SharedModule,
   ],
   controllers: [CreditCardsController],

@@ -1,34 +1,43 @@
-import { IsString, IsNumber, IsEnum, IsOptional, IsDateString, IsArray, IsBoolean, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsEnum,
+  IsOptional,
+  IsDateString,
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateRecurringTransactionDto {
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Name of the recurring transaction',
-    example: 'Monthly Rent'
+    example: 'Monthly Rent',
   })
   @IsString()
   name: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Description of the recurring transaction',
     required: false,
-    example: 'Monthly apartment rent payment'
+    example: 'Monthly apartment rent payment',
   })
   @IsString()
   @IsOptional()
   description?: string;
 
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Amount of the transaction',
-    example: 1000.00
+    example: 1000.0,
   })
   @IsNumber()
   amount: number;
 
-  @ApiProperty({ 
+  @ApiProperty({
     enum: ['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'],
     description: 'Current status of the recurring transaction',
-    example: 'SCHEDULED'
+    example: 'SCHEDULED',
   })
   @IsEnum(['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'])
   status: 'SCHEDULED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
@@ -54,7 +63,10 @@ export class CreateRecurringTransactionDto {
   @IsDateString()
   startDate: Date;
 
-  @ApiProperty({ description: 'End date of the recurring transaction', required: false })
+  @ApiProperty({
+    description: 'End date of the recurring transaction',
+    required: false,
+  })
   @IsOptional()
   @IsDateString()
   endDate?: Date;
@@ -88,7 +100,10 @@ export class CreateRecurringTransactionDto {
   @IsOptional()
   userConfirmed?: boolean;
 
-  @ApiProperty({ description: 'Source of the transaction (e.g., manual, CSV, API)', required: true })
+  @ApiProperty({
+    description: 'Source of the transaction (e.g., manual, CSV, API)',
+    required: true,
+  })
   @IsString()
   @IsNotEmpty()
   source?: 'MANUAL' | 'PATTERN_DETECTOR';

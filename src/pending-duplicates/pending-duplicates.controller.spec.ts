@@ -41,7 +41,9 @@ describe('PendingDuplicatesController', () => {
       ],
     }).compile();
 
-    controller = module.get<PendingDuplicatesController>(PendingDuplicatesController);
+    controller = module.get<PendingDuplicatesController>(
+      PendingDuplicatesController,
+    );
     service = module.get<PendingDuplicatesService>(PendingDuplicatesService);
   });
 
@@ -53,13 +55,19 @@ describe('PendingDuplicatesController', () => {
     it('should return pending duplicates for the user', async () => {
       const mockUserId = 1;
       const mockDuplicates = [
-        { id: 1, existingTransaction: { id: 100 }, newTransactionData: { amount: 50 } }
+        {
+          id: 1,
+          existingTransaction: { id: 100 },
+          newTransactionData: { amount: 50 },
+        },
       ];
-      
-      jest.spyOn(service, 'findPendingDuplicates').mockResolvedValue(mockDuplicates as PendingDuplicate[]);
-      
+
+      jest
+        .spyOn(service, 'findPendingDuplicates')
+        .mockResolvedValue(mockDuplicates as PendingDuplicate[]);
+
       const result = await controller.findAll({ id: mockUserId } as User);
-      
+
       expect(result).toEqual(mockDuplicates);
       expect(service.findPendingDuplicates).toHaveBeenCalledWith(mockUserId);
     });
@@ -73,22 +81,22 @@ describe('PendingDuplicatesController', () => {
       const mockResult = {
         existingTransaction: { id: 100 },
         newTransaction: { id: 101 },
-        resolved: true
+        resolved: true,
       };
-      
-      jest.spyOn(service, 'resolvePendingDuplicate').mockResolvedValue(mockResult as any);
-      
-      const result = await controller.resolve(
-        mockId,
-        { choice: mockChoice },
-        { id: mockUserId } as User
-      );
-      
+
+      jest
+        .spyOn(service, 'resolvePendingDuplicate')
+        .mockResolvedValue(mockResult as any);
+
+      const result = await controller.resolve(mockId, { choice: mockChoice }, {
+        id: mockUserId,
+      } as User);
+
       expect(result).toEqual(mockResult);
       expect(service.resolvePendingDuplicate).toHaveBeenCalledWith(
         mockId,
         mockUserId,
-        mockChoice
+        mockChoice,
       );
     });
   });

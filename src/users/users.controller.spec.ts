@@ -45,11 +45,13 @@ describe('UserController', () => {
       },
     };
 
-    userService.findByAuth0Id = jest.fn().mockRejectedValue(new NotFoundException());
+    userService.findByAuth0Id = jest
+      .fn()
+      .mockRejectedValue(new NotFoundException());
     userService.createUser = jest.fn().mockResolvedValue(mockUser);
 
     const result = await userController.authCallback(req);
-    
+
     expect(result).toEqual({
       message: 'User authenticated successfully',
       user: mockUser,
@@ -73,7 +75,7 @@ describe('UserController', () => {
     userService.findByAuth0Id = jest.fn().mockResolvedValue(mockUser);
 
     const result = await userController.authCallback(req);
-    
+
     expect(result).toEqual({
       message: 'User authenticated successfully',
       user: mockUser,
@@ -90,7 +92,9 @@ describe('UserController', () => {
       },
     };
 
-    await expect(userController.authCallback(req)).rejects.toThrow(BadRequestException);
+    await expect(userController.authCallback(req)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(userService.findByAuth0Id).not.toHaveBeenCalled();
     expect(userService.createUser).not.toHaveBeenCalled();
   });
@@ -102,7 +106,9 @@ describe('UserController', () => {
       },
     };
 
-    await expect(userController.authCallback(req)).rejects.toThrow(BadRequestException);
+    await expect(userController.authCallback(req)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(userService.findByAuth0Id).not.toHaveBeenCalled();
     expect(userService.createUser).not.toHaveBeenCalled();
   });
@@ -118,7 +124,9 @@ describe('UserController', () => {
     const unexpectedError = new Error('Unexpected error');
     userService.findByAuth0Id = jest.fn().mockRejectedValue(unexpectedError);
 
-    await expect(userController.authCallback(req)).rejects.toThrow(unexpectedError);
+    await expect(userController.authCallback(req)).rejects.toThrow(
+      unexpectedError,
+    );
     expect(userService.createUser).not.toHaveBeenCalled();
   });
 });

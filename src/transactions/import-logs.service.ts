@@ -36,7 +36,10 @@ export class ImportLogsService {
     return this.importLogRepository.save(importLog);
   }
 
-  async update(id: number, updateImportLogDto: UpdateImportLogDto): Promise<ImportLog | null> {
+  async update(
+    id: number,
+    updateImportLogDto: UpdateImportLogDto,
+  ): Promise<ImportLog | null> {
     await this.importLogRepository.update(id, updateImportLogDto);
     return this.importLogRepository.findOne({ where: { id } });
   }
@@ -57,34 +60,46 @@ export class ImportLogsService {
   async appendToLog(id: number, logEntry: string): Promise<void> {
     const importLog = await this.importLogRepository.findOne({ where: { id } });
     if (!importLog) {
-      this.logger.warn(`Attempted to append log to non-existent import log with ID ${id}`);
+      this.logger.warn(
+        `Attempted to append log to non-existent import log with ID ${id}`,
+      );
       return;
     }
-    
+
     const timestamp = new Date().toISOString();
     const formattedLogEntry = `[${timestamp}] ${logEntry}\n`;
-    
-    importLog.logs = importLog.logs 
-      ? importLog.logs + formattedLogEntry 
+
+    importLog.logs = importLog.logs
+      ? importLog.logs + formattedLogEntry
       : formattedLogEntry;
-    
+
     await this.importLogRepository.save(importLog);
   }
 
-  async updateStatus(id: number, status: ImportStatus, summary?: string): Promise<void> {
+  async updateStatus(
+    id: number,
+    status: ImportStatus,
+    summary?: string,
+  ): Promise<void> {
     const importLog = await this.importLogRepository.findOne({ where: { id } });
     if (!importLog) {
-      this.logger.warn(`Attempted to update status of non-existent import log with ID ${id}`);
+      this.logger.warn(
+        `Attempted to update status of non-existent import log with ID ${id}`,
+      );
       return;
     }
 
     importLog.status = status;
-    
+
     if (summary) {
       importLog.summary = summary;
     }
 
-    if (status === ImportStatus.COMPLETED || status === ImportStatus.FAILED || status === ImportStatus.PARTIALLY_COMPLETED) {
+    if (
+      status === ImportStatus.COMPLETED ||
+      status === ImportStatus.FAILED ||
+      status === ImportStatus.PARTIALLY_COMPLETED
+    ) {
       importLog.endTime = new Date();
     }
 
@@ -92,12 +107,18 @@ export class ImportLogsService {
   }
 
   async incrementCounters(
-    id: number, 
-    { processed = 0, successful = 0, failed = 0 }: { processed?: number; successful?: number; failed?: number }
+    id: number,
+    {
+      processed = 0,
+      successful = 0,
+      failed = 0,
+    }: { processed?: number; successful?: number; failed?: number },
   ): Promise<void> {
     const importLog = await this.importLogRepository.findOne({ where: { id } });
     if (!importLog) {
-      this.logger.warn(`Attempted to increment counters of non-existent import log with ID ${id}`);
+      this.logger.warn(
+        `Attempted to increment counters of non-existent import log with ID ${id}`,
+      );
       return;
     }
 
@@ -107,4 +128,4 @@ export class ImportLogsService {
 
     await this.importLogRepository.save(importLog);
   }
-} 
+}

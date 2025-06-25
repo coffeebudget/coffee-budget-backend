@@ -122,8 +122,12 @@ describe('RecurringTransactionsController', () => {
       ],
     }).compile();
 
-    controller = module.get<RecurringTransactionsController>(RecurringTransactionsController);
-    service = module.get<RecurringTransactionsService>(RecurringTransactionsService);
+    controller = module.get<RecurringTransactionsController>(
+      RecurringTransactionsController,
+    );
+    service = module.get<RecurringTransactionsService>(
+      RecurringTransactionsService,
+    );
   });
 
   it('should be defined', () => {
