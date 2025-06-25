@@ -64,8 +64,12 @@ describe('CategoriesController', () => {
 
     controller = module.get<CategoriesController>(CategoriesController);
     categoriesService = module.get<CategoriesService>(CategoriesService);
-    keywordExtractionService = module.get<KeywordExtractionService>(KeywordExtractionService);
-    defaultCategoriesService = module.get<DefaultCategoriesService>(DefaultCategoriesService);
+    keywordExtractionService = module.get<KeywordExtractionService>(
+      KeywordExtractionService,
+    );
+    defaultCategoriesService = module.get<DefaultCategoriesService>(
+      DefaultCategoriesService,
+    );
     keywordStatsService = module.get<KeywordStatsService>(KeywordStatsService);
   });
 
@@ -85,7 +89,9 @@ describe('CategoriesController', () => {
   describe('getCommonKeywords', () => {
     it('should return common keywords from uncategorized transactions', async () => {
       const result = { grocery: 5, restaurant: 3 };
-      jest.spyOn(keywordExtractionService, 'findCommonKeywordsInUncategorized').mockResolvedValue(result);
+      jest
+        .spyOn(keywordExtractionService, 'findCommonKeywordsInUncategorized')
+        .mockResolvedValue(result);
 
       expect(await controller.getCommonKeywords(mockUser)).toBe(result);
     });
@@ -94,16 +100,22 @@ describe('CategoriesController', () => {
   describe('bulkCategorize', () => {
     it('should categorize transactions by keyword', async () => {
       const result = 5;
-      jest.spyOn(categoriesService, 'bulkCategorizeByKeyword').mockResolvedValue(result);
+      jest
+        .spyOn(categoriesService, 'bulkCategorizeByKeyword')
+        .mockResolvedValue(result);
 
-      expect(await controller.bulkCategorize('grocery', 1, mockUser)).toEqual({ count: result });
+      expect(await controller.bulkCategorize('grocery', 1, mockUser)).toEqual({
+        count: result,
+      });
     });
   });
 
   describe('getSuggestedKeywords', () => {
     it('should return suggested keywords for a category', async () => {
       const result = ['grocery', 'supermarket'];
-      jest.spyOn(categoriesService, 'suggestKeywordsForCategory').mockResolvedValue(result);
+      jest
+        .spyOn(categoriesService, 'suggestKeywordsForCategory')
+        .mockResolvedValue(result);
 
       expect(await controller.getSuggestedKeywords(1, mockUser)).toBe(result);
     });
@@ -111,10 +123,18 @@ describe('CategoriesController', () => {
 
   describe('learnFromTransaction', () => {
     it('should learn keywords from a transaction', async () => {
-      const result = { id: 1, name: 'Groceries', keywords: ['grocery', 'supermarket'] } as Category;
-      jest.spyOn(categoriesService, 'learnKeywordsFromTransaction').mockResolvedValue(result);
+      const result = {
+        id: 1,
+        name: 'Groceries',
+        keywords: ['grocery', 'supermarket'],
+      } as Category;
+      jest
+        .spyOn(categoriesService, 'learnKeywordsFromTransaction')
+        .mockResolvedValue(result);
 
-      expect(await controller.learnFromTransaction(1, 1, mockUser)).toBe(result);
+      expect(await controller.learnFromTransaction(1, 1, mockUser)).toBe(
+        result,
+      );
     });
   });
 });

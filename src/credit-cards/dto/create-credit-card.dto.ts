@@ -28,9 +28,19 @@ export class CreateCreditCardDto {
   @IsNumber()
   interestRate: number;
 
-  @ApiProperty({ description: 'ID of the associated bank account', required: false })
+  @ApiProperty({
+    description: 'ID of the associated bank account',
+    required: false,
+  })
   @IsOptional()
   @IsInt()
   bankAccountId?: number;
-}
 
+  @ApiProperty({
+    description: 'GoCardless account ID for integration',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  gocardlessAccountId?: string;
+}

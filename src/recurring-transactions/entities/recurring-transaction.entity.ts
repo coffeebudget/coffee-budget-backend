@@ -1,9 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTable } from "typeorm";
-import { User } from "../../users/user.entity";
-import { Category } from "../../categories/entities/category.entity";
-import { Tag } from "../../tags/entities/tag.entity";
-import { BankAccount } from "../../bank-accounts/entities/bank-account.entity";
-import { CreditCard } from "../../credit-cards/entities/credit-card.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
+import { User } from '../../users/user.entity';
+import { Category } from '../../categories/entities/category.entity';
+import { Tag } from '../../tags/entities/tag.entity';
+import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
+import { CreditCard } from '../../credit-cards/entities/credit-card.entity';
 
 @Entity()
 export class RecurringTransaction {
@@ -16,66 +23,70 @@ export class RecurringTransaction {
   @Column({ length: 255, nullable: true })
   description: string;
 
-  @Column("decimal", { precision: 10, scale: 2 })
+  @Column('decimal', { precision: 10, scale: 2 })
   amount: number;
 
   @Column({
-    type: "enum",
-    enum: ["SCHEDULED", "PAUSED", "COMPLETED", "CANCELLED"],
-    default: "SCHEDULED"
+    type: 'enum',
+    enum: ['SCHEDULED', 'PAUSED', 'COMPLETED', 'CANCELLED'],
+    default: 'SCHEDULED',
   })
-  status: "SCHEDULED" | "PAUSED" | "COMPLETED" | "CANCELLED";
+  status: 'SCHEDULED' | 'PAUSED' | 'COMPLETED' | 'CANCELLED';
 
   @Column({
-    type: "enum", 
-    enum: ["expense", "income"]
+    type: 'enum',
+    enum: ['expense', 'income'],
   })
-  type: "expense" | "income";
+  type: 'expense' | 'income';
 
-  @Column({ type: "int" })
+  @Column({ type: 'int' })
   frequencyEveryN: number;
 
   @Column({
-    type: "enum",
-    enum: ["daily", "weekly", "monthly", "yearly"]
+    type: 'enum',
+    enum: ['daily', 'weekly', 'monthly', 'yearly'],
   })
-  frequencyType: "daily" | "weekly" | "monthly" | "yearly";
+  frequencyType: 'daily' | 'weekly' | 'monthly' | 'yearly';
 
-  @Column({ type: "int", nullable: true })
+  @Column({ type: 'int', nullable: true })
   occurrences: number | null;
 
-  @Column({ type: "timestamp" })
+  @Column({ type: 'timestamp' })
   startDate: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   endDate: Date | null;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP", onUpdate: "CURRENT_TIMESTAMP" })
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
   updatedAt: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   nextOccurrence: Date | null;
 
   // Additional properties for date calculations in the analytics module
-  @Column({ type: "int", nullable: true })
+  @Column({ type: 'int', nullable: true })
   dayOfMonth?: number;
 
-  @Column({ type: "int", nullable: true })
+  @Column({ type: 'int', nullable: true })
   dayOfWeek?: number;
 
-  @Column({ type: "int", nullable: true })
+  @Column({ type: 'int', nullable: true })
   month?: number;
 
   @Column({ default: false })
   userConfirmed: boolean;
 
-  @Column({ type: "varchar", length: 50, default: "MANUAL" })
+  @Column({ type: 'varchar', length: 50, default: 'MANUAL' })
   source: string;
 
-  @ManyToOne(() => User, user => user.recurringTransactions)
+  @ManyToOne(() => User, (user) => user.recurringTransactions)
   user: User;
 
   @ManyToOne(() => Category, { nullable: false })

@@ -1,12 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { User } from "../../users/user.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { User } from '../../users/user.entity';
 
 export enum ImportStatus {
   PENDING = 'pending',
   PROCESSING = 'processing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  PARTIALLY_COMPLETED = 'partially_completed'
+  PARTIALLY_COMPLETED = 'partially_completed',
 }
 
 @Entity()
@@ -61,4 +68,4 @@ export class ImportLog {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

@@ -2,15 +2,36 @@
 
 A NestJS backend for a personal finance management application.
 
+## Project Structure
+
+This is a multi-repository project with the following structure:
+
+```
+coffee-budget-backend/          # This repository (Backend API)
+├── src/                       # Source code
+├── docs/                      # Documentation
+├── coffee-budget.code-workspace # VS Code workspace configuration
+└── ...
+
+coffee-budget-frontend/        # Frontend repository (separate folder)
+├── src/                       # React/Next.js frontend
+└── ...
+```
+
+To work with both frontend and backend:
+1. Open the `coffee-budget.code-workspace` file in VS Code
+2. This will load both the backend and frontend as separate workspace folders
+
 ## Features
 
-- Transaction management
+- Transaction management with GoCardless integration
 - Category management with keyword-based auto-categorization
 - Recurring transactions
 - Bank account and credit card tracking
-- CSV import functionality
+- CSV import functionality with bank-specific parsers
 - Duplicate detection
 - Dashboard with financial insights
+- PayPal transaction enrichment
 
 ## Tech Stack
 

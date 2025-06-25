@@ -12,9 +12,12 @@ import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { RecurringTransactionsModule } from './recurring-transactions/recurring-transactions.module';
 import { PendingDuplicatesModule } from './pending-duplicates/pending-duplicates.module';
+import { PreventedDuplicatesModule } from './prevented-duplicates/prevented-duplicates.module';
 import { SharedModule } from './shared/shared.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { GocardlessModule } from './gocardless/gocardless.module';
+
 import databaseConfig from './config/database.config';
 
 @Module({
@@ -45,8 +48,10 @@ import databaseConfig from './config/database.config';
     CreditCardsModule,
     RecurringTransactionsModule,
     PendingDuplicatesModule,
+    PreventedDuplicatesModule,
     SharedModule,
     DashboardModule,
+    GocardlessModule,
   ],
   controllers: [AppController],
   providers: [AppService],

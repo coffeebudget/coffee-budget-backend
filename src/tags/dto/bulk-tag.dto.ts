@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class BulkTagDto {
   @ApiProperty({
     description: 'Array of transaction IDs to tag',
-    example: [1, 2, 3, 4]
+    example: [1, 2, 3, 4],
   })
   @IsArray()
   @IsNotEmpty()
@@ -12,9 +12,9 @@ export class BulkTagDto {
 
   @ApiProperty({
     description: 'Array of tag IDs to apply to transactions',
-    example: [1, 2]
+    example: [1, 2],
   })
   @IsArray()
   @IsNotEmpty()
   tag_ids: number[];
-} 
+}

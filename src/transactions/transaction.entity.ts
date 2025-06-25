@@ -1,9 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTable } from "typeorm";
-import { BankAccount } from "../bank-accounts/entities/bank-account.entity";
-import { CreditCard } from "../credit-cards/entities/credit-card.entity";
-import { User } from "../users/user.entity";
-import { Category } from "../categories/entities/category.entity";
-import { Tag } from "../tags/entities/tag.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  ManyToMany,
+  JoinTable,
+} from 'typeorm';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { User } from '../users/user.entity';
+import { Category } from '../categories/entities/category.entity';
+import { Tag } from '../tags/entities/tag.entity';
 
 @Entity()
 export class Transaction {
@@ -13,25 +20,25 @@ export class Transaction {
   @Column()
   description: string;
 
-  @Column("decimal")
+  @Column('decimal')
   amount: number;
 
   @Column({
-    type: "enum",
-    enum: ["expense", "income"],
-    default: "expense",
+    type: 'enum',
+    enum: ['expense', 'income'],
+    default: 'expense',
   })
-  type: "income" | "expense";
+  type: 'income' | 'expense';
 
-  @Column({ type: "timestamp", default: () => "CURRENT_TIMESTAMP" })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
   @Column({
-    type: "enum",
-    enum: ["pending", "executed"],
-    default: "executed",
+    type: 'enum',
+    enum: ['pending', 'executed'],
+    default: 'executed',
   })
-  status: "pending" | "executed";
+  status: 'pending' | 'executed';
 
   @ManyToOne(() => Category, (category) => category.transactions)
   category: Category;
@@ -42,10 +49,14 @@ export class Transaction {
   @Column({ nullable: true, type: 'varchar' })
   suggestedCategoryName: string | null;
 
-  @ManyToOne(() => BankAccount, (bankAccount) => bankAccount.transactions, { nullable: true })
+  @ManyToOne(() => BankAccount, (bankAccount) => bankAccount.transactions, {
+    nullable: true,
+  })
   bankAccount: BankAccount | null;
 
-  @ManyToOne(() => CreditCard, (creditCard) => creditCard.transactions, { nullable: true })
+  @ManyToOne(() => CreditCard, (creditCard) => creditCard.transactions, {
+    nullable: true,
+  })
   creditCard: CreditCard | null;
 
   @ManyToOne(() => User, (user) => user.transactions)
@@ -55,12 +66,15 @@ export class Transaction {
   @JoinTable()
   tags: Tag[];
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   executionDate?: Date;
 
-  @Column({ type: "timestamp", nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
   billingDate?: Date;
 
-  @Column({ type: "varchar", length: 50, default: "manual" })
+  @Column({ type: 'varchar', length: 50, default: 'manual' })
   source: string;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  categorizationConfidence: number | null;
 }

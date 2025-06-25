@@ -102,11 +102,12 @@ describe('RecurringTransactionsService', () => {
           executionDate: new Date('2024-02-01'),
         },
       ]),
-      calculateNextOccurrences: jest.fn().mockReturnValue([
-        new Date('2024-02-01'),
-        new Date('2024-03-01'),
-      ]),
-      calculateNextExecutionDate: jest.fn().mockReturnValue(new Date('2024-02-01')),
+      calculateNextOccurrences: jest
+        .fn()
+        .mockReturnValue([new Date('2024-02-01'), new Date('2024-03-01')]),
+      calculateNextExecutionDate: jest
+        .fn()
+        .mockReturnValue(new Date('2024-02-01')),
     };
 
     const mockTransactionsService = {
@@ -191,9 +192,15 @@ describe('RecurringTransactionsService', () => {
       ],
     }).compile();
 
-    service = module.get<RecurringTransactionsService>(RecurringTransactionsService);
-    generatorService = module.get<RecurringTransactionGeneratorService>(RecurringTransactionGeneratorService);
-    recurringTransactionRepository = module.get(getRepositoryToken(RecurringTransaction));
+    service = module.get<RecurringTransactionsService>(
+      RecurringTransactionsService,
+    );
+    generatorService = module.get<RecurringTransactionGeneratorService>(
+      RecurringTransactionGeneratorService,
+    );
+    recurringTransactionRepository = module.get(
+      getRepositoryToken(RecurringTransaction),
+    );
     categoryRepository = module.get(getRepositoryToken(Category));
     tagRepository = module.get(getRepositoryToken(Tag));
     bankAccountRepository = module.get(getRepositoryToken(BankAccount));
@@ -204,24 +211,33 @@ describe('RecurringTransactionsService', () => {
     transactionOperationsService = module.get(TransactionOperationsService);
 
     // Set up mock return values
-    mockRecurringTransactionRepository.findOne.mockResolvedValue(expectedTransaction);
-    mockRecurringTransactionRepository.create.mockReturnValue(expectedTransaction);
-    mockRecurringTransactionRepository.save.mockResolvedValue(expectedTransaction);
-    
+    mockRecurringTransactionRepository.findOne.mockResolvedValue(
+      expectedTransaction,
+    );
+    mockRecurringTransactionRepository.create.mockReturnValue(
+      expectedTransaction,
+    );
+    mockRecurringTransactionRepository.save.mockResolvedValue(
+      expectedTransaction,
+    );
+
     // Mock category to exist by default
-    mockCategoryRepository.findOne.mockResolvedValue({ id: 1, name: 'Test Category' });
+    mockCategoryRepository.findOne.mockResolvedValue({
+      id: 1,
+      name: 'Test Category',
+    });
 
     mockTransactionRepository.find.mockResolvedValue([]);
 
     // Set up the delete mock as it's causing issues in multiple tests
     mockTransactionRepository.delete.mockResolvedValue({ affected: 1 });
-    
+
     // Make sure transactionsService.create is mocked properly
     mockTransactionsService.create.mockImplementation((dto, userId) => {
       return Promise.resolve({
         id: 999,
         ...dto,
-        user: { id: userId }
+        user: { id: userId },
       });
     });
   });
@@ -259,7 +275,9 @@ describe('RecurringTransactionsService', () => {
 
       // Mock repository responses
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (tagRepository.find as jest.Mock).mockResolvedValue(mockTags);
 
       // Mock the recurring transaction creation
@@ -275,10 +293,14 @@ describe('RecurringTransactionsService', () => {
         updatedAt: new Date(),
         nextOccurrence: null,
         transactions: [],
-        userConfirmed: false
+        userConfirmed: false,
       } as unknown as RecurringTransaction;
-      (recurringTransactionRepository.create as jest.Mock).mockReturnValue(mockRecurringTransaction);
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(mockRecurringTransaction);
+      (recurringTransactionRepository.create as jest.Mock).mockReturnValue(
+        mockRecurringTransaction,
+      );
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        mockRecurringTransaction,
+      );
 
       // Mock the pending transaction generation
       const mockPendingTransaction = {
@@ -288,12 +310,16 @@ describe('RecurringTransactionsService', () => {
         status: 'pending',
         type: 'expense',
       };
-      
-      (generatorService.generateTransactions as jest.Mock).mockReturnValue([mockPendingTransaction]);
-      
+
+      (generatorService.generateTransactions as jest.Mock).mockReturnValue([
+        mockPendingTransaction,
+      ]);
+
       // Mock transactions service createAutomatedTransaction instead of create
       // This is likely what the service is actually calling now
-      (transactionsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({...mockPendingTransaction, id: 100} as any);
+      (
+        transactionsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({ ...mockPendingTransaction, id: 100 } as any);
 
       const result = await service.create(createDto, mockUser as User);
 
@@ -301,7 +327,9 @@ describe('RecurringTransactionsService', () => {
       expect(recurringTransactionRepository.create).toHaveBeenCalled();
       expect(recurringTransactionRepository.save).toHaveBeenCalled();
       expect(generatorService.generateTransactions).toHaveBeenCalled();
-      expect(transactionsService.createAutomatedTransaction).toHaveBeenCalledWith(
+      expect(
+        transactionsService.createAutomatedTransaction,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'Monthly Rent',
           amount: 1000,
@@ -310,7 +338,7 @@ describe('RecurringTransactionsService', () => {
         }),
         mockUser.id,
         'recurring',
-        expect.any(String)
+        expect.any(String),
       );
     });
 
@@ -336,7 +364,9 @@ describe('RecurringTransactionsService', () => {
 
       // Mock repository responses
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (tagRepository.find as jest.Mock).mockResolvedValue([]);
 
       // Mock the recurring transaction creation
@@ -352,10 +382,14 @@ describe('RecurringTransactionsService', () => {
         updatedAt: new Date(),
         nextOccurrence: null,
         transactions: [],
-        userConfirmed: false
+        userConfirmed: false,
       } as unknown as RecurringTransaction;
-      (recurringTransactionRepository.create as jest.Mock).mockReturnValue(mockRecurringTransaction);
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(mockRecurringTransaction);
+      (recurringTransactionRepository.create as jest.Mock).mockReturnValue(
+        mockRecurringTransaction,
+      );
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        mockRecurringTransaction,
+      );
 
       // Mock the pending transaction generation with multiple occurrences
       const mockTransactions = [
@@ -372,18 +406,24 @@ describe('RecurringTransactionsService', () => {
           executionDate: new Date('2024-05-12'),
           status: 'pending',
           type: 'expense',
-        }
+        },
       ];
-      
-      (generatorService.generateTransactions as jest.Mock).mockReturnValue(mockTransactions);
-      
+
+      (generatorService.generateTransactions as jest.Mock).mockReturnValue(
+        mockTransactions,
+      );
+
       // Mock createAutomatedTransaction
-      (transactionsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({...mockTransactions[0], id: 100} as any);
-      
+      (
+        transactionsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({ ...mockTransactions[0], id: 100 } as any);
+
       await service.create(createDto, mockUser as User);
 
       // Update the expectation to check createAutomatedTransaction
-      expect(transactionsService.createAutomatedTransaction).toHaveBeenCalledWith(
+      expect(
+        transactionsService.createAutomatedTransaction,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           description: 'Monthly Payment',
           amount: 100,
@@ -392,7 +432,7 @@ describe('RecurringTransactionsService', () => {
         }),
         mockUser.id,
         'recurring',
-        expect.any(String)
+        expect.any(String),
       );
     });
   });
@@ -429,13 +469,17 @@ describe('RecurringTransactionsService', () => {
         userId: mockUser.id,
       };
 
-      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(existingTransaction);
-      
+      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        existingTransaction,
+      );
+
       const updatedTransaction = {
         ...existingTransaction,
         ...updateDto,
       };
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(updatedTransaction);
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        updatedTransaction,
+      );
 
       (generatorService.generateTransactions as jest.Mock).mockReturnValue([]);
 
@@ -458,7 +502,7 @@ describe('RecurringTransactionsService', () => {
         frequencyType: 'monthly',
         frequencyEveryN: 1,
         startDate: new Date('2024-01-01'),
-        tags: []
+        tags: [],
       } as unknown as RecurringTransaction;
 
       const updateDto: UpdateRecurringTransactionDto = {
@@ -467,19 +511,25 @@ describe('RecurringTransactionsService', () => {
       };
 
       // Mock finding the existing transaction
-      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(existingTransaction);
-      
+      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        existingTransaction,
+      );
+
       // Mock finding the new bank account
       const newBankAccount = { id: 2, name: 'New Bank Account' };
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(newBankAccount);
-      
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        newBankAccount,
+      );
+
       // Mock saving the updated transaction
       const updatedTransaction = {
         ...existingTransaction,
         bankAccount: newBankAccount,
-        tags: []
+        tags: [],
       } as unknown as RecurringTransaction;
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(updatedTransaction);
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        updatedTransaction,
+      );
 
       // Mock the pending transaction generation
       const mockPendingTransaction = {
@@ -489,22 +539,26 @@ describe('RecurringTransactionsService', () => {
         status: 'pending',
         type: 'expense',
       };
-      (generatorService.generateTransactions as jest.Mock).mockReturnValue([mockPendingTransaction]);
-      
+      (generatorService.generateTransactions as jest.Mock).mockReturnValue([
+        mockPendingTransaction,
+      ]);
+
       // Mock transactions service
-      (transactionsService.createAutomatedTransaction as jest.Mock).mockResolvedValue(mockPendingTransaction as any);
+      (
+        transactionsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue(mockPendingTransaction as any);
 
       const result = await service.update(1, updateDto, mockUser.id);
 
       expect(result).toEqual(updatedTransaction);
       expect(bankAccountRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 2, user: { id: mockUser.id } }
+        where: { id: 2, user: { id: mockUser.id } },
       });
       expect(recurringTransactionRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           bankAccount: newBankAccount,
-          creditCard: null
-        })
+          creditCard: null,
+        }),
       );
     });
 
@@ -522,7 +576,7 @@ describe('RecurringTransactionsService', () => {
         frequencyType: 'monthly',
         frequencyEveryN: 1,
         startDate: new Date('2024-01-01'),
-        tags: []
+        tags: [],
       } as unknown as RecurringTransaction;
 
       const updateDto: UpdateRecurringTransactionDto = {
@@ -531,42 +585,52 @@ describe('RecurringTransactionsService', () => {
       };
 
       // Mock finding the existing transaction
-      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(existingTransaction);
-      
+      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        existingTransaction,
+      );
+
       // Mock finding the new credit card
       const newCreditCard = { id: 2, name: 'New Credit Card' };
-      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(newCreditCard);
-      
+      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(
+        newCreditCard,
+      );
+
       // Mock saving the updated transaction
       const updatedTransaction = {
         ...existingTransaction,
         bankAccount: null,
         creditCard: newCreditCard,
-        tags: []
+        tags: [],
       } as unknown as RecurringTransaction;
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(updatedTransaction);
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        updatedTransaction,
+      );
 
       // Mock the pending transaction generation
       const mockPendingTransaction = {
         description: 'Netflix Subscription',
         amount: 9.99,
       };
-      (generatorService.generateTransactions as jest.Mock).mockReturnValue([mockPendingTransaction]);
-      
+      (generatorService.generateTransactions as jest.Mock).mockReturnValue([
+        mockPendingTransaction,
+      ]);
+
       // Mock transactions service
-      (transactionsService.createAutomatedTransaction as jest.Mock).mockResolvedValue(mockPendingTransaction as any);
+      (
+        transactionsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue(mockPendingTransaction as any);
 
       const result = await service.update(1, updateDto, mockUser.id);
 
       expect(result).toEqual(updatedTransaction);
       expect(creditCardRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 2, user: { id: mockUser.id } }
+        where: { id: 2, user: { id: mockUser.id } },
       });
       expect(recurringTransactionRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           bankAccount: null,
-          creditCard: newCreditCard
-        })
+          creditCard: newCreditCard,
+        }),
       );
     });
 
@@ -591,7 +655,7 @@ describe('RecurringTransactionsService', () => {
         updatedAt: new Date(),
         description: 'Monthly Rent',
         active: true,
-        autoGenerate: true
+        autoGenerate: true,
       } as unknown as RecurringTransaction;
 
       const updateDto: UpdateRecurringTransactionDto = {
@@ -601,18 +665,24 @@ describe('RecurringTransactionsService', () => {
         applyToPast: true,
       };
 
-      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(existingTransaction);
-      
+      (recurringTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        existingTransaction,
+      );
+
       const pastTransactions = [
-        { id: 101, description: 'Monthly Rent', amount: 1000 }
+        { id: 101, description: 'Monthly Rent', amount: 1000 },
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(pastTransactions);
-      
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        pastTransactions,
+      );
+
       const updatedTransaction = {
         ...existingTransaction,
         ...updateDto,
       };
-      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(updatedTransaction);
+      (recurringTransactionRepository.save as jest.Mock).mockResolvedValue(
+        updatedTransaction,
+      );
 
       await service.update(1, updateDto, mockUser.id);
     });

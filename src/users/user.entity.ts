@@ -1,10 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
-import { BankAccount } from "../bank-accounts/entities/bank-account.entity";
-import { CreditCard } from "../credit-cards/entities/credit-card.entity";
-import { Transaction } from "../transactions/transaction.entity";
-import { Tag } from "../tags/entities/tag.entity";
-import { Category } from "../categories/entities/category.entity";
-import { RecurringTransaction } from "../recurring-transactions/entities/recurring-transaction.entity";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { Transaction } from '../transactions/transaction.entity';
+import { Tag } from '../tags/entities/tag.entity';
+import { Category } from '../categories/entities/category.entity';
+import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 
 @Entity()
 export class User {
@@ -23,15 +23,21 @@ export class User {
   @OneToMany(() => CreditCard, (creditCard) => creditCard.user)
   creditCards: CreditCard[];
 
-  @OneToMany(() => Transaction, (transaction) => transaction.user, { nullable: true })
+  @OneToMany(() => Transaction, (transaction) => transaction.user, {
+    nullable: true,
+  })
   transactions?: Transaction[] | null;
 
   @OneToMany(() => Tag, (tag) => tag.user, { nullable: true })
   tags?: Tag[] | null;
 
-  @OneToMany(()=>Category, (category)=>category.user, { nullable: true })
+  @OneToMany(() => Category, (category) => category.user, { nullable: true })
   categories?: Category[] | null;
 
-  @OneToMany(()=>RecurringTransaction, (recurringTransaction)=>recurringTransaction.user, { nullable: true })
+  @OneToMany(
+    () => RecurringTransaction,
+    (recurringTransaction) => recurringTransaction.user,
+    { nullable: true },
+  )
   recurringTransactions?: RecurringTransaction[] | null;
 }

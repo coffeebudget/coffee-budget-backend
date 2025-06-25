@@ -7,6 +7,8 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
 import { User } from '../users/user.entity';
 import { Between } from 'typeorm';
 import { Logger } from '@nestjs/common';
+import { DuplicateDetectionService } from '../pending-duplicates/duplicate-detection.service';
+import { PreventedDuplicatesService } from '../prevented-duplicates/prevented-duplicates.service';
 
 @Injectable()
 export class TransactionOperationsService {
@@ -17,61 +19,96 @@ export class TransactionOperationsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(PendingDuplicate)
     private pendingDuplicateRepository: Repository<PendingDuplicate>,
+    private duplicateDetectionService: DuplicateDetectionService,
+    private preventedDuplicatesService: PreventedDuplicatesService,
   ) {}
 
   /**
-   * Creates an automated transaction
+   * Creates an automated transaction with improved duplicate detection
    */
   async createAutomatedTransaction(
-    transactionData: Partial<Transaction>, 
+    transactionData: Partial<Transaction>,
     userId: number,
     source: 'csv_import' | 'api',
-    sourceReference?: string
-  ): Promise<Transaction> {
+    sourceReference?: string,
+  ): Promise<Transaction | null> {
     // Normalize the amount if type is provided
     if (transactionData.amount !== undefined && transactionData.type) {
       transactionData.amount = this.normalizeAmount(
         transactionData.amount,
-        transactionData.type
+        transactionData.type,
       );
     }
-    
-    // Check for duplicates
+
+    // Set defaults
     if (!transactionData.executionDate) {
       transactionData.executionDate = new Date();
     }
 
     if (!transactionData.type) {
-      transactionData.type = transactionData.amount && transactionData.amount >= 0 ? 'income' : 'expense';
+      transactionData.type =
+        transactionData.amount && transactionData.amount >= 0
+          ? 'income'
+          : 'expense';
     }
 
-    const duplicateTransaction = await this.findPotentialDuplicate(
-      transactionData.amount || 0,
-      transactionData.type,
-      transactionData.executionDate,
-      userId
-    );
+    // Use the improved duplicate detection
+    const duplicateCheck =
+      await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
+        {
+          description: transactionData.description || '',
+          amount: transactionData.amount || 0,
+          type: transactionData.type,
+          executionDate: transactionData.executionDate,
+          source,
+        },
+        userId,
+      );
 
-    if (duplicateTransaction) {
-      // Instead of auto-resolving, create a pending duplicate
+    if (duplicateCheck.shouldPrevent) {
+      // 100% match - prevent creation and log it
+      await this.preventedDuplicatesService.createPreventedDuplicate(
+        duplicateCheck.existingTransaction!,
+        transactionData,
+        source,
+        sourceReference || null,
+        duplicateCheck.similarityScore,
+        duplicateCheck.reason,
+        { id: userId } as User,
+      );
+
+      this.logger.log(
+        `Prevented 100% duplicate transaction for user ${userId}: ${transactionData.description} (${transactionData.amount})`,
+      );
+
+      // Return null to indicate transaction was prevented
+      return null;
+    }
+
+    if (duplicateCheck.shouldCreatePending) {
+      // 80-99% match - create pending duplicate for manual review
       await this.createPendingDuplicate(
-        duplicateTransaction,
+        duplicateCheck.existingTransaction!,
         transactionData,
         userId,
         source,
-        sourceReference
+        sourceReference,
+      );
+
+      this.logger.log(
+        `Created pending duplicate for user ${userId}: ${transactionData.description} (${duplicateCheck.similarityScore}% match)`,
       );
 
       // Return the existing transaction to indicate a duplicate was found
-      return duplicateTransaction;
+      return duplicateCheck.existingTransaction!;
     }
 
+    // No significant duplicate found, create the transaction normally
     transactionData.source = source;
 
-    // No duplicate, create the transaction normally
     const transaction = this.transactionRepository.create({
       ...transactionData,
-      user: { id: userId }
+      user: { id: userId },
     });
 
     return await this.transactionRepository.save(transaction);
@@ -96,12 +133,12 @@ export class TransactionOperationsService {
     amount: number,
     type: string,
     executionDate: Date,
-    userId: number
+    userId: number,
   ): Promise<Transaction | null> {
     // Create date range for comparison (same day)
     const startDate = new Date(executionDate);
     startDate.setHours(0, 0, 0, 0);
-    
+
     const endDate = new Date(executionDate);
     endDate.setHours(23, 59, 59, 999);
 
@@ -111,9 +148,9 @@ export class TransactionOperationsService {
         amount,
         type: type as NonNullable<Transaction['type']>,
         executionDate: Between(startDate, endDate),
-        user: { id: userId }
+        user: { id: userId },
       },
-      order: { createdAt: 'DESC' }
+      order: { createdAt: 'DESC' },
     });
 
     return duplicates.length > 0 ? duplicates[0] : null;
@@ -125,7 +162,7 @@ export class TransactionOperationsService {
   async findMatchingTransactions(
     userId: number,
     description: string,
-    amount: number
+    amount: number,
   ): Promise<Transaction[]> {
     return this.transactionRepository.find({
       where: {
@@ -145,19 +182,21 @@ export class TransactionOperationsService {
     newTransactionData: any,
     userId: number,
     source: string = 'manual',
-    sourceReference: string | null = null
+    sourceReference: string | null = null,
   ): Promise<PendingDuplicate> {
     // Create a basic entity first
     const pendingDuplicate = new PendingDuplicate();
-    
+
     // Then set properties
-    pendingDuplicate.existingTransactionData = existingTransaction ? JSON.stringify(existingTransaction) : null;
+    pendingDuplicate.existingTransactionData = existingTransaction
+      ? JSON.stringify(existingTransaction)
+      : null;
     pendingDuplicate.newTransactionData = newTransactionData;
     pendingDuplicate.user = { id: userId } as User;
     pendingDuplicate.resolved = false;
     pendingDuplicate.source = source as 'csv_import' | 'api';
     pendingDuplicate.sourceReference = sourceReference || null;
-    
+
     // Set the relation separately
     if (existingTransaction) {
       pendingDuplicate.existingTransaction = existingTransaction;
@@ -173,41 +212,49 @@ export class TransactionOperationsService {
     existingTransaction: Transaction,
     newTransactionData: any,
     userId: number,
-    choice: DuplicateTransactionChoice
+    choice: DuplicateTransactionChoice,
   ): Promise<Transaction> {
     let result: Transaction;
 
     switch (choice) {
-      case DuplicateTransactionChoice.MAINTAIN_BOTH:
+      case DuplicateTransactionChoice.MAINTAIN_BOTH: {
         // Create a new transaction with the data
         const createdTransaction = this.transactionRepository.create({
           ...newTransactionData,
-          user: { id: userId }
+          user: { id: userId },
         });
-        const savedTransaction = await this.transactionRepository.save(createdTransaction);
+        const savedTransaction =
+          await this.transactionRepository.save(createdTransaction);
         // Ensure we're returning a single entity
-        result = Array.isArray(savedTransaction) ? savedTransaction[0] : savedTransaction;
+        result = Array.isArray(savedTransaction)
+          ? savedTransaction[0]
+          : savedTransaction;
         break;
+      }
 
-      case DuplicateTransactionChoice.KEEP_EXISTING:
+      case DuplicateTransactionChoice.KEEP_EXISTING: {
         // Do nothing, keep the existing transaction
         result = existingTransaction;
         break;
+      }
 
-      case DuplicateTransactionChoice.USE_NEW:
+      case DuplicateTransactionChoice.USE_NEW: {
         // Update existing transaction with new data
         const updatedTransaction = {
           ...existingTransaction,
           ...newTransactionData,
         };
-        const savedUpdated = await this.transactionRepository.save(updatedTransaction);
+        const savedUpdated =
+          await this.transactionRepository.save(updatedTransaction);
         // Ensure we're returning a single entity
         result = Array.isArray(savedUpdated) ? savedUpdated[0] : savedUpdated;
         break;
+      }
 
-      default:
+      default: {
         // Default to keeping existing
         result = existingTransaction;
+      }
     }
 
     return result;
@@ -216,10 +263,13 @@ export class TransactionOperationsService {
   /**
    * Find a transaction by ID
    */
-  async findTransactionById(id: number, userId: number): Promise<Transaction | null> {
+  async findTransactionById(
+    id: number,
+    userId: number,
+  ): Promise<Transaction | null> {
     return this.transactionRepository.findOne({
       where: { id, user: { id: userId } },
       relations: ['category', 'bankAccount', 'creditCard', 'tags'],
     });
   }
-} 
+}

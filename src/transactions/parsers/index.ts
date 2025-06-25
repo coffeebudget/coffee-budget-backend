@@ -6,3 +6,4 @@ export * from './bnl-xls.parser';
 export * from './webank.parser';
 export * from './fineco.parser';
 export * from './carta-impronta.parser';
+export * from './gocardless.parser';

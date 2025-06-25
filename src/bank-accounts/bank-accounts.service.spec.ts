@@ -15,7 +15,9 @@ describe('BankAccountsService', () => {
   let service: BankAccountsService;
   let bankAccountRepository: Repository<BankAccount>;
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
-  let recurringTransactionRepository: jest.Mocked<Repository<RecurringTransaction>>;
+  let recurringTransactionRepository: jest.Mocked<
+    Repository<RecurringTransaction>
+  >;
   let creditCardRepository: jest.Mocked<Repository<CreditCard>>;
 
   const mockUser: User = {
@@ -89,15 +91,24 @@ describe('BankAccountsService', () => {
     }).compile();
 
     service = module.get<BankAccountsService>(BankAccountsService);
-    bankAccountRepository = module.get<Repository<BankAccount>>(getRepositoryToken(BankAccount));
+    bankAccountRepository = module.get<Repository<BankAccount>>(
+      getRepositoryToken(BankAccount),
+    );
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    recurringTransactionRepository = module.get(getRepositoryToken(RecurringTransaction));
+    recurringTransactionRepository = module.get(
+      getRepositoryToken(RecurringTransaction),
+    );
     creditCardRepository = module.get(getRepositoryToken(CreditCard));
   });
 
   describe('create', () => {
     it('should create a bank account for a user', async () => {
-      const createDto = { name: 'Test Account', balance: 1000, type: 'CHECKING', currency: Currency.USD };
+      const createDto = {
+        name: 'Test Account',
+        balance: 1000,
+        type: 'CHECKING',
+        currency: Currency.USD,
+      };
       mockBankAccountRepository.create.mockReturnValue(mockBankAccount);
       mockBankAccountRepository.save.mockResolvedValue(mockBankAccount);
 
@@ -113,7 +124,7 @@ describe('BankAccountsService', () => {
   describe('findAll', () => {
     it('should return all bank accounts for a user', async () => {
       mockBankAccountRepository.find.mockResolvedValue([mockBankAccount]);
-      
+
       const result = await service.findAll(mockUser.id);
       expect(result).toEqual([mockBankAccount]);
       expect(mockBankAccountRepository.find).toHaveBeenCalledWith({
@@ -126,15 +137,17 @@ describe('BankAccountsService', () => {
   describe('findOne', () => {
     it('should return a bank account if it belongs to the user', async () => {
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
-      
+
       const result = await service.findOne(1, mockUser.id);
       expect(result).toEqual(mockBankAccount);
     });
 
     it('should throw NotFoundException if bank account is not found', async () => {
       mockBankAccountRepository.findOne.mockResolvedValue(null);
-      
-      await expect(service.findOne(1, mockUser.id)).rejects.toThrow(NotFoundException);
+
+      await expect(service.findOne(1, mockUser.id)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -143,15 +156,17 @@ describe('BankAccountsService', () => {
       const updateDto = { name: 'Updated Account' };
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
       mockBankAccountRepository.update.mockResolvedValue({ affected: 1 });
-      
+
       const result = await service.update(1, updateDto, mockUser.id);
       expect(mockBankAccountRepository.update).toHaveBeenCalled();
     });
 
     it('should throw NotFoundException if bank account is not found', async () => {
       mockBankAccountRepository.findOne.mockResolvedValue(null);
-      
-      await expect(service.update(1, {}, mockUser.id)).rejects.toThrow(NotFoundException);
+
+      await expect(service.update(1, {}, mockUser.id)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -159,15 +174,17 @@ describe('BankAccountsService', () => {
     it('should delete a bank account if it belongs to the user', async () => {
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
       mockBankAccountRepository.delete.mockResolvedValue({ affected: 1 });
-      
+
       await service.remove(1, mockUser.id);
       expect(mockBankAccountRepository.delete).toHaveBeenCalledWith(1);
     });
 
     it('should throw NotFoundException if bank account is not found', async () => {
       mockBankAccountRepository.findOne.mockResolvedValue(null);
-      
-      await expect(service.remove(1, mockUser.id)).rejects.toThrow(NotFoundException);
+
+      await expect(service.remove(1, mockUser.id)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw ForbiddenException if the bank account is linked to a transaction', async () => {
@@ -187,9 +204,13 @@ describe('BankAccountsService', () => {
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
 
       // Mock the transaction repository to simulate that the bank account is linked to a transaction
-      transactionRepository.find.mockResolvedValue([{ id: 101, bankAccount: { id: 1 } } as Transaction]);
+      transactionRepository.find.mockResolvedValue([
+        { id: 101, bankAccount: { id: 1 } } as Transaction,
+      ]);
 
-      await expect(service.remove(1, mockUser.id)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(1, mockUser.id)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException if the bank account is linked to a recurring transaction', async () => {
@@ -209,9 +230,13 @@ describe('BankAccountsService', () => {
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
 
       // Mock the recurring transaction repository to simulate that the bank account is linked to a recurring transaction
-      recurringTransactionRepository.find.mockResolvedValue([{ id: 201, bankAccount: { id: 1 } } as RecurringTransaction]);
+      recurringTransactionRepository.find.mockResolvedValue([
+        { id: 201, bankAccount: { id: 1 } } as RecurringTransaction,
+      ]);
 
-      await expect(service.remove(1, mockUser.id)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(1, mockUser.id)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw ForbiddenException if the bank account is linked to a credit card', async () => {
@@ -231,9 +256,13 @@ describe('BankAccountsService', () => {
       mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
 
       // Mock the credit card repository to simulate that the bank account is linked to a credit card
-      creditCardRepository.find.mockResolvedValue([{ id: 301, bankAccount: { id: 1 } } as CreditCard]);
+      creditCardRepository.find.mockResolvedValue([
+        { id: 301, bankAccount: { id: 1 } } as CreditCard,
+      ]);
 
-      await expect(service.remove(1, mockUser.id)).rejects.toThrow(ForbiddenException);
+      await expect(service.remove(1, mockUser.id)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 });

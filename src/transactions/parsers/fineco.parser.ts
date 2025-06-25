@@ -7,11 +7,14 @@ import { Workbook } from 'exceljs';
 import { Tag } from '../../tags/entities/tag.entity';
 
 export class FinecoParser extends BaseParser {
-  async parseFile(data: string, options: {
-    bankAccountId?: number;
-    creditCardId?: number;
-    userId: number;
-  }): Promise<Partial<Transaction>[]> {
+  async parseFile(
+    data: string,
+    options: {
+      bankAccountId?: number;
+      creditCardId?: number;
+      userId: number;
+    },
+  ): Promise<Partial<Transaction>[]> {
     if (!data) {
       throw new BadRequestException('Missing XLS content');
     }
@@ -31,9 +34,14 @@ export class FinecoParser extends BaseParser {
         const rawValues = Array.isArray(row.values) ? row.values : [];
         headers = rawValues
           .slice(1) // skip the first index (0) which is always empty
-          .map((val) => (val !== undefined && val !== null ? String(val).trim() : ""));
-    
-        if (headers.includes("Data") && headers.includes("Descrizione_Completa")) {
+          .map((val) =>
+            val !== undefined && val !== null ? String(val).trim() : '',
+          );
+
+        if (
+          headers.includes('Data') &&
+          headers.includes('Descrizione_Completa')
+        ) {
           headerFound = true;
         }
         return;
@@ -45,19 +53,19 @@ export class FinecoParser extends BaseParser {
         return row.getCell(headerIndex + 1).text.trim();
       };
 
-      const dateStr = getCell("Data");
-      const entrateStr = getCell("Entrate");
-      const usciteStr = getCell("Uscite");
-      const description = getCell("Descrizione_Completa");
-      const tag = getCell("Descrizione");
-      const moneymap = getCell("Moneymap");
+      const dateStr = getCell('Data');
+      const entrateStr = getCell('Entrate');
+      const usciteStr = getCell('Uscite');
+      const description = getCell('Descrizione_Completa');
+      const tag = getCell('Descrizione');
+      const moneymap = getCell('Moneymap');
 
       if (!dateStr || !description) return;
 
-      const executionDate = this.parseDate(dateStr, "dd/MM/yyyy");
+      const executionDate = this.parseDate(dateStr, 'dd/MM/yyyy');
 
       const amountRaw = entrateStr || usciteStr;
-      const type = entrateStr ? "income" : "expense";
+      const type = entrateStr ? 'income' : 'expense';
       const parsedAmount = this.parseAmount(amountRaw);
 
       // Generate enhanced description that includes tag information
@@ -70,13 +78,20 @@ export class FinecoParser extends BaseParser {
         amount: Math.abs(parsedAmount),
         type,
         executionDate,
-        bankAccount: options.bankAccountId ? { id: options.bankAccountId } as BankAccount : undefined,
-        creditCard: options.creditCardId ? { id: options.creditCardId } as CreditCard : undefined,
+        bankAccount: options.bankAccountId
+          ? ({ id: options.bankAccountId } as BankAccount)
+          : undefined,
+        creditCard: options.creditCardId
+          ? ({ id: options.creditCardId } as CreditCard)
+          : undefined,
       };
 
       // Instead of creating tag objects directly, store tag names to be processed later
       if (moneymap) {
-        const tagNames = moneymap.split(':').map(part => part.trim()).filter(Boolean);
+        const tagNames = moneymap
+          .split(':')
+          .map((part) => part.trim())
+          .filter(Boolean);
         // Store tag names in a custom property that will be processed by TransactionsService
         (transaction as any).tagNames = tagNames;
       }

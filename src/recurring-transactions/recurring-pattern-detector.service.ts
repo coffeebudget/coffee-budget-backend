@@ -21,14 +21,16 @@ export class RecurringPatternDetectorService {
 
   constructor(
     @InjectRepository(Transaction)
-    private transactionRepository: Repository<Transaction>
+    private transactionRepository: Repository<Transaction>,
   ) {}
 
-  async detectAllRecurringPatterns(userId: number): Promise<RecurringPattern[]> {
+  async detectAllRecurringPatterns(
+    userId: number,
+  ): Promise<RecurringPattern[]> {
     const transactions = await this.transactionRepository.find({
       where: { user: { id: userId } },
       order: { executionDate: 'ASC' },
-      relations: ['category']
+      relations: ['category'],
     });
 
     const clusters: Map<string, Transaction[]> = new Map();
@@ -53,11 +55,13 @@ export class RecurringPatternDetectorService {
 
     for (const group of clusters.values()) {
       if (group.length < 3) continue;
-      
+
       // Allow flexible amounts
-      const avgAmount = group.reduce((sum, tx) => sum + Number(tx.amount), 0) / group.length;
-      const filtered = group.filter(tx =>
-        Math.abs(Number(tx.amount) - avgAmount) <= Math.abs(avgAmount) * 0.4 // Allow more variation
+      const avgAmount =
+        group.reduce((sum, tx) => sum + Number(tx.amount), 0) / group.length;
+      const filtered = group.filter(
+        (tx) =>
+          Math.abs(Number(tx.amount) - avgAmount) <= Math.abs(avgAmount) * 0.4, // Allow more variation
       );
 
       if (filtered.length < 3) continue;
@@ -74,18 +78,24 @@ export class RecurringPatternDetectorService {
       }
     }
 
-    return results.sort((a, b) => b.similarTransactions.length - a.similarTransactions.length);
+    return results.sort(
+      (a, b) => b.similarTransactions.length - a.similarTransactions.length,
+    );
   }
 
-  async detectPatternForTransaction(transaction: Transaction): Promise<RecurringPattern> {
+  async detectPatternForTransaction(
+    transaction: Transaction,
+  ): Promise<RecurringPattern> {
     const transactions = await this.transactionRepository.find({
       where: { user: { id: transaction.user.id } },
       order: { executionDate: 'ASC' },
     });
 
-    const grouped = transactions.filter(tx =>
-      this.isFuzzyMatch(tx.description, transaction.description) &&
-      Math.abs(tx.amount - transaction.amount) <= Math.abs(transaction.amount) * 0.25
+    const grouped = transactions.filter(
+      (tx) =>
+        this.isFuzzyMatch(tx.description, transaction.description) &&
+        Math.abs(tx.amount - transaction.amount) <=
+          Math.abs(transaction.amount) * 0.25,
     );
 
     if (grouped.length < 3) {
@@ -125,49 +135,61 @@ export class RecurringPatternDetectorService {
 
   private isFuzzyMatch(desc1: string, desc2: string): boolean {
     if (!desc1 || !desc2) return false;
-    
+
     const normalized1 = this.normalizeDescription(desc1);
     const normalized2 = this.normalizeDescription(desc2);
-    
-    return normalized1 === normalized2 || 
-           normalized1.includes(normalized2) || 
-           normalized2.includes(normalized1);
+
+    return (
+      normalized1 === normalized2 ||
+      normalized1.includes(normalized2) ||
+      normalized2.includes(normalized1)
+    );
   }
 
   private calculateIntervals(transactions: Transaction[]): number[] {
     // Filter transactions that have executionDate before sorting
-    const validTransactions = transactions.filter(tx => tx.executionDate !== undefined && tx.executionDate !== null);
-    
+    const validTransactions = transactions.filter(
+      (tx) => tx.executionDate !== undefined && tx.executionDate !== null,
+    );
+
     const sortedTransactions = [...validTransactions].sort((a, b) => {
       const dateA = a.executionDate as Date; // TypeScript cast since we filtered out undefined/null
       const dateB = b.executionDate as Date; // TypeScript cast since we filtered out undefined/null
       return dateA.getTime() - dateB.getTime();
     });
-    
+
     const intervals: number[] = [];
     for (let i = 1; i < sortedTransactions.length; i++) {
-      const dateA = sortedTransactions[i-1].executionDate as Date;
+      const dateA = sortedTransactions[i - 1].executionDate as Date;
       const dateB = sortedTransactions[i].executionDate as Date;
-      const daysDiff = Math.round((dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24));
+      const daysDiff = Math.round(
+        (dateB.getTime() - dateA.getTime()) / (1000 * 60 * 60 * 24),
+      );
       intervals.push(daysDiff);
     }
-    
+
     return intervals;
   }
 
-  private classifyFrequency(intervals: number[]): { frequency: string, confidence: number } | null {
+  private classifyFrequency(
+    intervals: number[],
+  ): { frequency: string; confidence: number } | null {
     if (intervals.length < 2) return null;
-    
+
     // Calculate the average interval
-    const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
-    
+    const avgInterval =
+      intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
+
     // Classify based on average interval
-    if (avgInterval >= 25 && avgInterval <= 35) return { frequency: 'monthly', confidence: 0.8 };
-    if (avgInterval >= 6 && avgInterval <= 8) return { frequency: 'weekly', confidence: 0.8 };
-    if (avgInterval >= 350 && avgInterval <= 380) return { frequency: 'yearly', confidence: 0.7 };
-    if (avgInterval >= 0 && avgInterval <= 3) return { frequency: 'daily', confidence: 0.6 };
-    
+    if (avgInterval >= 25 && avgInterval <= 35)
+      return { frequency: 'monthly', confidence: 0.8 };
+    if (avgInterval >= 6 && avgInterval <= 8)
+      return { frequency: 'weekly', confidence: 0.8 };
+    if (avgInterval >= 350 && avgInterval <= 380)
+      return { frequency: 'yearly', confidence: 0.7 };
+    if (avgInterval >= 0 && avgInterval <= 3)
+      return { frequency: 'daily', confidence: 0.6 };
+
     return null;
   }
 }
-

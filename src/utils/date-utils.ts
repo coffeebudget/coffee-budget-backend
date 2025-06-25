@@ -13,9 +13,9 @@ const logger = new Logger('DateUtils');
  * @returns The parsed date or the fallback date
  */
 export function parseDate(
-  dateString: string, 
-  dateFormat: string = 'yyyy-MM-dd', 
-  fallbackDate?: Date
+  dateString: string,
+  dateFormat: string = 'yyyy-MM-dd',
+  fallbackDate?: Date,
 ): Date {
   if (!dateString) {
     if (fallbackDate) return fallbackDate;
@@ -23,19 +23,28 @@ export function parseDate(
   }
 
   // Add debug logging (NestJS Logger will filter this based on config)
-  logger.debug(`Attempting to parse date: "${dateString}" with format: "${dateFormat}"`);
+  logger.debug(
+    `Attempting to parse date: "${dateString}" with format: "${dateFormat}"`,
+  );
 
   // For dd/MM/yyyy format (European format), handle it specially to avoid timezone issues
-  if (dateFormat === 'dd/MM/yyyy' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
+  if (
+    dateFormat === 'dd/MM/yyyy' &&
+    /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)
+  ) {
     try {
       // Split the date string into day, month, and year
-      const [day, month, year] = dateString.split('/').map(part => parseInt(part, 10));
-      
+      const [day, month, year] = dateString
+        .split('/')
+        .map((part) => parseInt(part, 10));
+
       // Create a Date object with the local timezone (months are 0-indexed in JS Date)
       const result = new Date(year, month - 1, day, 12, 0, 0);
-      
+
       if (isValid(result) && !isNaN(result.getTime())) {
-        logger.debug(`Successfully parsed European date: ${result.toISOString()} (day: ${result.getDate()}, month: ${result.getMonth() + 1})`);
+        logger.debug(
+          `Successfully parsed European date: ${result.toISOString()} (day: ${result.getDate()}, month: ${result.getMonth() + 1})`,
+        );
         return result;
       }
     } catch (error) {
@@ -59,10 +68,14 @@ export function parseDate(
         parsedDate.getFullYear(),
         parsedDate.getMonth(),
         parsedDate.getDate(),
-        12, 0, 0 // Use noon to avoid any timezone issues
+        12,
+        0,
+        0, // Use noon to avoid any timezone issues
       );
-      
-      logger.debug(`Successfully parsed with specified format: ${localDate.toISOString()}`);
+
+      logger.debug(
+        `Successfully parsed with specified format: ${localDate.toISOString()}`,
+      );
       return localDate;
     }
   } catch (error) {
@@ -72,19 +85,19 @@ export function parseDate(
 
   // Try common formats
   const commonFormats = [
-    'dd/MM/yyyy',  // European format
-    'MM/dd/yyyy',  // US format
-    'yyyy-MM-dd',  // ISO-like
-    'dd-MM-yyyy',  // European with dashes
-    'MM-dd-yyyy',  // US with dashes
-    'dd.MM.yyyy',  // European with dots
-    'MM.dd.yyyy',  // US with dots
-    'yyyyMMdd',    // Compact
+    'dd/MM/yyyy', // European format
+    'MM/dd/yyyy', // US format
+    'yyyy-MM-dd', // ISO-like
+    'dd-MM-yyyy', // European with dashes
+    'MM-dd-yyyy', // US with dashes
+    'dd.MM.yyyy', // European with dots
+    'MM.dd.yyyy', // US with dots
+    'yyyyMMdd', // Compact
   ];
-  
+
   for (const format of commonFormats) {
     if (format === dateFormat) continue; // Skip if it's the same as the specified format
-    
+
     try {
       const parsedDate = parse(dateString, format, new Date());
       if (isValid(parsedDate) && !isNaN(parsedDate.getTime())) {
@@ -93,10 +106,14 @@ export function parseDate(
           parsedDate.getFullYear(),
           parsedDate.getMonth(),
           parsedDate.getDate(),
-          12, 0, 0 // Use noon to avoid any timezone issues
+          12,
+          0,
+          0, // Use noon to avoid any timezone issues
         );
-        
-        logger.debug(`Successfully parsed with format ${format}: ${localDate.toISOString()}`);
+
+        logger.debug(
+          `Successfully parsed with format ${format}: ${localDate.toISOString()}`,
+        );
         return localDate;
       }
     } catch (error) {
@@ -114,7 +131,7 @@ export function parseDate(
   // If all parsing attempts fail, throw an error
   logger.error(`Failed to parse date: ${dateString}`);
   throw new BadRequestException(
-    `Invalid date format: ${dateString}. Expected format: ${dateFormat} or another common format.`
+    `Invalid date format: ${dateString}. Expected format: ${dateFormat} or another common format.`,
   );
 }
 
@@ -124,7 +141,10 @@ export function parseDate(
  * @param dateFormat The format to use (default: 'yyyy-MM-dd')
  * @returns The formatted date string
  */
-export function formatDate(date: Date, dateFormat: string = 'yyyy-MM-dd'): string {
+export function formatDate(
+  date: Date,
+  dateFormat: string = 'yyyy-MM-dd',
+): string {
   return format(date, dateFormat);
 }
 

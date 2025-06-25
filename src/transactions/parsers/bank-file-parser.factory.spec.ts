@@ -28,9 +28,11 @@ describe('BankFileParserFactory', () => {
   });
 
   it('should throw BadRequestException for unknown format', () => {
-    expect(() => BankFileParserFactory.getParser('unknown_format'))
-      .toThrow(BadRequestException);
-    expect(() => BankFileParserFactory.getParser('unknown_format'))
-      .toThrow('Unsupported bank format: unknown_format');
+    expect(() => BankFileParserFactory.getParser('unknown_format')).toThrow(
+      BadRequestException,
+    );
+    expect(() => BankFileParserFactory.getParser('unknown_format')).toThrow(
+      'Unsupported bank format: unknown_format',
+    );
   });
 });

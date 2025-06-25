@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { CreditCardsService } from './credit-cards.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
@@ -17,7 +27,10 @@ export class CreditCardsController {
 
   @Post()
   @ApiResponse({ status: 201, description: 'Create a new credit card.' })
-  create(@Body() createCreditCardDto: CreateCreditCardDto, @CurrentUser() user: User): Promise<CreditCard> {
+  create(
+    @Body() createCreditCardDto: CreateCreditCardDto,
+    @CurrentUser() user: User,
+  ): Promise<CreditCard> {
     return this.creditCardsService.create(createCreditCardDto, user);
   }
 
@@ -29,23 +42,29 @@ export class CreditCardsController {
 
   @Get(':id')
   @ApiResponse({ status: 200, description: 'Retrieve a credit card by ID.' })
-  findOne(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User): Promise<CreditCard> {
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ): Promise<CreditCard> {
     return this.creditCardsService.findOne(id, user.id);
   }
 
   @Patch(':id')
   @ApiResponse({ status: 200, description: 'Update a credit card.' })
   update(
-    @Param('id', ParseIntPipe) id: number, 
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateCreditCardDto: UpdateCreditCardDto,
-    @CurrentUser() user: User
+    @CurrentUser() user: User,
   ): Promise<CreditCard> {
     return this.creditCardsService.update(id, updateCreditCardDto, user.id);
   }
 
   @Delete(':id')
   @ApiResponse({ status: 204, description: 'Delete a credit card.' })
-  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User): Promise<void> {
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: User,
+  ): Promise<void> {
     return this.creditCardsService.remove(id, user.id);
   }
 }

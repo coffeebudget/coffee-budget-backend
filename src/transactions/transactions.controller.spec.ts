@@ -22,7 +22,9 @@ describe('TransactionsController', () => {
   };
 
   const mockCategoriesService = {
-    suggestKeywordsFromTransaction: jest.fn().mockResolvedValue(['keyword1', 'keyword2']),
+    suggestKeywordsFromTransaction: jest
+      .fn()
+      .mockResolvedValue(['keyword1', 'keyword2']),
   };
 
   // Mock user data
@@ -35,7 +37,7 @@ describe('TransactionsController', () => {
     categories: [],
     tags: [],
     transactions: [],
-    recurringTransactions: []
+    recurringTransactions: [],
   } as User;
 
   beforeEach(async () => {
@@ -59,7 +61,7 @@ describe('TransactionsController', () => {
 
     controller = module.get<TransactionsController>(TransactionsController);
     service = module.get<TransactionsService>(TransactionsService);
-    
+
     // Reset mock calls
     jest.clearAllMocks();
   });
@@ -67,61 +69,70 @@ describe('TransactionsController', () => {
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
-  
+
   describe('enrichWithPayPal', () => {
     it('should process PayPal CSV data and enrich transactions', async () => {
       // Mock CSV data
-      const paypalCsvData = 
+      const paypalCsvData =
         'Data,Nome,Tipo,Stato,Valuta,Importo\n' +
         '10/01/2023,Netflix,Pagamento,Completata,EUR,-15.99\n' +
         '20/01/2023,Amazon,Pagamento,Completata,EUR,-25.50';
-      
+
       // Mock service return
       mockTransactionsService.enrichTransactionsWithPayPal.mockResolvedValue(2);
-      
+
       // Create mock PayPalEnrichmentDto
       const dto = {
         csvData: paypalCsvData,
-        dateRangeForMatching: 5
+        dateRangeForMatching: 5,
       };
-      
+
       // Call controller method
       const result = await controller.enrichWithPayPal(dto, mockUser);
-      
+
       // Verify service was called with parsed transactions
-      expect(mockTransactionsService.enrichTransactionsWithPayPal).toHaveBeenCalled();
-      
+      expect(
+        mockTransactionsService.enrichTransactionsWithPayPal,
+      ).toHaveBeenCalled();
+
       // Verify the first argument contains PayPal transactions with proper structure
-      const paypalTransactions = mockTransactionsService.enrichTransactionsWithPayPal.mock.calls[0][0];
+      const paypalTransactions =
+        mockTransactionsService.enrichTransactionsWithPayPal.mock.calls[0][0];
       expect(paypalTransactions).toHaveLength(2);
       expect(paypalTransactions[0]).toHaveProperty('name', 'Netflix');
       expect(paypalTransactions[1]).toHaveProperty('name', 'Amazon');
-      
+
       // Verify user ID was passed correctly
-      expect(mockTransactionsService.enrichTransactionsWithPayPal.mock.calls[0][1]).toBe(1);
-      
+      expect(
+        mockTransactionsService.enrichTransactionsWithPayPal.mock.calls[0][1],
+      ).toBe(1);
+
       // Verify response format
       expect(result).toEqual({
         count: 2,
-        message: '2 transactions enriched with PayPal data'
+        message: '2 transactions enriched with PayPal data',
       });
     });
-    
+
     it('should handle CSV parsing errors', async () => {
       // Invalid CSV data
       const invalidCsvData = 'This is not a valid CSV';
-      
+
       // Create mock dto with invalid data
       const dto = {
         csvData: invalidCsvData,
-        dateRangeForMatching: 5
+        dateRangeForMatching: 5,
       };
-      
+
       // Expect the controller to throw an exception
-      await expect(controller.enrichWithPayPal(dto, mockUser)).rejects.toThrow(BadRequestException);
-      
+      await expect(controller.enrichWithPayPal(dto, mockUser)).rejects.toThrow(
+        BadRequestException,
+      );
+
       // Verify service was not called
-      expect(mockTransactionsService.enrichTransactionsWithPayPal).not.toHaveBeenCalled();
+      expect(
+        mockTransactionsService.enrichTransactionsWithPayPal,
+      ).not.toHaveBeenCalled();
     });
   });
 });

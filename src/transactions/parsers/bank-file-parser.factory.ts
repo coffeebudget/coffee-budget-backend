@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { BankFileParser } from './interfaces/bank-file-parser.interface';
 import { BnlTxtParser } from './bnl-txt.parser';
 import { BnlXlsParser } from './bnl-xls.parser';
-import { WebankParser } from './webank.parser'; 
+import { WebankParser } from './webank.parser';
 import { FinecoParser } from './fineco.parser';
 import { CartaImprontaParser } from './carta-impronta.parser';
 

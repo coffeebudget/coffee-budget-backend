@@ -17,7 +17,9 @@ import { addDays, addMonths, format } from 'date-fns';
 
 describe('RecurringTransactionGeneratorService', () => {
   let service: RecurringTransactionGeneratorService;
-  let recurringTransactionRepository: jest.Mocked<Repository<RecurringTransaction>>;
+  let recurringTransactionRepository: jest.Mocked<
+    Repository<RecurringTransaction>
+  >;
   let categoryRepository: jest.Mocked<Repository<Category>>;
   let tagRepository: jest.Mocked<Repository<Tag>>;
   let bankAccountRepository: jest.Mocked<Repository<BankAccount>>;
@@ -35,7 +37,7 @@ describe('RecurringTransactionGeneratorService', () => {
     transactions: [],
     tags: [],
     categories: [],
-    recurringTransactions: []
+    recurringTransactions: [],
   } as User;
 
   const baseMockRecurringTransaction: Partial<RecurringTransaction> = {
@@ -51,14 +53,14 @@ describe('RecurringTransactionGeneratorService', () => {
       id: 1,
       name: 'Checking Account',
       balance: 1000,
-      currency: 'USD',  
+      currency: 'USD',
       type: 'checking',
       createdAt: new Date(),
       updatedAt: new Date(),
       transactions: [],
       creditCards: [],
       recurringTransactions: [],
-      user: mockUser        
+      user: mockUser,
     } as BankAccount,
     creditCard: null,
     createdAt: new Date(),
@@ -137,8 +139,12 @@ describe('RecurringTransactionGeneratorService', () => {
       ],
     }).compile();
 
-    service = module.get<RecurringTransactionGeneratorService>(RecurringTransactionGeneratorService);
-    recurringTransactionRepository = module.get(getRepositoryToken(RecurringTransaction));
+    service = module.get<RecurringTransactionGeneratorService>(
+      RecurringTransactionGeneratorService,
+    );
+    recurringTransactionRepository = module.get(
+      getRepositoryToken(RecurringTransaction),
+    );
     categoryRepository = module.get(getRepositoryToken(Category));
     tagRepository = module.get(getRepositoryToken(Tag));
     bankAccountRepository = module.get(getRepositoryToken(BankAccount));
@@ -169,8 +175,11 @@ describe('RecurringTransactionGeneratorService', () => {
         nextExecutionDate: new Date('2023-01-15'),
       } as unknown as RecurringTransaction;
 
-      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        mockRecurringTransaction,
+      );
+
       expect(result).toEqual(new Date('2023-01-15'));
     });
 
@@ -187,8 +196,11 @@ describe('RecurringTransactionGeneratorService', () => {
         nextExecutionDate: new Date('2023-01-04'),
       } as unknown as RecurringTransaction;
 
-      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        mockRecurringTransaction,
+      );
+
       expect(result).toEqual(new Date('2023-01-04'));
     });
 
@@ -205,8 +217,11 @@ describe('RecurringTransactionGeneratorService', () => {
         nextExecutionDate: new Date('2023-01-12'),
       } as unknown as RecurringTransaction;
 
-      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        mockRecurringTransaction,
+      );
+
       expect(result).toEqual(new Date('2023-01-12'));
     });
 
@@ -224,8 +239,11 @@ describe('RecurringTransactionGeneratorService', () => {
         nextExecutionDate: new Date('2023-05-15'),
       } as unknown as RecurringTransaction;
 
-      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        mockRecurringTransaction,
+      );
+
       expect(result).toEqual(new Date('2023-05-15'));
     });
 
@@ -238,8 +256,11 @@ describe('RecurringTransactionGeneratorService', () => {
         dayOfMonth: 15,
       } as unknown as RecurringTransaction;
 
-      const result = service.calculateNextExecutionDate(startDate, recurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        recurringTransaction,
+      );
+
       expect(result).toEqual(new Date('2023-02-15'));
     });
 
@@ -254,10 +275,13 @@ describe('RecurringTransactionGeneratorService', () => {
         status: 'active',
       } as any;
 
-      const result = service.calculateNextExecutionDate(startDate, mockRecurringTransaction);
-      
+      const result = service.calculateNextExecutionDate(
+        startDate,
+        mockRecurringTransaction,
+      );
+
       // Should return the start date if no valid execution date can be calculated
       expect(result).toEqual(startDate);
     });
   });
-}); 
+});

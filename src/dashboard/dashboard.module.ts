@@ -12,10 +12,17 @@ import { RecurringTransactionGeneratorService } from '../recurring-transactions/
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Transaction, Category, Tag, BankAccount, RecurringTransaction, CreditCard]),  
+    TypeOrmModule.forFeature([
+      Transaction,
+      Category,
+      Tag,
+      BankAccount,
+      RecurringTransaction,
+      CreditCard,
+    ]),
   ],
   controllers: [DashboardController],
   providers: [DashboardService, RecurringTransactionGeneratorService],
   exports: [DashboardService],
 })
-export class DashboardModule {} 
+export class DashboardModule {}

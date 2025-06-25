@@ -1,6 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { Category } from "./category.entity";
-import { User } from "../../users/user.entity";
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Category } from './category.entity';
+import { User } from '../../users/user.entity';
 
 @Entity()
 export class KeywordStats {
@@ -30,4 +37,4 @@ export class KeywordStats {
 
   @Column({ type: 'timestamp', nullable: true })
   lastUsed: Date | null;
-} 
+}
