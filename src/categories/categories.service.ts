@@ -96,6 +96,19 @@ export class CategoriesService {
       category.analyticsExclusionReason =
         updateCategoryDto.analyticsExclusionReason;
 
+    // 🎯 Budget Management Fields
+    if (updateCategoryDto.budgetLevel !== undefined)
+      category.budgetLevel = updateCategoryDto.budgetLevel;
+    if (updateCategoryDto.monthlyBudget !== undefined)
+      category.monthlyBudget = updateCategoryDto.monthlyBudget;
+    if (updateCategoryDto.yearlyBudget !== undefined)
+      category.yearlyBudget = updateCategoryDto.yearlyBudget;
+
+    if (updateCategoryDto.maxThreshold !== undefined)
+      category.maxThreshold = updateCategoryDto.maxThreshold;
+    if (updateCategoryDto.warningThreshold !== undefined)
+      category.warningThreshold = updateCategoryDto.warningThreshold;
+
     return this.categoriesRepository.save(category);
   }
 
@@ -253,60 +266,68 @@ export class CategoriesService {
 
   /**
    * Suggest a category for a transaction description
+   * DISABLED: Auto-categorization disabled to prevent incorrect categorizations
    */
   async suggestCategoryForDescription(
     description: string,
     userId: number,
   ): Promise<Category | null> {
-    if (!description) {
+    if (!description || description.trim().length === 0) {
       return null;
     }
 
-    // Get all categories with keywords for this user
-    const categories = await this.categoriesRepository.find({
-      where: { user: { id: userId } },
-    });
+    // Only use keyword-based categorization (AI categorization disabled)
+    return this.findCategoryByKeywordMatch(description, userId);
+  }
 
-    // Extract keywords from the description
-    const descriptionKeywords =
-      this.keywordExtractionService.extractKeywords(description);
-
-    // Score each category based on keyword matches
-    const categoryScores = categories.map((category) => {
-      if (!category.keywords || category.keywords.length === 0) {
-        return { category, score: 0 };
-      }
-
-      let score = 0;
-
-      // Check for exact matches
-      for (const keyword of category.keywords) {
-        // Multi-word keywords get higher scores
-        const wordCount = keyword.split(' ').length;
-        const baseScore = wordCount * 2; // Multi-word phrases get higher base scores
-
-        if (description.toLowerCase().includes(keyword.toLowerCase())) {
-          // Exact match in description
-          score += baseScore * 2;
-        } else if (
-          descriptionKeywords.some((k) => k === keyword.toLowerCase())
-        ) {
-          // Exact match in extracted keywords
-          score += baseScore;
+  /**
+   * Find a category that matches keywords in the transaction description
+   */
+  private async findCategoryByKeywordMatch(
+    description: string,
+    userId: number,
+  ): Promise<Category | null> {
+    // Get all categories for the user
+    const categories = await this.findAll(userId);
+    
+    // Normalize the description for matching
+    const normalizedDescription = description
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .trim()
+      .replace(/\s+/g, ' ');
+    
+    // Find categories that have keywords matching the description
+    for (const category of categories) {
+      if (category.keywords && category.keywords.length > 0) {
+        for (const keyword of category.keywords) {
+          const normalizedKeyword = keyword
+            .toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .trim()
+            .replace(/\s+/g, ' ');
+          
+          // Check if the keyword matches the description
+          if (normalizedKeyword.includes(' ')) {
+            // Multi-word keyword: check if all words appear in description
+            const keywordWords = normalizedKeyword.split(' ');
+            const descriptionWords = normalizedDescription.split(' ');
+            const allWordsMatch = keywordWords.every(word => 
+              descriptionWords.includes(word)
+            );
+            if (allWordsMatch) {
+              return category;
+            }
+          } else {
+            // Single word: check if it appears in description
+            if (normalizedDescription.includes(normalizedKeyword)) {
+              return category;
+            }
+          }
         }
       }
-
-      return { category, score };
-    });
-
-    // Sort by score (highest first) and get the best match
-    categoryScores.sort((a, b) => b.score - a.score);
-
-    // Only suggest if the score is above a threshold
-    if (categoryScores.length > 0 && categoryScores[0].score > 0) {
-      return categoryScores[0].category;
     }
-
+    
     return null;
   }
 
@@ -398,27 +419,21 @@ export class CategoriesService {
       order: { executionDate: 'DESC' },
     });
 
-    // For any transactions without a suggestedCategory, try to suggest one
-    const transactionsToUpdate: Transaction[] = [];
-
+    // Process each transaction to suggest categories based on keywords only
     for (const transaction of transactions) {
-      if (!transaction.suggestedCategory && transaction.description) {
-        const suggestedCategory = await this.suggestCategoryForDescription(
+      if (transaction.description && !transaction.suggestedCategory) {
+        const suggestedCategory = await this.findCategoryByKeywordMatch(
           transaction.description,
           userId,
         );
-
+        
         if (suggestedCategory) {
           transaction.suggestedCategory = suggestedCategory;
           transaction.suggestedCategoryName = suggestedCategory.name;
-          transactionsToUpdate.push(transaction);
+          // Save the suggestion to the database
+          await this.transactionsRepository.save(transaction);
         }
       }
-    }
-
-    // Update transactions with new suggested categories
-    if (transactionsToUpdate.length > 0) {
-      await this.transactionsRepository.save(transactionsToUpdate);
     }
 
     return transactions;

@@ -4,6 +4,9 @@ import {
   IsDate,
   IsOptional,
   IsString,
+  IsEnum,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -31,13 +34,38 @@ export class CreateCategoryDto {
   @IsString()
   analyticsExclusionReason?: string;
 
-  @ApiProperty({ description: 'Created at', required: false })
+  // 🎯 Budget Management Fields
+  @ApiProperty({ 
+    description: 'Budget level for intelligent categorization',
+    enum: ['primary', 'secondary', 'optional'],
+    required: false,
+    default: 'optional'
+  })
   @IsOptional()
-  @IsDate()
-  createdAt?: Date;
+  @IsEnum(['primary', 'secondary', 'optional'])
+  budgetLevel?: 'primary' | 'secondary' | 'optional';
 
-  @ApiProperty({ description: 'Updated at', required: false })
+  @ApiProperty({ description: 'Monthly budget for this category', required: false })
   @IsOptional()
-  @IsDate()
-  updatedAt?: Date;
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  monthlyBudget?: number;
+
+  @ApiProperty({ description: 'Yearly budget for this category', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  yearlyBudget?: number;
+
+  @ApiProperty({ description: 'Maximum threshold (for secondary categories)', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  maxThreshold?: number;
+
+  @ApiProperty({ description: 'Warning threshold (percentage of budget)', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  warningThreshold?: number;
 }

@@ -565,13 +565,15 @@ export class DashboardService {
       today.getDate(),
     );
 
-    const categoryTotals = await this.transactionsRepository
+    // IMPROVED: Calculate NET per category instead of only expenses
+    // Get all transactions and calculate net impact per category
+    const allTransactions = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoin('transaction.category', 'category')
       .select('category.name', 'categoryName')
-      .addSelect('SUM(ABS(transaction.amount))', 'total')
+      .addSelect('transaction.type', 'type')
+      .addSelect('SUM(ABS(transaction.amount))', 'amount')
       .where('transaction.user.id = :userId', { userId })
-      .andWhere('transaction.type = :type', { type: 'expense' })
       .andWhere('transaction.executionDate BETWEEN :start AND :end', {
         start: oneYearAgo,
         end: today,
@@ -580,14 +582,47 @@ export class DashboardService {
         '(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)',
       )
       .groupBy('category.name')
+      .addGroupBy('transaction.type')
       .getRawMany();
 
-    return categoryTotals
-      .map((item) => ({
-        categoryName: item.categoryName || 'Uncategorized',
-        total: Number(Number(item.total).toFixed(2)),
-        monthly: Number((Number(item.total) / 12).toFixed(2)),
+    console.log('DEBUG Savings Plan - Raw transactions:', allTransactions.length);
+    console.log('DEBUG Savings Plan - Sample transactions:', allTransactions.slice(0, 5));
+
+    // Calculate net per category
+    const categoryNets: Record<string, { income: number; expense: number; net: number }> = {};
+    
+    allTransactions.forEach((item) => {
+      const categoryName = item.categoryName || 'Uncategorized';
+      const amount = Number(item.amount) || 0;
+      
+      if (!categoryNets[categoryName]) {
+        categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
+      }
+      
+      if (item.type === 'income') {
+        categoryNets[categoryName].income += amount;
+      } else {
+        categoryNets[categoryName].expense += amount;
+      }
+      
+      categoryNets[categoryName].net = categoryNets[categoryName].income - categoryNets[categoryName].expense;
+    });
+
+    console.log('DEBUG Savings Plan - Category nets:', Object.keys(categoryNets).length);
+    console.log('DEBUG Savings Plan - Sample nets:', Object.entries(categoryNets).slice(0, 3));
+
+    // Only return categories with NET negative impact (where you spend more than you receive)
+    const result = Object.entries(categoryNets)
+      .filter(([_, data]) => data.net < 0) // Only net expenses
+      .map(([categoryName, data]) => ({
+        categoryName,
+        total: Number(Math.abs(data.net).toFixed(2)), // Absolute value of net negative
+        monthly: Number((Math.abs(data.net) / 12).toFixed(2)),
       }))
       .sort((a, b) => b.total - a.total);
+
+    console.log('DEBUG Savings Plan - Final result:', result.length, 'categories');
+    
+    return result;
   }
 }

@@ -10,7 +10,8 @@ import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
 import { KeywordStats } from './entities/keyword-stats.entity';
 import { KeywordStatsService } from './keyword-stats.service';
-import { AiCategorizationService } from './ai-categorization.service';
+import { ExpenseAnalysisService } from './expense-analysis.service';
+import { BudgetManagementService } from './budget-management.service';
 
 @Module({
   imports: [
@@ -28,14 +29,15 @@ import { AiCategorizationService } from './ai-categorization.service';
     KeywordExtractionService,
     DefaultCategoriesService,
     KeywordStatsService,
-    AiCategorizationService,
+    ExpenseAnalysisService,
+    BudgetManagementService,
   ],
   exports: [
     CategoriesService,
     TypeOrmModule,
     DefaultCategoriesService,
     KeywordStatsService,
-    AiCategorizationService,
+    ExpenseAnalysisService,
   ],
 })
 export class CategoriesModule {}

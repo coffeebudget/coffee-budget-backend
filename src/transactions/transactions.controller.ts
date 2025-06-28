@@ -181,6 +181,8 @@ export class TransactionsController {
       {
         bankAccountId: importDto.bankAccountId,
         creditCardId: importDto.creditCardId,
+        skipDuplicateCheck: importDto.skipDuplicateCheck || false,
+        createPendingForDuplicates: importDto.createPendingForDuplicates !== false, // Default to true
       },
     );
 
@@ -189,8 +191,9 @@ export class TransactionsController {
       transactionsCount: result.transactions.length,
       newTransactionsCount: result.newTransactionsCount,
       duplicatesCount: result.duplicatesCount,
+      pendingDuplicatesCreated: result.pendingDuplicatesCreated,
       status: result.status,
-      message: `GoCardless import completed: ${result.newTransactionsCount} new transactions, ${result.duplicatesCount} duplicates`,
+      message: `GoCardless import completed: ${result.newTransactionsCount} new transactions, ${result.duplicatesCount} duplicates handled, ${result.pendingDuplicatesCreated} pending duplicates created for review`,
     };
   }
 
@@ -471,7 +474,7 @@ export class TransactionsController {
 
   @Post(':id/accept-suggested-category')
   @ApiOperation({
-    summary: 'Accept the AI suggested category for a transaction',
+    summary: 'Accept the suggested category for a transaction',
   })
   @ApiResponse({
     status: 200,
@@ -488,7 +491,7 @@ export class TransactionsController {
 
   @Post(':id/reject-suggested-category')
   @ApiOperation({
-    summary: 'Reject the AI suggested category for a transaction',
+    summary: 'Reject the suggested category for a transaction',
   })
   @ApiResponse({
     status: 200,
@@ -505,9 +508,9 @@ export class TransactionsController {
 
   @Post('bulk-ai-categorize')
   @ApiOperation({
-    summary: 'Bulk AI categorization for uncategorized transactions',
+    summary: 'Bulk keyword-based categorization for uncategorized transactions',
     description:
-      'Smart categorization: tries keywords first (free), then AI for remaining transactions',
+      'Smart categorization using keywords only (AI categorization removed)',
   })
   @ApiResponse({
     status: 200,

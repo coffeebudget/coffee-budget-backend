@@ -318,18 +318,169 @@ export class PendingDuplicatesService {
     let deleted = 0;
     let errors = 0;
 
-    for (const duplicateId of duplicateIds) {
+    for (const id of duplicateIds) {
       try {
-        await this.delete(duplicateId, userId);
+        await this.delete(id, userId);
         deleted++;
-      } catch {
+      } catch (error) {
         errors++;
       }
     }
 
+    return { deleted, errors };
+  }
+
+  /**
+   * Clean up actual 100% duplicate transactions in the database
+   * This method finds and removes true duplicates that may have been created
+   * due to previous implementation issues
+   */
+  async cleanupActualDuplicates(userId: number): Promise<{
+    totalTransactionsScanned: number;
+    duplicateGroupsFound: number;
+    transactionsRemoved: number;
+    duplicatesPreserved: number;
+    executionTime: string;
+  }> {
+    const startTime = Date.now();
+
+    // Get all transactions for the user
+    const transactions = await this.transactionRepository.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'ASC' }, // Preserve oldest transaction
+    });
+
+    console.log(`Scanning ${transactions.length} transactions for user ${userId}`);
+
+    const processed = new Set<number>();
+    let duplicateGroupsFound = 0;
+    let transactionsRemoved = 0;
+    let duplicatesPreserved = 0;
+
+    for (const transaction of transactions) {
+      if (processed.has(transaction.id)) continue;
+
+      // Find exact duplicates (100% matches)
+      const exactDuplicates = transactions.filter(t => 
+        t.id !== transaction.id &&
+        !processed.has(t.id) &&
+        this.isExactDuplicate(transaction, t)
+      );
+
+      if (exactDuplicates.length > 0) {
+        duplicateGroupsFound++;
+        
+        // Sort by creation date to preserve the oldest
+        const allTransactions = [transaction, ...exactDuplicates].sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+        
+        const toPreserve = allTransactions[0];
+        const toRemove = allTransactions.slice(1);
+
+        console.log(
+          `Found duplicate group for user ${userId}: ${toPreserve.description} (${toPreserve.amount}) - preserving oldest (${toPreserve.id}), removing ${toRemove.length} duplicates`
+        );
+
+        // Mark all as processed
+        allTransactions.forEach(t => processed.add(t.id));
+
+        // Remove duplicates
+        for (const duplicate of toRemove) {
+          try {
+            // Check if this transaction is referenced by pending duplicates
+            const pendingRefs = await this.pendingDuplicatesRepository.find({
+              where: [
+                { existingTransaction: { id: duplicate.id } },
+              ]
+            });
+
+            if (pendingRefs.length > 0) {
+              console.log(
+                `Transaction ${duplicate.id} is referenced by ${pendingRefs.length} pending duplicates. Updating references to point to preserved transaction ${toPreserve.id}.`
+              );
+              
+              // Update pending duplicates to reference the transaction we want to preserve
+              for (const pendingDup of pendingRefs) {
+                try {
+                  pendingDup.existingTransaction = toPreserve;
+                  await this.pendingDuplicatesRepository.save(pendingDup);
+                  console.log(`Updated pending duplicate ${pendingDup.id} to reference preserved transaction ${toPreserve.id} instead of ${duplicate.id}`);
+                } catch (error) {
+                  console.error(`Error updating pending duplicate ${pendingDup.id}: ${error.message}`);
+                  // If we can't update the reference, skip removing this duplicate
+                  continue;
+                }
+              }
+            }
+
+            await this.transactionRepository.remove(duplicate);
+            transactionsRemoved++;
+            
+            console.log(
+              `Removed duplicate transaction ${duplicate.id}: ${duplicate.description} (${duplicate.amount})`
+            );
+          } catch (error) {
+            console.error(
+              `Error removing duplicate transaction ${duplicate.id}: ${error.message}`
+            );
+          }
+        }
+
+        duplicatesPreserved++;
+      } else {
+        processed.add(transaction.id);
+      }
+    }
+
+    const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
+
+    console.log(
+      `Cleanup completed: ${duplicateGroupsFound} duplicate groups found, ${transactionsRemoved} transactions removed, ${duplicatesPreserved} preserved`
+    );
+
     return {
-      deleted,
-      errors,
+      totalTransactionsScanned: transactions.length,
+      duplicateGroupsFound,
+      transactionsRemoved,
+      duplicatesPreserved,
+      executionTime,
     };
+  }
+
+  /**
+   * Check if two transactions are exact duplicates (100% match)
+   */
+  private isExactDuplicate(t1: Transaction, t2: Transaction): boolean {
+    // Normalize amounts for comparison
+    const normalizeAmount = (amount: number, type: 'income' | 'expense') => {
+      if (type === 'expense') {
+        return -Math.abs(amount); // Expenses should always be negative
+      } else {
+        return Math.abs(amount); // Income should always be positive
+      }
+    };
+
+    const normalizedAmount1 = normalizeAmount(t1.amount, t1.type);
+    const normalizedAmount2 = normalizeAmount(t2.amount, t2.type);
+
+    // Check if both have execution dates
+    if (!t1.executionDate || !t2.executionDate) {
+      return false;
+    }
+
+    // Check if dates are exactly the same day
+    const isSameDay = (date1: Date, date2: Date): boolean => {
+      const d1 = new Date(date1);
+      const d2 = new Date(date2);
+      return d1.toDateString() === d2.toDateString();
+    };
+
+    return (
+      normalizedAmount1 === normalizedAmount2 &&
+      t1.type === t2.type &&
+      t1.description === t2.description &&
+      isSameDay(t1.executionDate, t2.executionDate)
+    );
   }
 }

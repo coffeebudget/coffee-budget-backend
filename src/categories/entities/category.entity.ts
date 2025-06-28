@@ -40,6 +40,26 @@ export class Category {
   @Column({ nullable: true })
   analyticsExclusionReason: string;
 
+  // 🎯 Budget Management Fields
+  @Column({
+    type: 'enum',
+    enum: ['primary', 'secondary', 'optional'],
+    default: 'optional'
+  })
+  budgetLevel: 'primary' | 'secondary' | 'optional';
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  monthlyBudget: number | null;
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  yearlyBudget: number | null;
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  maxThreshold: number | null; // Per Secondary: tetto massimo mensile
+
+  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  warningThreshold: number | null; // Soglia di avviso (es. 80% del budget)
+
   @CreateDateColumn({ type: 'timestamp' })
   createdAt: Date;
 
