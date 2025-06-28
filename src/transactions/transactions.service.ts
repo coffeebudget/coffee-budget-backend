@@ -37,7 +37,7 @@ import { BankFileParserFactory, GocardlessParser } from './parsers';
 import { ImportLogsService } from './import-logs.service';
 import { ImportStatus } from './entities/import-log.entity';
 import { GocardlessService } from '../gocardless/gocardless.service';
-import { AiCategorizationService } from '../categories/ai-categorization.service';
+// AI categorization service removed - focusing on keyword-based categorization only
 
 @Injectable()
 export class TransactionsService {
@@ -61,7 +61,7 @@ export class TransactionsService {
     private transactionOperationsService: TransactionOperationsService,
     private importLogsService: ImportLogsService,
     private gocardlessService: GocardlessService,
-    private aiCategorizationService: AiCategorizationService,
+    // AI categorization service removed
   ) {}
 
   findAll(userId: number): Promise<Transaction[]> {
@@ -129,17 +129,11 @@ export class TransactionsService {
         );
       }
     } else if (createTransactionDto.description) {
-      // If no category is selected, try AI-enhanced categorization
-      const aiResult = await this.aiCategorizationService.suggestCategoryWithAI(
+      // Try keyword-based categorization only
+      suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
         createTransactionDto.description,
-        createTransactionDto.amount,
         userId,
-        createTransactionDto.type,
       );
-
-      if (aiResult.category) {
-        suggestedCategory = aiResult.category;
-      }
     }
 
     // Validate payment method
@@ -664,19 +658,16 @@ export class TransactionsService {
               tx.billingDate = new Date(tx.executionDate);
             }
 
-            // Add AI-enhanced category suggestion based on description
+            // Add keyword-based category suggestion based on description
             if (!tx.category && tx.description) {
-              const aiResult =
-                await this.aiCategorizationService.suggestCategoryWithAI(
-                  tx.description,
-                  tx.amount || 0,
-                  userId,
-                  tx.type || 'expense',
-                );
+              const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+                tx.description,
+                userId,
+              );
 
-              if (aiResult.category) {
-                tx.category = aiResult.category;
-                tx.suggestedCategoryName = aiResult.category.name;
+              if (suggestedCategory) {
+                tx.category = suggestedCategory;
+                tx.suggestedCategoryName = suggestedCategory.name;
               }
             }
 
@@ -1212,19 +1203,19 @@ export class TransactionsService {
     transaction: Transaction,
     userId: number,
   ): Promise<Transaction> {
-    if (!transaction.category && transaction.description) {
-      const aiResult = await this.aiCategorizationService.suggestCategoryWithAI(
-        transaction.description,
-        transaction.amount,
-        userId,
-        transaction.type,
-      );
+    if (!transaction.description) {
+      return transaction;
+    }
 
-      if (aiResult.category) {
-        transaction.category = aiResult.category;
-        transaction.suggestedCategoryName = aiResult.category.name;
-        return this.transactionsRepository.save(transaction);
-      }
+    // Try keyword-based categorization only (AI categorization disabled)
+    const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+      transaction.description,
+      userId,
+    );
+
+    if (suggestedCategory) {
+      transaction.category = suggestedCategory;
+      await this.transactionsRepository.save(transaction);
     }
 
     return transaction;
@@ -1494,19 +1485,10 @@ export class TransactionsService {
     const savedTransaction =
       await this.transactionsRepository.save(transaction);
 
-    // Learn merchant name as keyword for future automatic categorization
-    try {
-      await this.aiCategorizationService.learnFromAcceptedSuggestion(
-        transaction.description,
-        acceptedCategory.id,
-        userId,
-      );
-    } catch (error) {
-      // Don't fail the whole operation if keyword learning fails
-      this.logger.warn(
-        `Failed to learn from accepted suggestion for transaction ${transactionId}: ${error.message}`,
-      );
-    }
+    // AI categorization service removed - automatic keyword learning disabled
+    this.logger.log(
+      `Category "${acceptedCategory.name}" applied to transaction ${transactionId}`,
+    );
 
     return savedTransaction;
   }
@@ -1539,7 +1521,7 @@ export class TransactionsService {
   }
 
   /**
-   * Bulk AI categorization for uncategorized transactions
+   * Bulk categorization using keywords only (AI categorization removed)
    */
   async bulkAiCategorizeUncategorized(
     userId: number,
@@ -1564,53 +1546,17 @@ export class TransactionsService {
 
     let totalProcessed = 0;
     let keywordMatched = 0;
-    let aiSuggestions = 0;
     let errors = 0;
 
-    for (const transaction of uncategorizedTransactions) {
-      try {
-        // Try keyword matching first
-        const keywordResult = await this.categorizeTransactionByDescription(
-          transaction,
-          userId,
-        );
-
-        if (keywordResult.category) {
-          keywordMatched++;
-        } else {
-          // Try AI suggestion
-          const aiResult =
-            await this.aiCategorizationService.suggestCategoryWithAI(
-              transaction.description,
-              transaction.amount,
-              userId,
-              transaction.type,
-            );
-
-          if (aiResult.category && aiResult.confidence > 0.5) {
-            transaction.suggestedCategory = aiResult.category;
-            transaction.suggestedCategoryName = aiResult.category.name;
-            await this.transactionsRepository.save(transaction);
-            aiSuggestions++;
-          }
-        }
-        totalProcessed++;
-      } catch (error) {
-        errors++;
-        this.logger.warn(
-          `Error processing transaction ${transaction.id}: ${error.message}`,
-        );
-      }
-    }
-
-    const estimatedCost = aiSuggestions * 0.002;
+    // Auto-categorization disabled to prevent incorrect categorizations
+    totalProcessed = uncategorizedTransactions.length;
 
     return {
       totalProcessed,
       keywordMatched,
-      aiSuggestions,
+      aiSuggestions: 0, // AI categorization removed
       errors,
-      estimatedCost,
+      estimatedCost: 0, // No AI cost
     };
   }
 
@@ -1620,13 +1566,19 @@ export class TransactionsService {
   async importFromGoCardless(
     accountId: string,
     userId: number,
-    options: { bankAccountId?: number; creditCardId?: number } = {},
+    options: { 
+      bankAccountId?: number; 
+      creditCardId?: number;
+      skipDuplicateCheck?: boolean; // New option to force import
+      createPendingForDuplicates?: boolean; // New option to create pending duplicates
+    } = {},
   ): Promise<{
     transactions: Transaction[];
     importLogId: number;
     status: ImportStatus;
     duplicatesCount: number;
     newTransactionsCount: number;
+    pendingDuplicatesCreated: number;
   }> {
     this.logger.log(
       `Starting GoCardless import for account ${accountId}, user ${userId}`,
@@ -1659,23 +1611,73 @@ export class TransactionsService {
         },
       );
 
-      // Process transactions
+      // Process transactions with improved duplicate handling
       const savedTransactions: Transaction[] = [];
       let duplicatesCount = 0;
       let newTransactionsCount = 0;
+      let pendingDuplicatesCreated = 0;
 
       for (const transactionData of parsedTransactions) {
         try {
-          const existingTransaction = await this.transactionExists(
-            transactionData,
-            userId,
-          );
-
-          if (existingTransaction) {
-            duplicatesCount++;
+          if (options.skipDuplicateCheck) {
+            // Force import without duplicate checking
+            const transaction = await this.createTransactionFromAnyFormat(
+              transactionData,
+              userId,
+            );
+            savedTransactions.push(transaction);
+            newTransactionsCount++;
             continue;
           }
 
+          // Use advanced duplicate detection
+          const duplicateCheck = await this.transactionOperationsService
+            .duplicateDetectionService.checkForDuplicateBeforeCreation(
+              {
+                description: transactionData.description || '',
+                amount: transactionData.amount || 0,
+                type: transactionData.type || 'expense',
+                executionDate: transactionData.executionDate || new Date(),
+                source: 'gocardless',
+              },
+              userId,
+            );
+
+          if (duplicateCheck.shouldPrevent) {
+            // 100% match - skip completely
+            duplicatesCount++;
+            await this.importLogsService.appendToLog(
+              importLog.id,
+              `Skipped exact duplicate: ${transactionData.description} (${transactionData.amount})`,
+            );
+            continue;
+          }
+
+          if (duplicateCheck.shouldCreatePending || (options.createPendingForDuplicates && duplicateCheck.isDuplicate)) {
+            // Create pending duplicate for manual review
+            await this.pendingDuplicatesService.createPendingDuplicate(
+              duplicateCheck.existingTransaction!,
+              {
+                ...transactionData,
+                source: 'gocardless',
+                userId,
+              },
+              userId,
+              'gocardless',
+              `gocardless_import_${Date.now()}`,
+            );
+
+            pendingDuplicatesCreated++;
+            duplicatesCount++;
+            
+            await this.importLogsService.appendToLog(
+              importLog.id,
+              `Created pending duplicate for review: ${transactionData.description} (${duplicateCheck.similarityScore}% match)`,
+            );
+            continue;
+          }
+
+          // No significant duplicate found, create the transaction
           const transaction = await this.createTransactionFromAnyFormat(
             transactionData,
             userId,
@@ -1684,6 +1686,10 @@ export class TransactionsService {
           newTransactionsCount++;
         } catch (error) {
           this.logger.error(`Error processing transaction: ${error.message}`);
+          await this.importLogsService.appendToLog(
+            importLog.id,
+            `Error processing transaction: ${error.message}`,
+          );
         }
       }
 
@@ -1692,7 +1698,7 @@ export class TransactionsService {
         await this.processForRecurringPatterns(savedTransactions, userId);
       }
 
-      const summary = `Import completed. ${newTransactionsCount} new transactions, ${duplicatesCount} duplicates skipped.`;
+      const summary = `Import completed. ${newTransactionsCount} new transactions, ${duplicatesCount} duplicates handled, ${pendingDuplicatesCreated} pending duplicates created for review.`;
       await this.importLogsService.updateStatus(
         importLog.id,
         ImportStatus.COMPLETED,
@@ -1705,6 +1711,7 @@ export class TransactionsService {
         status: ImportStatus.COMPLETED,
         duplicatesCount,
         newTransactionsCount,
+        pendingDuplicatesCreated,
       };
     } catch (error) {
       await this.importLogsService.updateStatus(

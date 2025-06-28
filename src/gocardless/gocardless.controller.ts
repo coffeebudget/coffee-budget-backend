@@ -194,7 +194,13 @@ export class GocardlessController {
     status: 200,
     description: 'Bulk import completed successfully',
   })
-  async importAllConnectedAccounts(@CurrentUser() user: User): Promise<{
+  async importAllConnectedAccounts(
+    @CurrentUser() user: User,
+    @Body() options?: { 
+      skipDuplicateCheck?: boolean; 
+      createPendingForDuplicates?: boolean;
+    },
+  ): Promise<{
     importResults: any[];
     summary: {
       totalAccounts: number;
@@ -202,9 +208,10 @@ export class GocardlessController {
       failedImports: number;
       totalNewTransactions: number;
       totalDuplicates: number;
+      totalPendingDuplicates: number;
     };
   }> {
-    return this.gocardlessService.importAllConnectedAccounts(user.id);
+    return this.gocardlessService.importAllConnectedAccounts(user.id, options || {});
   }
 
   @Get('connected-accounts')

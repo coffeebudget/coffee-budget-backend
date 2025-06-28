@@ -129,25 +129,28 @@ export class DuplicateDetectionService {
         if (score === 100) {
           bestReason = 'Exact match (amount, description, date)';
           bestConfidence = 'high';
-        } else if (score >= 90) {
-          bestReason = 'Very high similarity';
+        } else if (score >= 95) {
+          bestReason = 'Exact match (amount, description, different date)';
           bestConfidence = 'high';
         } else if (score >= 80) {
-          bestReason = 'High similarity';
+          bestReason = 'High similarity (same amount and type)';
           bestConfidence = 'medium';
-        } else if (score >= 60) {
+        } else if (score >= 70) {
           bestReason = 'Medium similarity';
           bestConfidence = 'medium';
-        } else {
+        } else if (score >= 60) {
           bestReason = 'Low similarity';
+          bestConfidence = 'low';
+        } else {
+          bestReason = 'Very low similarity';
           bestConfidence = 'low';
         }
       }
     }
 
     const isDuplicate = highestScore >= 60; // Consider 60%+ as potential duplicates
-    const shouldPrevent = highestScore === 100; // Prevent 100% matches
-    const shouldCreatePending = highestScore >= 80 && highestScore < 100; // Pending for 80-99%
+    const shouldPrevent = highestScore >= 95; // Prevent 95%+ matches (includes exact matches)
+    const shouldCreatePending = highestScore >= 80 && highestScore < 95; // Pending for 80-94%
 
     return {
       isDuplicate,
@@ -178,13 +181,21 @@ export class DuplicateDetectionService {
 
     // Amount match (30 points)
     maxScore += 30;
-    if (newTransaction.amount === existingTransaction.amount) {
+    const amountMatch = this.amountsMatch(
+      newTransaction.amount, 
+      newTransaction.type,
+      existingTransaction.amount, 
+      existingTransaction.type
+    );
+    
+    if (amountMatch) {
       score += 30;
     }
 
     // Type match (10 points)
     maxScore += 10;
-    if (newTransaction.type === existingTransaction.type) {
+    const typeMatch = newTransaction.type === existingTransaction.type;
+    if (typeMatch) {
       score += 10;
     }
 
@@ -194,29 +205,70 @@ export class DuplicateDetectionService {
       newTransaction.description,
       existingTransaction.description,
     );
-    score += Math.round(descSimilarity * 40);
+    const descScore = Math.round(descSimilarity * 40);
+    score += descScore;
 
-    // Date match (20 points)
+    // Date match (20 points) - Exact date match only
     maxScore += 20;
+    let dateScore = 0;
     if (existingTransaction.executionDate) {
-      const daysDiff = Math.abs(
-        (newTransaction.executionDate.getTime() -
-          new Date(existingTransaction.executionDate).getTime()) /
-          (1000 * 60 * 60 * 24),
-      );
+      const newDate = new Date(newTransaction.executionDate);
+      const existingDate = new Date(existingTransaction.executionDate);
+      
+      // Check if dates are exactly the same day
+      if (newDate.toDateString() === existingDate.toDateString()) {
+        dateScore = 20; // Same day
+      }
+      // No partial points for different dates - either same day or 0 points
+      score += dateScore;
+    }
 
-      if (daysDiff === 0) {
-        score += 20; // Same day
-      } else if (daysDiff <= 1) {
-        score += 15; // Within 1 day
-      } else if (daysDiff <= 2) {
-        score += 10; // Within 2 days
-      } else if (daysDiff <= 7) {
-        score += 5; // Within 1 week
+    const finalScore = Math.round((score / maxScore) * 100);
+    
+    // Debug logging for transactions with high similarity
+    if (finalScore >= 60) {
+      const normalizedNew = this.normalizeAmount(newTransaction.amount, newTransaction.type);
+      const normalizedExisting = this.normalizeAmount(existingTransaction.amount, existingTransaction.type);
+        
+      this.logger.debug(`Similarity calculation:
+        New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type} | ${newTransaction.executionDate}
+        Existing: ${existingTransaction.description} | ${existingTransaction.amount} | ${existingTransaction.type} | ${existingTransaction.executionDate}
+        Amount comparison: ${newTransaction.amount} → ${normalizedNew} vs ${existingTransaction.amount} → ${normalizedExisting} (${amountMatch ? 'MATCH' : 'NO MATCH'})
+        Scores: Amount(${amountMatch ? 30 : 0}/30) Type(${typeMatch ? 10 : 0}/10) Desc(${descScore}/40, ${descSimilarity.toFixed(3)}) Date(${dateScore}/20)
+        Final: ${finalScore}%`);
+    }
+    
+    // Special case: If amount, type, and description are identical, 
+    // consider it a very high match even with different dates
+    // BUT only if the dates are close (within 7 days) to avoid flagging recurring transactions
+    if (newTransaction.amount === existingTransaction.amount && 
+        newTransaction.type === existingTransaction.type && 
+        descSimilarity === 1.0) {
+      
+      // Check if dates are within 7 days of each other
+      if (existingTransaction.executionDate) {
+        const newDate = new Date(newTransaction.executionDate);
+        const existingDate = new Date(existingTransaction.executionDate);
+        const daysDifference = Math.abs((newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24));
+        
+        this.logger.debug(`Special case evaluation for identical transactions:
+          New: ${newTransaction.description} | ${newTransaction.executionDate}
+          Existing: ${existingTransaction.description} | ${existingTransaction.executionDate}
+          Days difference: ${daysDifference.toFixed(1)}
+          Within 7 days: ${daysDifference <= 7 ? 'YES' : 'NO'}`);
+        
+        // Only boost score if dates are within 7 days (likely data entry errors or processing delays)
+        // If dates are more than 7 days apart, it's likely a recurring transaction
+        if (daysDifference <= 7) {
+          this.logger.debug(`Boosting score to 95% for identical content with close dates`);
+          return Math.max(finalScore, 95); // Ensure at least 95% for identical content with close dates
+        } else {
+          this.logger.debug(`Not boosting score - transactions are ${daysDifference.toFixed(1)} days apart, likely recurring`);
+        }
       }
     }
 
-    return Math.round((score / maxScore) * 100);
+    return finalScore;
   }
 
   /**
@@ -505,8 +557,7 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          t.amount === transaction.amount &&
-          t.type === transaction.type &&
+          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
           this.isSameDay(t.executionDate!, transaction.executionDate!) &&
           t.description !== transaction.description, // Different descriptions
       );
@@ -549,9 +600,8 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          t.amount === transaction.amount &&
-          t.type === transaction.type &&
-          this.isWithinDays(t.executionDate!, transaction.executionDate!, 2), // Within 2 days
+          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
+          this.isSameDay(t.executionDate!, transaction.executionDate!), // Same day only
       );
 
       if (matches.length > 0) {
@@ -560,8 +610,8 @@ export class DuplicateDetectionService {
 
         groups.push({
           transactions: group,
-          reason: 'GoCardless duplicates (same amount within 2 days)',
-          confidence: 'medium',
+          reason: 'GoCardless duplicates (same amount and date)',
+          confidence: 'high',
         });
       }
     }
@@ -587,9 +637,8 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          t.amount === transaction.amount &&
-          t.type === transaction.type &&
-          this.isWithinDays(t.executionDate!, transaction.executionDate!, 7) && // Within 7 days
+          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
+          this.isSameDay(t.executionDate!, transaction.executionDate!) && // Same day only
           this.isSimilarDescription(t.description, transaction.description),
       );
 
@@ -599,7 +648,7 @@ export class DuplicateDetectionService {
 
         groups.push({
           transactions: group,
-          reason: 'Similar descriptions and same amount',
+          reason: 'Similar descriptions, same amount and date',
           confidence: 'medium',
         });
       }
@@ -649,12 +698,22 @@ export class DuplicateDetectionService {
     return d1.toDateString() === d2.toDateString();
   }
 
-  private isWithinDays(date1: Date, date2: Date, days: number): boolean {
-    const diff = Math.abs(
-      new Date(date1).getTime() - new Date(date2).getTime(),
-    );
-    const daysDiff = diff / (1000 * 60 * 60 * 24);
-    return daysDiff <= days;
+  private normalizeAmount(amount: number, type: 'income' | 'expense'): number {
+    if (type === 'expense') {
+      return -Math.abs(amount); // Expenses should always be negative
+    } else {
+      return Math.abs(amount); // Income should always be positive
+    }
+  }
+
+  private amountsMatch(amount1: number, type1: 'income' | 'expense', amount2: number, type2: 'income' | 'expense'): boolean {
+    // Only compare if same transaction type
+    if (type1 !== type2) return false;
+    
+    const normalized1 = this.normalizeAmount(amount1, type1);
+    const normalized2 = this.normalizeAmount(amount2, type2);
+    
+    return normalized1 === normalized2;
   }
 
   private isSimilarDescription(desc1: string, desc2: string): boolean {
@@ -692,4 +751,6 @@ export class DuplicateDetectionService {
 
     return similarity >= 0.6; // 60% word similarity
   }
+
+
 }

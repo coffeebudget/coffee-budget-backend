@@ -19,7 +19,7 @@ export class TransactionOperationsService {
     private transactionRepository: Repository<Transaction>,
     @InjectRepository(PendingDuplicate)
     private pendingDuplicateRepository: Repository<PendingDuplicate>,
-    private duplicateDetectionService: DuplicateDetectionService,
+    public duplicateDetectionService: DuplicateDetectionService,
     private preventedDuplicatesService: PreventedDuplicatesService,
   ) {}
 

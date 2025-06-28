@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 
 export class GocardlessImportDto {
   @ApiProperty({
@@ -24,4 +24,22 @@ export class GocardlessImportDto {
   @IsOptional()
   @IsNumber()
   creditCardId?: number;
+
+  @ApiProperty({
+    description: 'Skip duplicate checking and force import all transactions',
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  skipDuplicateCheck?: boolean;
+
+  @ApiProperty({
+    description: 'Create pending duplicates for manual review instead of skipping',
+    required: false,
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  createPendingForDuplicates?: boolean;
 }

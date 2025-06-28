@@ -176,4 +176,16 @@ export class PendingDuplicatesController {
   async getDetectionStatus() {
     return this.duplicateDetectionService.getStatus();
   }
+
+  @Post('cleanup-actual-duplicates')
+  @ApiOperation({ summary: 'Clean up actual 100% duplicate transactions' })
+  @ApiResponse({
+    status: 200,
+    description: 'Cleanup completed successfully',
+  })
+  async cleanupActualDuplicates(@CurrentUser() user: User) {
+    return this.pendingDuplicatesService.cleanupActualDuplicates(user.id);
+  }
+
+
 }

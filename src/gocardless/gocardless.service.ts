@@ -37,6 +37,7 @@ interface ImportResult {
   status?: string;
   duplicatesCount?: number;
   newTransactionsCount?: number;
+  pendingDuplicatesCreated?: number;
   error?: string;
 }
 
@@ -587,7 +588,13 @@ export class GocardlessService {
   /**
    * Import transactions from all connected GoCardless accounts
    */
-  async importAllConnectedAccounts(userId: number) {
+  async importAllConnectedAccounts(
+    userId: number,
+    options: {
+      skipDuplicateCheck?: boolean;
+      createPendingForDuplicates?: boolean;
+    } = {},
+  ) {
     try {
       const connectedAccounts = await this.getConnectedAccountsForUser(userId);
       const importResults: ImportResult[] = [];
@@ -610,15 +617,23 @@ export class GocardlessService {
             `Importing transactions for ${account.type} ${account.localName} (${account.gocardlessAccountId})`,
           );
 
-          const options =
+          const importOptions =
             account.type === 'bank_account'
-              ? { bankAccountId: account.localId }
-              : { creditCardId: account.localId };
+              ? { 
+                  bankAccountId: account.localId,
+                  skipDuplicateCheck: options.skipDuplicateCheck || false,
+                  createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                }
+              : { 
+                  creditCardId: account.localId,
+                  skipDuplicateCheck: options.skipDuplicateCheck || false,
+                  createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                };
 
           const result = await transactionsService.importFromGoCardless(
             account.gocardlessAccountId,
             userId,
-            options,
+            importOptions,
           );
 
           // Update local account balance to match GoCardless balance after import
@@ -674,6 +689,10 @@ export class GocardlessService {
         .filter((r) => !r.error)
         .reduce((sum, r) => sum + (r.duplicatesCount || 0), 0);
 
+      const totalPendingDuplicates = importResults
+        .filter((r) => !r.error)
+        .reduce((sum, r) => sum + (r.pendingDuplicatesCreated || 0), 0);
+
       return {
         importResults,
         summary: {
@@ -682,6 +701,7 @@ export class GocardlessService {
           failedImports: importResults.filter((r) => r.error).length,
           totalNewTransactions,
           totalDuplicates,
+          totalPendingDuplicates,
           balancesSynchronized: importResults.filter((r) => !r.error).length,
         },
       };

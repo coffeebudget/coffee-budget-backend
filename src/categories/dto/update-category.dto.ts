@@ -4,6 +4,9 @@ import {
   IsArray,
   IsBoolean,
   IsDate,
+  IsEnum,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -41,4 +44,38 @@ export class UpdateCategoryDto {
   @IsOptional()
   @IsDate()
   updatedAt?: Date;
+
+  // 🎯 Budget Management Fields
+  @ApiProperty({ 
+    description: 'Budget level for intelligent categorization',
+    enum: ['primary', 'secondary', 'optional'],
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(['primary', 'secondary', 'optional'])
+  budgetLevel?: 'primary' | 'secondary' | 'optional';
+
+  @ApiProperty({ description: 'Monthly budget for this category', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  monthlyBudget?: number;
+
+  @ApiProperty({ description: 'Yearly budget for this category', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  yearlyBudget?: number;
+
+  @ApiProperty({ description: 'Maximum threshold (for secondary categories)', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(0)
+  maxThreshold?: number;
+
+  @ApiProperty({ description: 'Warning threshold percentage', required: false })
+  @IsOptional()
+  @IsNumber({ allowInfinity: false, allowNaN: false })
+  @Min(1)
+  warningThreshold?: number;
 }
