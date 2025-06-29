@@ -78,9 +78,9 @@ export class BudgetManagementService {
         categoryName: category.name,
         budgetLevel: category.budgetLevel || 'optional',
         currentMonthSpent: currentSpent,
-        monthlyBudget: category.monthlyBudget,
-        maxThreshold: category.maxThreshold,
-        warningThreshold: category.warningThreshold,
+        monthlyBudget: category.monthlyBudget ? Number(category.monthlyBudget) : null,
+        maxThreshold: category.maxThreshold ? Number(category.maxThreshold) : null,
+        warningThreshold: category.warningThreshold ? Number(category.warningThreshold) : null,
         averageMonthlySpending: avgSpending,
         averageMonthlyIncome: avgIncome,
         averageMonthlyNetFlow: netFlow,
@@ -93,17 +93,8 @@ export class BudgetManagementService {
       
       // Per categorie primary, calcola budget configurato
       if (category.budgetLevel === 'primary') {
-        console.log('🔍 Primary category debug:', {
-          name: category.name,
-          monthlyBudget: category.monthlyBudget,
-          budgetLevel: category.budgetLevel
-        });
-        // Budget configurato dall'utente - versione più permissiva per debug
         if (category.monthlyBudget !== null && category.monthlyBudget !== undefined) {
           primaryBudgetConfigured += Number(category.monthlyBudget);
-          console.log('✅ Added to primaryBudgetConfigured:', category.monthlyBudget, 'Total now:', primaryBudgetConfigured);
-        } else {
-          console.log('❌ Primary category has null/undefined monthlyBudget');
         }
       }
 
@@ -121,8 +112,10 @@ export class BudgetManagementService {
     
     // 🔧 FIX: Restituiamo TUTTE le categorie optional, non solo le prime 5
     const allOptionalCategories = categoryData.filter(c => c.budgetLevel === 'optional');
+    
 
-    // 🔧 FIX: Calcola utilizzo budget mensile considerando sia monthlyBudget che maxThreshold
+
+          // Calcola utilizzo budget mensile
     const totalBudgeted = categoryData.reduce((sum, c) => {
       // Per le categorie secondary, usa maxThreshold se disponibile, altrimenti monthlyBudget
       const budget = c.budgetLevel === 'secondary' ? (c.maxThreshold || c.monthlyBudget || 0) : (c.monthlyBudget || 0);
@@ -135,7 +128,7 @@ export class BudgetManagementService {
     // per avere dati coerenti e non doppi conteggi
     const totalFinancials = await this.getTotalMonthlyAverages(userId, 12);
 
-    console.log('🎯 Final primaryBudgetConfigured:', primaryBudgetConfigured);
+
     
     return {
       primaryBudgetConfigured,
@@ -184,9 +177,9 @@ export class BudgetManagementService {
         categoryName: category.name,
         budgetLevel: category.budgetLevel || 'optional',
         currentMonthSpent: currentSpent,
-        monthlyBudget: category.monthlyBudget,
-        maxThreshold: category.maxThreshold,
-        warningThreshold: category.warningThreshold,
+        monthlyBudget: category.monthlyBudget ? Number(category.monthlyBudget) : null,
+        maxThreshold: category.maxThreshold ? Number(category.maxThreshold) : null,
+        warningThreshold: category.warningThreshold ? Number(category.warningThreshold) : null,
         averageMonthlySpending: avgSpending,
         averageMonthlyIncome: avgIncome,
         averageMonthlyNetFlow: netFlow,
