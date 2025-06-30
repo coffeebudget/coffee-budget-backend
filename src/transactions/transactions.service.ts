@@ -1571,6 +1571,8 @@ export class TransactionsService {
       creditCardId?: number;
       skipDuplicateCheck?: boolean; // New option to force import
       createPendingForDuplicates?: boolean; // New option to create pending duplicates
+      dateFrom?: Date; // Date range support
+      dateTo?: Date; // Date range support
     } = {},
   ): Promise<{
     transactions: Transaction[];
@@ -1580,8 +1582,16 @@ export class TransactionsService {
     newTransactionsCount: number;
     pendingDuplicatesCreated: number;
   }> {
+    const dateRangeInfo = options.dateFrom && options.dateTo
+      ? ` from ${options.dateFrom.toISOString().split('T')[0]} to ${options.dateTo.toISOString().split('T')[0]}`
+      : options.dateFrom
+      ? ` from ${options.dateFrom.toISOString().split('T')[0]}`
+      : options.dateTo
+      ? ` until ${options.dateTo.toISOString().split('T')[0]}`
+      : '';
+
     this.logger.log(
-      `Starting GoCardless import for account ${accountId}, user ${userId}`,
+      `Starting GoCardless import for account ${accountId}, user ${userId}${dateRangeInfo}`,
     );
 
     // Create import log
@@ -1590,15 +1600,15 @@ export class TransactionsService {
       status: ImportStatus.PROCESSING,
       source: 'gocardless',
       format: 'gocardless_api',
-      fileName: `GoCardless Account ${accountId}`,
+      fileName: `GoCardless Account ${accountId}${dateRangeInfo}`,
       startTime: new Date(),
-      logs: `Started GoCardless import process`,
+      logs: `Started GoCardless import process${dateRangeInfo}`,
     });
 
     try {
-      // Fetch transactions from GoCardless
+      // Fetch transactions from GoCardless with date range
       const gocardlessData =
-        await this.gocardlessService.getAccountTransactions(accountId);
+        await this.gocardlessService.getAccountTransactions(accountId, options.dateFrom, options.dateTo);
 
       // Parse transactions
       const parser = new GocardlessParser();

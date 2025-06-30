@@ -163,8 +163,13 @@ export class GocardlessController {
   })
   async getAccountTransactions(
     @Param('id') accountId: string,
+    @Query('date_from') dateFromStr?: string,
+    @Query('date_to') dateToStr?: string,
   ): Promise<TransactionsResponseDto> {
-    return this.gocardlessService.getAccountTransactions(accountId);
+    const dateFrom = dateFromStr ? new Date(dateFromStr) : undefined;
+    const dateTo = dateToStr ? new Date(dateToStr) : undefined;
+    
+    return this.gocardlessService.getAccountTransactions(accountId, dateFrom, dateTo);
   }
 
   @Post('flow/start')
@@ -199,6 +204,8 @@ export class GocardlessController {
     @Body() options?: { 
       skipDuplicateCheck?: boolean; 
       createPendingForDuplicates?: boolean;
+      dateFrom?: string;
+      dateTo?: string;
     },
   ): Promise<{
     importResults: any[];
@@ -211,7 +218,13 @@ export class GocardlessController {
       totalPendingDuplicates: number;
     };
   }> {
-    return this.gocardlessService.importAllConnectedAccounts(user.id, options || {});
+    const importOptions = {
+      ...options,
+      dateFrom: options?.dateFrom ? new Date(options.dateFrom) : undefined,
+      dateTo: options?.dateTo ? new Date(options.dateTo) : undefined,
+    };
+    
+    return this.gocardlessService.importAllConnectedAccounts(user.id, importOptions);
   }
 
   @Get('connected-accounts')
