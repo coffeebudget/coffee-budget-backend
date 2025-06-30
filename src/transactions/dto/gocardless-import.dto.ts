@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsNumber, IsBoolean, IsDateString } from 'class-validator';
 
 export class GocardlessImportDto {
   @ApiProperty({
@@ -42,4 +42,22 @@ export class GocardlessImportDto {
   @IsOptional()
   @IsBoolean()
   createPendingForDuplicates?: boolean;
+
+  @ApiProperty({
+    description: 'Start date for transaction import (YYYY-MM-DD format)',
+    required: false,
+    example: '2024-01-01',
+  })
+  @IsOptional()
+  @IsDateString()
+  dateFrom?: string;
+
+  @ApiProperty({
+    description: 'End date for transaction import (YYYY-MM-DD format)',
+    required: false,
+    example: '2024-12-31',
+  })
+  @IsOptional()
+  @IsDateString()
+  dateTo?: string;
 }

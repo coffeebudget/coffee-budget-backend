@@ -318,15 +318,31 @@ export class GocardlessService {
    */
   async getAccountTransactions(
     accountId: string,
+    dateFrom?: Date,
+    dateTo?: Date,
   ): Promise<TransactionsResponseDto> {
     try {
       await this.ensureValidToken();
 
       this.logger.log(`Fetching account transactions: ${accountId}`);
 
-      const response = await this.httpClient.get<TransactionsResponseDto>(
-        `/accounts/${accountId}/transactions/`,
-      );
+      // Build query parameters for date range
+      const queryParams = new URLSearchParams();
+      
+      if (dateFrom) {
+        queryParams.append('date_from', dateFrom.toISOString().split('T')[0]);
+      }
+      
+      if (dateTo) {
+        queryParams.append('date_to', dateTo.toISOString().split('T')[0]);
+      }
+
+      const queryString = queryParams.toString();
+      const url = `/accounts/${accountId}/transactions/${queryString ? `?${queryString}` : ''}`;
+
+      this.logger.log(`Fetching transactions with URL: ${url}`);
+
+      const response = await this.httpClient.get<TransactionsResponseDto>(url);
 
       this.logger.log(
         `Fetched ${response.data.transactions.booked.length} booked transactions and ${response.data.transactions.pending.length} pending transactions`,
@@ -593,6 +609,8 @@ export class GocardlessService {
     options: {
       skipDuplicateCheck?: boolean;
       createPendingForDuplicates?: boolean;
+      dateFrom?: Date;
+      dateTo?: Date;
     } = {},
   ) {
     try {
@@ -623,11 +641,15 @@ export class GocardlessService {
                   bankAccountId: account.localId,
                   skipDuplicateCheck: options.skipDuplicateCheck || false,
                   createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                  dateFrom: options.dateFrom,
+                  dateTo: options.dateTo,
                 }
               : { 
                   creditCardId: account.localId,
                   skipDuplicateCheck: options.skipDuplicateCheck || false,
                   createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                  dateFrom: options.dateFrom,
+                  dateTo: options.dateTo,
                 };
 
           const result = await transactionsService.importFromGoCardless(

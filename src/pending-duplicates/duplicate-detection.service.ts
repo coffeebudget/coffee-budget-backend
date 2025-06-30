@@ -225,47 +225,27 @@ export class DuplicateDetectionService {
 
     const finalScore = Math.round((score / maxScore) * 100);
     
-    // Debug logging for transactions with high similarity
+    // CRITICAL: Only consider transactions as potential duplicates if they have the SAME DATE
+    // This prevents false positives between transactions on different dates
+    if (dateScore === 0) {
+      // Different dates - return 0 to prevent any duplicate consideration
+      this.logger.debug(`Different execution dates - skipping duplicate check:
+        New: ${newTransaction.description} | ${newTransaction.executionDate}
+        Existing: ${existingTransaction.description} | ${existingTransaction.executionDate}`);
+      return 0;
+    }
+    
+    // Debug logging for transactions with high similarity (same date only)
     if (finalScore >= 60) {
       const normalizedNew = this.normalizeAmount(newTransaction.amount, newTransaction.type);
       const normalizedExisting = this.normalizeAmount(existingTransaction.amount, existingTransaction.type);
         
-      this.logger.debug(`Similarity calculation:
+      this.logger.debug(`Similarity calculation (same date):
         New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type} | ${newTransaction.executionDate}
         Existing: ${existingTransaction.description} | ${existingTransaction.amount} | ${existingTransaction.type} | ${existingTransaction.executionDate}
         Amount comparison: ${newTransaction.amount} → ${normalizedNew} vs ${existingTransaction.amount} → ${normalizedExisting} (${amountMatch ? 'MATCH' : 'NO MATCH'})
         Scores: Amount(${amountMatch ? 30 : 0}/30) Type(${typeMatch ? 10 : 0}/10) Desc(${descScore}/40, ${descSimilarity.toFixed(3)}) Date(${dateScore}/20)
         Final: ${finalScore}%`);
-    }
-    
-    // Special case: If amount, type, and description are identical, 
-    // consider it a very high match even with different dates
-    // BUT only if the dates are close (within 7 days) to avoid flagging recurring transactions
-    if (newTransaction.amount === existingTransaction.amount && 
-        newTransaction.type === existingTransaction.type && 
-        descSimilarity === 1.0) {
-      
-      // Check if dates are within 7 days of each other
-      if (existingTransaction.executionDate) {
-        const newDate = new Date(newTransaction.executionDate);
-        const existingDate = new Date(existingTransaction.executionDate);
-        const daysDifference = Math.abs((newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        this.logger.debug(`Special case evaluation for identical transactions:
-          New: ${newTransaction.description} | ${newTransaction.executionDate}
-          Existing: ${existingTransaction.description} | ${existingTransaction.executionDate}
-          Days difference: ${daysDifference.toFixed(1)}
-          Within 7 days: ${daysDifference <= 7 ? 'YES' : 'NO'}`);
-        
-        // Only boost score if dates are within 7 days (likely data entry errors or processing delays)
-        // If dates are more than 7 days apart, it's likely a recurring transaction
-        if (daysDifference <= 7) {
-          this.logger.debug(`Boosting score to 95% for identical content with close dates`);
-          return Math.max(finalScore, 95); // Ensure at least 95% for identical content with close dates
-        } else {
-          this.logger.debug(`Not boosting score - transactions are ${daysDifference.toFixed(1)} days apart, likely recurring`);
-        }
-      }
     }
 
     return finalScore;
