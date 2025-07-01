@@ -590,13 +590,30 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
       const aiResponse = await response.json();
       const aiContent = aiResponse.choices[0]?.message?.content || '';
 
+      // Log AI response for debugging
+      this.logger.debug('Raw AI Response for budget analysis:', aiContent);
+
       // Parse AI response
       const parsedResponse = this.parseBudgetAnalysisResponse(aiContent);
+      this.logger.debug('Parsed AI Response:', JSON.stringify(parsedResponse, null, 2));
 
-      // Add AI suggestions to overspending categories
-      overspendingCategories.forEach((cat, index) => {
-        if (parsedResponse.overspendingCategories[index]) {
-          cat.suggestions = parsedResponse.overspendingCategories[index].suggestions;
+      // Add AI suggestions to overspending categories - Match by category name with fuzzy matching
+      overspendingCategories.forEach(cat => {
+        const aiSuggestion = parsedResponse.overspendingCategories.find(
+          aiCat => aiCat.category && this.matchCategoryNames(aiCat.category, cat.category)
+        );
+        
+        if (aiSuggestion && aiSuggestion.suggestions && aiSuggestion.suggestions.length > 0) {
+          cat.suggestions = aiSuggestion.suggestions;
+          this.logger.debug(`Matched AI suggestions for ${cat.category}:`, aiSuggestion.suggestions);
+        } else {
+          // Fallback suggestions if AI didn't provide specific ones
+          cat.suggestions = [
+            `Monitora più attentamente le spese nella categoria ${cat.category}`,
+            'Considera di aumentare il budget o ridurre le spese',
+            'Cerca alternative più economiche per questa categoria'
+          ];
+          this.logger.debug(`Using fallback suggestions for ${cat.category}`);
         }
       });
 
@@ -617,7 +634,7 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
   }
 
   /**
-   * Calculate budget health score (0-100)
+   * Calculate budget health score (0-100) - More balanced calculation
    */
   private calculateBudgetHealthScore(
     budgetOverview: any,
@@ -625,29 +642,107 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
   ): number {
     let score = 100;
 
-    // Deduct points for high budget utilization
-    if (budgetOverview.monthlyBudgetUtilization > 90) {
-      score -= 30;
-    } else if (budgetOverview.monthlyBudgetUtilization > 75) {
-      score -= 15;
-    }
-
-    // Deduct points for negative net flow
-    if (budgetOverview.averageMonthlyNetFlow < 0) {
+    // More balanced deduction for budget utilization
+    const utilization = budgetOverview.monthlyBudgetUtilization || 0;
+    if (utilization > 110) {
       score -= 25;
-    } else if (budgetOverview.averageMonthlyNetFlow < budgetOverview.averageMonthlyIncome * 0.1) {
-      score -= 10; // Less than 10% savings rate
+    } else if (utilization > 100) {
+      score -= 15;
+    } else if (utilization > 90) {
+      score -= 10;
+    } else if (utilization > 80) {
+      score -= 5;
     }
 
-    // Deduct points for overspending categories
+    // Deduct points for negative net flow (less punitive)
+    if (budgetOverview.averageMonthlyNetFlow < 0) {
+      score -= 20;
+    } else if (budgetOverview.averageMonthlyNetFlow < budgetOverview.averageMonthlyIncome * 0.1) {
+      score -= 5; // Less than 10% savings rate
+    }
+
+    // More balanced deduction for overspending categories
     const overspendingCount = categories.filter(c => c.budgetStatus === 'over').length;
-    score -= overspendingCount * 10;
+    const totalCategories = categories.length;
+    const overspendingRatio = totalCategories > 0 ? overspendingCount / totalCategories : 0;
+    
+    if (overspendingRatio > 0.5) {
+      score -= 20; // More than 50% categories overspending
+    } else if (overspendingRatio > 0.3) {
+      score -= 15; // More than 30% categories overspending
+    } else if (overspendingRatio > 0.1) {
+      score -= 10; // More than 10% categories overspending
+    } else {
+      score -= overspendingCount * 2; // Small penalty per category
+    }
 
-    // Deduct points for categories without budgets
-    const noBudgetCount = categories.filter(c => c.budgetStatus === 'no_budget').length;
-    score -= noBudgetCount * 5;
+    // Bonus for positive financial management
+    if (budgetOverview.averageMonthlyNetFlow > budgetOverview.averageMonthlyIncome * 0.15) {
+      score += 5; // Good savings rate
+    }
 
-    return Math.max(0, Math.min(100, score));
+    return Math.max(15, Math.min(100, score)); // Minimum score of 15, not 0
+  }
+
+  /**
+   * Match category names with fuzzy logic to handle AI response variations
+   */
+  private matchCategoryNames(aiCategory: string, ourCategory: string): boolean {
+    if (!aiCategory || !ourCategory) return false;
+    
+    // Normalize strings: lowercase, remove spaces, slashes, and special characters
+    const normalize = (str: string) => str.toLowerCase()
+      .replace(/[\/\-\s&]+/g, '')
+      .replace(/[^\w]/g, '');
+    
+    const normalizedAi = normalize(aiCategory);
+    const normalizedOur = normalize(ourCategory);
+    
+    // Exact match after normalization
+    if (normalizedAi === normalizedOur) return true;
+    
+    // Check if one contains the other (for cases like "Books" vs "Books / Media")
+    if (normalizedAi.includes(normalizedOur) || normalizedOur.includes(normalizedAi)) return true;
+    
+    // Check similarity for common variations
+    const similarityThreshold = 0.8;
+    const similarity = this.calculateStringSimilarity(normalizedAi, normalizedOur);
+    
+    return similarity >= similarityThreshold;
+  }
+
+  /**
+   * Calculate string similarity using Levenshtein distance
+   */
+  private calculateStringSimilarity(str1: string, str2: string): number {
+    const maxLength = Math.max(str1.length, str2.length);
+    if (maxLength === 0) return 1;
+    
+    const distance = this.levenshteinDistance(str1, str2);
+    return (maxLength - distance) / maxLength;
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  private levenshteinDistance(str1: string, str2: string): number {
+    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+
+    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+
+    for (let j = 1; j <= str2.length; j++) {
+      for (let i = 1; i <= str1.length; i++) {
+        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+        matrix[j][i] = Math.min(
+          matrix[j][i - 1] + 1,     // deletion
+          matrix[j - 1][i] + 1,     // insertion
+          matrix[j - 1][i - 1] + indicator  // substitution
+        );
+      }
+    }
+
+    return matrix[str2.length][str1.length];
   }
 
   /**
@@ -658,13 +753,23 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     categories: any[],
     overspendingCategories: any[]
   ): string {
-    const categoriesData = categories.map(cat => 
-      `- ${cat.name} (${cat.budgetLevel}): Speso €${cat.currentMonthSpent}, Budget €${cat.monthlyBudget || 'Non impostato'}, Status: ${cat.budgetStatus}`
-    ).join('\n');
+    // Format enriched categories data
+    const categoriesDataFormatted = categories.map(cat => {
+      const statusIcon = cat.budgetStatus === 'over' ? '🔴' : cat.budgetStatus === 'warning' ? '🟡' : '🟢';
+      return `- ${cat.name} (${cat.budgetLevel}):
+  * Mese corrente: €${cat.currentMonthSpent} / €${cat.monthlyBudget} (${cat.percentage}%) ${statusIcon}
+  * Rimanente: €${cat.remaining}
+  * Proiezione fine mese: €${cat.projectedSpend} (${cat.projectedPercentage}%)
+  * Rolling 12M: €${cat.rolling12MSpent} / €${cat.rolling12MBudget} (${cat.rolling12MPercentage}%)
+  * Media mensile: €${cat.averageMonthlySpending}`;
+    }).join('\n\n');
 
-    const overspendingData = overspendingCategories.map(cat =>
-      `- ${cat.category}: Sforamento di €${cat.overspendingAmount.toFixed(2)}`
-    ).join('\n');
+    // Calculate statistics
+    const overspendingCount = categories.filter(c => c.budgetStatus === 'over').length;
+    const warningCount = categories.filter(c => c.budgetStatus === 'warning').length;
+    const underBudgetCount = categories.filter(c => c.budgetStatus === 'under').length;
+    const total12MBudget = categories.reduce((sum, c) => sum + (c.rolling12MBudget || 0), 0);
+    const total12MSpent = categories.reduce((sum, c) => sum + (c.rolling12MSpent || 0), 0);
 
     return `
 Analizza questo budget personale e fornisci consigli di ottimizzazione:
@@ -673,24 +778,37 @@ PANORAMICA FINANZIARIA:
 - Entrata media mensile: €${budgetOverview.averageMonthlyIncome}
 - Spesa media mensile: €${budgetOverview.averageMonthlyExpenses}
 - Flusso netto mensile: €${budgetOverview.averageMonthlyNetFlow}
-- Utilizzo budget: ${budgetOverview.monthlyBudgetUtilization}%
-- Risparmio necessario: €${budgetOverview.totalAutoSaveNeeded}
+- Utilizzo budget corretto: ${Math.round(budgetOverview.monthlyBudgetUtilization * 10) / 10}%
+- Budget totale configurato: €${budgetOverview.totalConfiguredBudget}
+- Spesa media su categorie con budget: €${Math.round(budgetOverview.totalCurrentSpent)}
+- Giorni rimanenti nel mese: ${budgetOverview.daysRemaining}
 
-CATEGORIE DI SPESA:
-${categoriesData}
+BREAKDOWN PER LIVELLO:
+- Primary (€${budgetOverview.primaryBudgetConfigured || 0} budget): €${Math.round(budgetOverview.primaryCurrentSpent || 0)} spesa media
+- Secondary (€${budgetOverview.secondaryBudgetConfigured || 0} budget): €${Math.round(budgetOverview.secondaryCurrentSpent || 0)} spesa media  
+- Optional (€${budgetOverview.optionalBudgetConfigured || 0} budget): €${Math.round(budgetOverview.optionalCurrentSpent || 0)} spesa media
 
-CATEGORIE IN SFORAMENTO:
-${overspendingData}
+DETTAGLIO CATEGORIE CON BUDGET (ordinate per criticità):
+${categoriesDataFormatted}
+
+STATISTICHE RAPIDE:
+- Categorie in sforamento: ${overspendingCount}
+- Categorie in warning: ${warningCount}
+- Categorie sotto budget: ${underBudgetCount}
+
+ANALISI ROLLING 12M:
+- Budget 12M totale: €${total12MBudget}
+- Spesa 12M proiettata: €${total12MSpent}
 
 Per favore fornisci:
-1. Un'analisi generale della situazione finanziaria (2-3 frasi)
-2. Consigli specifici per ogni categoria in sforamento
-3. Suggerimenti di ottimizzazione per altre categorie con potenziali risparmi
-4. Raccomandazioni generali per migliorare la gestione del budget
+1. Un'analisi generale della situazione finanziaria considerando sia il mese corrente che la proiezione 12M
+2. Consigli specifici per le categorie più critiche (in sforamento o con proiezioni negative)
+3. Suggerimenti di ottimizzazione per categorie con potenziali risparmi
+4. Raccomandazioni generali per migliorare la gestione del budget a breve e lungo termine
 
 IMPORTANTE: Rispondi SOLO con un JSON valido nel seguente formato:
 {
-  "analysis": "Analisi generale della situazione finanziaria",
+  "analysis": "Analisi generale della situazione finanziaria (2-3 frasi che considerino sia il mese corrente che la proiezione annuale)",
   "overspendingCategories": [
     {
       "category": "Nome categoria",
@@ -700,13 +818,14 @@ IMPORTANTE: Rispondi SOLO con un JSON valido nel seguente formato:
   "optimizationTips": [
     {
       "category": "Nome categoria",
-      "tip": "Consiglio specifico",
+      "tip": "Consiglio specifico con dettagli sui potenziali risparmi",
       "potentialSavings": 50
     }
   ],
   "overallRecommendations": [
     "Raccomandazione generale 1",
-    "Raccomandazione generale 2"
+    "Raccomandazione generale 2",
+    "Raccomandazione generale 3"
   ]
 }
 
