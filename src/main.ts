@@ -4,7 +4,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ModuleRef } from '@nestjs/core';
 import { AuthService } from './auth/auth.service';
 import * as bodyParser from 'body-parser';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   // Set up logger with appropriate log levels based on environment
@@ -15,6 +16,35 @@ async function bootstrap() {
       : ['error', 'warn', 'log'], // Exclude debug logs in production
   });
 
+  // 🔒 SECURITY: Global ValidationPipe with strict validation
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: {
+      enableImplicitConversion: true,
+    },
+  }));
+
+  // 🔒 SECURITY: Helmet.js for security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        scriptSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        connectSrc: ["'self'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+  }));
+
   const authService = app.get(AuthService);
   app.use((req, res, next) => {
     req.moduleRef = app.get(ModuleRef);
@@ -22,10 +52,16 @@ async function bootstrap() {
     next();
   });
 
+  // 🔒 SECURITY: Enhanced CORS configuration
+  const allowedOrigins = isDevelopment 
+    ? ['http://localhost:3000', 'http://127.0.0.1:3000']
+    : process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000'];
+
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
+    optionsSuccessStatus: 200,
   });
 
   app.use(bodyParser.json({ limit: '5mb' }));

@@ -17,6 +17,8 @@ import { SharedModule } from './shared/shared.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { GocardlessModule } from './gocardless/gocardless.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 import databaseConfig from './config/database.config';
 
@@ -39,6 +41,11 @@ import databaseConfig from './config/database.config';
       },
     }),
     ScheduleModule.forRoot(),
+    // 🔒 SECURITY: Rate limiting (100 requests per minute)
+    ThrottlerModule.forRoot([{
+      ttl: 60000, // 1 minute
+      limit: 100, // max 100 requests per minute
+    }]),
     UsersModule,
     AuthModule,
     TransactionsModule,
@@ -54,6 +61,13 @@ import databaseConfig from './config/database.config';
     GocardlessModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // 🔒 SECURITY: Global rate limiting
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
