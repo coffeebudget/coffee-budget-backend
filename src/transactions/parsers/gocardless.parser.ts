@@ -67,6 +67,7 @@ export class GocardlessParser extends BaseParser {
         source: 'gocardless',
         status: isPending ? 'pending' : 'executed',
         tagNames: this.extractTags(tx), // Custom property for tag processing
+        transactionIdOpenBankAPI: tx.transactionId, // GoCardless unique transaction ID
       };
 
       // Set bank account or credit card

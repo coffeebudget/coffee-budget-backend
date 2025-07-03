@@ -5,6 +5,7 @@ import {
   ManyToOne,
   ManyToMany,
   JoinTable,
+  Index,
 } from 'typeorm';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
@@ -13,6 +14,7 @@ import { Category } from '../categories/entities/category.entity';
 import { Tag } from '../tags/entities/tag.entity';
 
 @Entity()
+@Index(['user', 'transactionIdOpenBankAPI', 'source'], { unique: true, where: '"transactionIdOpenBankAPI" IS NOT NULL' })
 export class Transaction {
   @PrimaryGeneratedColumn()
   id: number;
@@ -77,4 +79,7 @@ export class Transaction {
 
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   categorizationConfidence: number | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  transactionIdOpenBankAPI: string | null;
 }
