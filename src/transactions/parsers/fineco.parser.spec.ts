@@ -112,14 +112,14 @@ describe('FinecoParser', () => {
         },
       ];
 
-      // Set up the eachRow mock to iterate through our mock rows
+      // Set up the eachRow mock
       const mockEachRow = jest.fn((callback) => {
         mockRows.forEach((row, index) => {
           callback(row, index + 1);
         });
       });
 
-      // Apply our mock to the worksheets[0].eachRow method
+      // Apply our mock
       const mockWorkbook = new Workbook();
       mockWorkbook.worksheets[0].eachRow = mockEachRow;
 
@@ -143,15 +143,9 @@ describe('FinecoParser', () => {
         bankAccount: { id: 123 },
       });
 
-      // Check that the tags were created correctly
-      expect(result[0].tags).toBeDefined();
-      expect(result[0].tags).toHaveLength(2); // 'Income' and 'Salary' tags
-      expect(result[0].tags).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'Income', user: { id: 1 } }),
-          expect.objectContaining({ name: 'Salary', user: { id: 1 } }),
-        ]),
-      );
+      // Check that tagNames were set correctly for later processing
+      expect((result[0] as any).tagNames).toBeDefined();
+      expect((result[0] as any).tagNames).toEqual(['Income', 'Salary']);
 
       // Second transaction (expense)
       expect(result[1]).toMatchObject({
@@ -164,15 +158,9 @@ describe('FinecoParser', () => {
         bankAccount: { id: 123 },
       });
 
-      // Check that the tags were created correctly
-      expect(result[1].tags).toBeDefined();
-      expect(result[1].tags).toHaveLength(2); // 'Expenses' and 'Groceries' tags
-      expect(result[1].tags).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'Expenses', user: { id: 1 } }),
-          expect.objectContaining({ name: 'Groceries', user: { id: 1 } }),
-        ]),
-      );
+      // Check that tagNames were set correctly for later processing
+      expect((result[1] as any).tagNames).toBeDefined();
+      expect((result[1] as any).tagNames).toEqual(['Expenses', 'Groceries']);
     });
 
     it('should handle rows with missing values', async () => {
@@ -238,7 +226,7 @@ describe('FinecoParser', () => {
       expect(result[0].description).toBe('Payment without tags');
       expect(result[0].amount).toBe(25.3);
       expect(result[0].type).toBe('expense');
-      expect(result[0].tags).toBeUndefined(); // No tags should be created
+      expect((result[0] as any).tagNames).toBeUndefined(); // No tagNames should be set
     });
 
     it('should correctly parse the Fineco account statement format and create tags', async () => {
@@ -365,10 +353,11 @@ describe('FinecoParser', () => {
           ) && expect.stringContaining('[Tag: Giroconto]'),
         amount: 200,
         type: 'income',
-        tags: [
-          expect.objectContaining({ name: 'Altre Entrate', user: { id: 1 } }),
-        ],
       });
+
+      // Check that tagNames were set correctly for later processing
+      expect((result[0] as any).tagNames).toBeDefined();
+      expect((result[0] as any).tagNames).toEqual(['Altre Entrate']);
 
       // Second transaction (expense) - with Internet Telefono e Tecnologia tags
       expect(result[1]).toMatchObject({
@@ -378,13 +367,11 @@ describe('FinecoParser', () => {
           ) && expect.stringContaining('[Tag: SEPA Direct Debit]'),
         amount: 63.66,
         type: 'expense',
-        tags: [
-          expect.objectContaining({
-            name: 'Internet Telefono e Tecnologia',
-            user: { id: 1 },
-          }),
-        ],
       });
+
+      // Check that tagNames were set correctly for later processing
+      expect((result[1] as any).tagNames).toBeDefined();
+      expect((result[1] as any).tagNames).toEqual(['Internet Telefono e Tecnologia']);
 
       // Third transaction (expense) - with Altre spese tag
       expect(result[2]).toMatchObject({
@@ -393,13 +380,11 @@ describe('FinecoParser', () => {
           expect.stringContaining('[Tag: Canone Mensile Conto]'),
         amount: 1.75,
         type: 'expense',
-        tags: [
-          expect.objectContaining({
-            name: 'Altre spese',
-            user: { id: 1 },
-          }),
-        ],
       });
+
+      // Check that tagNames were set correctly for later processing
+      expect((result[2] as any).tagNames).toBeDefined();
+      expect((result[2] as any).tagNames).toEqual(['Altre spese']);
     });
 
     it('should not include headers row in the transactions', async () => {

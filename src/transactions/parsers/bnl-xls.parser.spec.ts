@@ -17,6 +17,23 @@ describe('BnlXlsParser', () => {
   let mockWorkbook: jest.Mocked<Workbook>;
   let mockWorksheet: jest.Mocked<Worksheet>;
 
+  // Helper function to create mock row
+  const createMockRow = (values: any[]) => ({
+    values: values,
+    getCell: jest.fn().mockReturnValue({ text: values[1] || '' }),
+    eachCell: jest.fn().mockImplementation((cellCallback: any) => {
+      values.forEach((value, colIndex) => {
+        if (value !== undefined) {
+          const mockCell = {
+            value: value,
+            text: String(value),
+          };
+          cellCallback(mockCell, colIndex + 1);
+        }
+      });
+    }),
+  });
+
   beforeEach(async () => {
     parser = new BnlXlsParser();
     // Mock the logger to avoid console output during tests
@@ -55,17 +72,14 @@ describe('BnlXlsParser', () => {
 
       // Mock worksheet.eachRow to simulate rows
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
-        { values: [undefined, '05/02/2023', '07/02/2023', '456', 'Another description', '-50,25'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        { values: ['05/02/2023', '07/02/2023', '456', 'Another description', '-50,25'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -106,12 +120,9 @@ describe('BnlXlsParser', () => {
         { values: [undefined, '01/02/2023', 'Some data'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -128,16 +139,13 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -164,16 +172,13 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -199,16 +204,13 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Payment ref: #12345 - Multi-word description with special chars: €$%&', '-250,75'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['01/02/2023', '03/02/2023', '123', 'Payment ref: #12345 - Multi-word description with special chars: €$%&', '-250,75'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -229,18 +231,15 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Income transaction', '+1.500,00'] },
-        { values: [undefined, '05/02/2023', '07/02/2023', '456', 'Expense transaction', '-750,25'] },
-        { values: [undefined, '10/02/2023', '12/02/2023', '789', 'Zero amount transaction', '0,00'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['01/02/2023', '03/02/2023', '123', 'Income transaction', '+1.500,00'] },
+        { values: ['05/02/2023', '07/02/2023', '456', 'Expense transaction', '-750,25'] },
+        { values: ['10/02/2023', '12/02/2023', '789', 'Zero amount transaction', '0,00'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -268,16 +267,13 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: [undefined, '31/12/2023', '01/01/2024', '123', 'Year-end transaction', '+1.000,00'] },
+        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: ['31/12/2023', '01/01/2024', '123', 'Year-end transaction', '+1.000,00'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -309,23 +305,20 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: [undefined, 'C/C:', '01005 20600 00000000XXXX'] },
-        { values: [undefined, 'Divisa C/C:', 'EUR'] },
-        { values: [undefined, 'Saldo Contabile al:', '11/04/2025', '+1.333,45'] },
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Importo'] },
-        { values: [undefined, '04/04/2025', '04/04/2025', '50', 'PAGAMENTI DIVERSI', '-407,97'] },
-        { values: [undefined, '03/04/2025', '03/04/2025', '26', 'VOSTRO BONIFICO', '-225,00'] },
-        { values: [undefined, '03/04/2025', '03/04/2025', '48', 'BONIFICO DEL 03.04.25 DA NOME COGNOME', '+1.450,00'] },
-        { values: [undefined, '02/04/2025', '31/03/2025', '66', 'CANONE CONTO MARZO', '-8,40'] },
-        { values: [undefined, '31/03/2025', '31/03/2025', '15', 'RIMBORSO FINANZIAMENTO N. 1523129', '-809,76'] },
+        { values: ['C/C:', '01005 20600 00000000XXXX'] },
+        { values: ['Divisa C/C:', 'EUR'] },
+        { values: ['Saldo Contabile al:', '11/04/2025', '+1.333,45'] },
+        { values: ['Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Importo'] },
+        { values: ['04/04/2025', '04/04/2025', '50', 'PAGAMENTI DIVERSI', '-407,97'] },
+        { values: ['03/04/2025', '03/04/2025', '26', 'VOSTRO BONIFICO', '-225,00'] },
+        { values: ['03/04/2025', '03/04/2025', '48', 'BONIFICO DEL 03.04.25 DA NOME COGNOME', '+1.450,00'] },
+        { values: ['02/04/2025', '31/03/2025', '66', 'CANONE CONTO MARZO', '-8,40'] },
+        { values: ['31/03/2025', '31/03/2025', '15', 'RIMBORSO FINANZIAMENTO N. 1523129', '-809,76'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -387,16 +380,13 @@ describe('BnlXlsParser', () => {
 
       // Mock worksheet.eachRow to return a row with a date in dd/MM/yyyy format
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
-        { values: [undefined, '31/12/2023', 'Test transaction', '', '100,50'] }, // December 31, 2023
+        { values: ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
+        { values: ['31/12/2023', 'Test transaction', '', '100,50'] }, // December 31, 2023
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -428,18 +418,15 @@ describe('BnlXlsParser', () => {
 
       // Mock worksheet.eachRow to return rows with different dates
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
-        { values: [undefined, '01/01/2023', 'January transaction', '250,00', ''] }, // January 1, 2023
-        { values: [undefined, '15/02/2023', 'February transaction', '', '75,30'] }, // February 15, 2023
-        { values: [undefined, '31/12/2023', 'December transaction', '', '100,50'] }, // December 31, 2023
+        { values: ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
+        { values: ['01/01/2023', 'January transaction', '250,00', ''] }, // January 1, 2023
+        { values: ['15/02/2023', 'February transaction', '', '75,30'] }, // February 15, 2023
+        { values: ['31/12/2023', 'December transaction', '', '100,50'] }, // December 31, 2023
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });
@@ -483,16 +470,13 @@ describe('BnlXlsParser', () => {
       // Mock worksheet.eachRow to return a row with MOB reference number
       // Note: Column indices must match how the parser is accessing the data
       const mockRows = [
-        { values: [undefined, 'Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Descrizione_Completa', 'Importo'] },
-        { values: [undefined, '07/01/2025', '07/01/2025', '50', 'PAGAMENTI DIVERSI', 'MOB-6999764301 PAG. MAV 0 3065', '-168,12'] },
+        { values: ['Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Descrizione_Completa', 'Importo'] },
+        { values: ['07/01/2025', '07/01/2025', '50', 'PAGAMENTI DIVERSI', 'MOB-6999764301 PAG. MAV 0 3065', '-168,12'] },
       ];
 
-      mockWorksheet.eachRow.mockImplementation((callback) => {
+      mockWorksheet.eachRow.mockImplementation((callback: any) => {
         mockRows.forEach((row, index) => {
-          const mockRow = {
-            values: row.values,
-            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
-          };
+          const mockRow = createMockRow(row.values);
           callback(mockRow, index + 1);
         });
       });

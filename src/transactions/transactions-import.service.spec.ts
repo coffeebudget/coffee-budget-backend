@@ -12,10 +12,17 @@ import { PendingDuplicatesService } from '../pending-duplicates/pending-duplicat
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
 import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from './transaction-operations.service';
 import { BankFileParserFactory } from './parsers';
 import { BankFileParser } from './parsers/interfaces/bank-file-parser.interface';
 import { BadRequestException } from '@nestjs/common';
+import { ImportLogsService } from './import-logs.service';
+import { GocardlessService } from '../gocardless/gocardless.service';
+
+// Extended transaction type for testing with tagNames
+interface TransactionWithTagNames extends Partial<Transaction> {
+  tagNames?: string[];
+}
 
 // Sample bank parser for testing
 class MockBankParser implements BankFileParser {
@@ -129,6 +136,20 @@ describe('TransactionsService - Import', () => {
               ...data,
               user: { id: userId },
             })),
+          },
+        },
+        {
+          provide: ImportLogsService,
+          useValue: {
+            create: jest.fn().mockResolvedValue({ id: 1 }),
+            appendToLog: jest.fn(),
+            incrementCounters: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessService,
+          useValue: {
+            // Add any methods that might be used
           },
         },
       ],
@@ -476,6 +497,196 @@ describe('TransactionsService - Import', () => {
       expect(createAutoTxCallArgs.description).toBe(
         'Credit Card Purchase with Custom Billing',
       );
+    });
+
+    it('should reuse existing tags when tagNames are provided and tags already exist', async () => {
+      // Create a mock parser that returns transactions with tagNames
+      class MockParserWithTags implements BankFileParser {
+        async parseFile(
+          data: string,
+          options: {
+            bankAccountId?: number;
+            creditCardId?: number;
+            userId: number;
+          },
+        ): Promise<TransactionWithTagNames[]> {
+          return [
+            {
+              description: 'Transaction with existing tag',
+              amount: 100,
+              type: 'income',
+              executionDate: new Date('2023-02-01'),
+              bankAccount: options.bankAccountId
+                ? ({ id: options.bankAccountId } as BankAccount)
+                : undefined,
+              tagNames: ['Existing Tag', 'New Tag'], // One existing, one new
+            },
+            {
+              description: 'Transaction with only existing tags',
+              amount: 50,
+              type: 'expense',
+              executionDate: new Date('2023-02-02'),
+              bankAccount: options.bankAccountId
+                ? ({ id: options.bankAccountId } as BankAccount)
+                : undefined,
+              tagNames: ['Existing Tag'], // Only existing tag
+            },
+          ];
+        }
+      }
+
+      // Mock the parser factory
+      jest
+        .spyOn(BankFileParserFactory, 'getParser')
+        .mockReturnValue(new MockParserWithTags());
+
+      // Mock existing tag
+      const existingTag = { id: 1, name: 'Existing Tag', user: { id: 1 } } as Tag;
+      (tagsService.findByName as jest.Mock)
+        .mockImplementation((name: string, userId: number) => {
+          if (name === 'Existing Tag') {
+            return Promise.resolve(existingTag);
+          }
+          return Promise.resolve(null);
+        });
+
+      // Mock tag creation for new tags
+      const newTag = { id: 2, name: 'New Tag', user: { id: 1 } } as Tag;
+      (tagsService.create as jest.Mock).mockResolvedValue(newTag);
+
+      // Mock createAutomatedTransaction to capture the transaction data
+      const createAutoTxSpy = jest
+        .spyOn(transactionOperationsService, 'createAutomatedTransaction')
+        .mockImplementation((data, userId, source) => {
+          return Promise.resolve({
+            id: 999,
+            ...data,
+            user: { id: userId },
+          } as Transaction);
+        });
+
+      const result = await service.importTransactions(
+        {
+          bankFormat: 'fineco',
+          csvData: 'sample data',
+          bankAccountId: 123,
+        },
+        1,
+      );
+
+      // Verify that findByName was called for each tag
+      expect(tagsService.findByName).toHaveBeenCalledWith('Existing Tag', 1);
+      expect(tagsService.findByName).toHaveBeenCalledWith('New Tag', 1);
+
+      // Verify that create was only called for the new tag
+      expect(tagsService.create).toHaveBeenCalledTimes(1);
+      expect(tagsService.create).toHaveBeenCalledWith(
+        { name: 'New Tag' },
+        { id: 1 },
+      );
+
+      // Verify that createAutomatedTransaction was called for both transactions
+      expect(createAutoTxSpy).toHaveBeenCalledTimes(2);
+
+      // Get the calls to createAutomatedTransaction
+      const calls = createAutoTxSpy.mock.calls;
+
+      // First transaction should have both existing and new tags
+      const firstTxCall = calls[0];
+      expect(firstTxCall[0].tags).toEqual([existingTag, newTag]);
+
+      // Second transaction should have only the existing tag
+      const secondTxCall = calls[1];
+      expect(secondTxCall[0].tags).toEqual([existingTag]);
+
+      // Verify that tagNames property was removed from both transactions
+      expect((firstTxCall[0] as TransactionWithTagNames).tagNames).toBeUndefined();
+      expect((secondTxCall[0] as TransactionWithTagNames).tagNames).toBeUndefined();
+    });
+
+    it('should create new tags when tagNames are provided and tags do not exist', async () => {
+      // Create a mock parser that returns transactions with tagNames
+      class MockParserWithNewTags implements BankFileParser {
+        async parseFile(
+          data: string,
+          options: {
+            bankAccountId?: number;
+            creditCardId?: number;
+            userId: number;
+          },
+        ): Promise<TransactionWithTagNames[]> {
+          return [
+            {
+              description: 'Transaction with new tags',
+              amount: 100,
+              type: 'income',
+              executionDate: new Date('2023-02-01'),
+              bankAccount: options.bankAccountId
+                ? ({ id: options.bankAccountId } as BankAccount)
+                : undefined,
+              tagNames: ['New Tag 1', 'New Tag 2'], // Both new tags
+            },
+          ];
+        }
+      }
+
+      // Mock the parser factory
+      jest
+        .spyOn(BankFileParserFactory, 'getParser')
+        .mockReturnValue(new MockParserWithNewTags());
+
+      // Mock that no tags exist
+      (tagsService.findByName as jest.Mock).mockResolvedValue(null);
+
+      // Mock tag creation
+      const newTag1 = { id: 1, name: 'New Tag 1', user: { id: 1 } } as Tag;
+      const newTag2 = { id: 2, name: 'New Tag 2', user: { id: 1 } } as Tag;
+      (tagsService.create as jest.Mock)
+        .mockResolvedValueOnce(newTag1)
+        .mockResolvedValueOnce(newTag2);
+
+      // Mock createAutomatedTransaction
+      const createAutoTxSpy = jest
+        .spyOn(transactionOperationsService, 'createAutomatedTransaction')
+        .mockImplementation((data, userId, source) => {
+          return Promise.resolve({
+            id: 999,
+            ...data,
+            user: { id: userId },
+          } as Transaction);
+        });
+
+      const result = await service.importTransactions(
+        {
+          bankFormat: 'fineco',
+          csvData: 'sample data',
+          bankAccountId: 123,
+        },
+        1,
+      );
+
+      // Verify that findByName was called for each tag
+      expect(tagsService.findByName).toHaveBeenCalledWith('New Tag 1', 1);
+      expect(tagsService.findByName).toHaveBeenCalledWith('New Tag 2', 1);
+
+      // Verify that create was called for both new tags
+      expect(tagsService.create).toHaveBeenCalledTimes(2);
+      expect(tagsService.create).toHaveBeenCalledWith(
+        { name: 'New Tag 1' },
+        { id: 1 },
+      );
+      expect(tagsService.create).toHaveBeenCalledWith(
+        { name: 'New Tag 2' },
+        { id: 1 },
+      );
+
+      // Verify that createAutomatedTransaction was called with both new tags
+      expect(createAutoTxSpy).toHaveBeenCalledTimes(1);
+      const call = createAutoTxSpy.mock.calls[0];
+      expect(call[0].tags).toEqual([newTag1, newTag2]);
+
+      // Verify that tagNames property was removed
+      expect((call[0] as TransactionWithTagNames).tagNames).toBeUndefined();
     });
   });
 });
