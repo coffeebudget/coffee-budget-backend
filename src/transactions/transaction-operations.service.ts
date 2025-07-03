@@ -52,7 +52,38 @@ export class TransactionOperationsService {
           : 'expense';
     }
 
-    // Use the improved duplicate detection
+    // OPTIMIZED DUPLICATE DETECTION: Check for OpenBank API transaction ID first
+    if (transactionData.transactionIdOpenBankAPI && transactionData.source) {
+      const existingTransaction = await this.transactionRepository.findOne({
+        where: {
+          user: { id: userId },
+          transactionIdOpenBankAPI: transactionData.transactionIdOpenBankAPI,
+          source: transactionData.source,
+        },
+      });
+
+      if (existingTransaction) {
+        // Transaction already exists with this OpenBank API ID
+        this.logger.log(
+          `Prevented duplicate transaction using OpenBank API ID for user ${userId}: ${transactionData.description} (ID: ${transactionData.transactionIdOpenBankAPI})`,
+        );
+
+        // Log as prevented duplicate
+        await this.preventedDuplicatesService.createPreventedDuplicate(
+          existingTransaction,
+          transactionData,
+          source,
+          sourceReference || null,
+          100, // 100% match since it's the same transaction ID
+          'OpenBank API transaction ID match',
+          { id: userId } as User,
+        );
+
+        return null; // Transaction already exists
+      }
+    }
+
+    // Use the improved duplicate detection for transactions without OpenBank API ID
     const duplicateCheck =
       await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
         {
