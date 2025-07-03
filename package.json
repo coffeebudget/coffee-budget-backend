@@ -32,7 +32,7 @@
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/typeorm": "^11.0.0",
     "@types/axios": "^0.9.36",
-    "@types/xlsx": "^0.0.35",
+
     "axios": "^1.9.0",
     "cheerio": "^1.0.0",
     "class-transformer": "^0.5.1",
@@ -50,8 +50,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^0.3.20",
-    "xlsx": "^0.18.5"
+    "typeorm": "^0.3.20"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

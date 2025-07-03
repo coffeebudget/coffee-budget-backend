@@ -3,7 +3,7 @@ import { BaseParser } from './base-parser';
 import { Transaction } from '../transaction.entity';
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../../credit-cards/entities/credit-card.entity';
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 export class BnlXlsParser extends BaseParser {
   async parseFile(
@@ -19,22 +19,26 @@ export class BnlXlsParser extends BaseParser {
 
       const buffer = Buffer.from(data, 'base64');
 
-      // Use xlsx library which has better compatibility with various Excel formats
-      const workbook = xlsx.read(buffer, { type: 'buffer' });
+      // Use ExcelJS library which is more secure and has better compatibility
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
 
-      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      if (!workbook.worksheets || workbook.worksheets.length === 0) {
         throw new BadRequestException('No worksheets found in Excel file');
       }
 
       // Get first sheet
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
+      const worksheet = workbook.worksheets[0];
+      const rows: any[][] = [];
 
-      // Convert to JSON with proper typing
-      const rows = xlsx.utils.sheet_to_json(sheet, {
-        header: 1,
-        raw: false,
-      }) as any[][];
+      // Convert worksheet to array of arrays
+      worksheet.eachRow((row, rowNumber) => {
+        const rowData: any[] = [];
+        row.eachCell((cell, colNumber) => {
+          rowData[colNumber - 1] = cell.value;
+        });
+        rows.push(rowData);
+      });
 
       // Find the header row (look for "Data" in the first column and "Entrate"/"Uscite" columns)
       let headerRowIndex = -1;

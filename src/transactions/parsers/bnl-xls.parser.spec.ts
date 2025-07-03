@@ -1,22 +1,38 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BnlXlsParser } from './bnl-xls.parser';
-import * as xlsx from 'xlsx';
+import { Workbook, Worksheet, Row, Cell } from 'exceljs';
 
-// Mock xlsx module
-jest.mock('xlsx', () => ({
-  read: jest.fn(),
-  utils: {
-    sheet_to_json: jest.fn(),
-  },
+// Mock ExcelJS module
+jest.mock('exceljs', () => ({
+  Workbook: jest.fn().mockImplementation(() => ({
+    xlsx: {
+      load: jest.fn(),
+    },
+    worksheets: [],
+  })),
 }));
 
 describe('BnlXlsParser', () => {
   let parser: BnlXlsParser;
+  let mockWorkbook: jest.Mocked<Workbook>;
+  let mockWorksheet: jest.Mocked<Worksheet>;
 
   beforeEach(async () => {
     parser = new BnlXlsParser();
     // Mock the logger to avoid console output during tests
     (parser as any).logger = { warn: jest.fn(), error: jest.fn() };
+
+    // Create mock workbook and worksheet
+    mockWorkbook = {
+      xlsx: { load: jest.fn() },
+      worksheets: [],
+    } as any;
+
+    mockWorksheet = {
+      eachRow: jest.fn(),
+    } as any;
+
+    (Workbook as jest.Mock).mockImplementation(() => mockWorkbook);
   });
 
   it('should be defined', () => {
@@ -34,28 +50,32 @@ describe('BnlXlsParser', () => {
       // Create sample data
       const base64Data = 'base64encodeddata';
 
-      // Mock xlsx responses
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      // Mock workbook setup
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return rows
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'],
-        ['05/02/2023', '07/02/2023', '456', 'Another description', '-50,25'],
-      ]);
+      // Mock worksheet.eachRow to simulate rows
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        { values: [undefined, '05/02/2023', '07/02/2023', '456', 'Another description', '-50,25'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, {
         userId: 1,
         bankAccountId: 123,
       });
 
-      expect(xlsx.read).toHaveBeenCalled();
-      expect(xlsx.utils.sheet_to_json).toHaveBeenCalled();
+      expect(mockWorkbook.xlsx.load).toHaveBeenCalled();
       expect(result).toHaveLength(2);
 
       // First transaction
@@ -78,18 +98,23 @@ describe('BnlXlsParser', () => {
     it('should throw exception if header row is not found', async () => {
       const base64Data = 'base64encodeddata';
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return rows without the "Data contabile" header
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Other header', 'Not what we want'],
-        ['01/02/2023', 'Some data'],
-      ]);
+      // Mock worksheet.eachRow to return rows without the "Data contabile" header
+      const mockRows = [
+        { values: [undefined, 'Other header', 'Not what we want'] },
+        { values: [undefined, '01/02/2023', 'Some data'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       await expect(parser.parseFile(base64Data, { userId: 1 })).rejects.toThrow(
         'Could not find header row in BNL Excel file',
@@ -100,15 +125,22 @@ describe('BnlXlsParser', () => {
       const base64Data = 'base64encodeddata';
       const bankAccountId = 456;
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: { Sheet1: {} },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, {
         userId: 1,
@@ -129,15 +161,22 @@ describe('BnlXlsParser', () => {
       const base64Data = 'base64encodeddata';
       const creditCardId = 789;
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: { Sheet1: {} },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, {
         userId: 1,
@@ -157,21 +196,22 @@ describe('BnlXlsParser', () => {
     it('should handle transactions with complex descriptions', async () => {
       const base64Data = 'base64encodeddata';
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: { Sheet1: {} },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        [
-          '01/02/2023',
-          '03/02/2023',
-          '123',
-          'Payment ref: #12345 - Multi-word description with special chars: €$%&',
-          '-250,75',
-        ],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Payment ref: #12345 - Multi-word description with special chars: €$%&', '-250,75'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, { userId: 1 });
 
@@ -186,54 +226,61 @@ describe('BnlXlsParser', () => {
     it('should handle multiple transactions with mixed types', async () => {
       const base64Data = 'base64encodeddata';
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: { Sheet1: {} },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        ['01/02/2023', '03/02/2023', '123', 'Income transaction', '+1.500,00'],
-        ['05/02/2023', '07/02/2023', '456', 'Expense transaction', '-750,25'],
-        ['10/02/2023', '12/02/2023', '789', 'Zero amount transaction', '0,00'],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '01/02/2023', '03/02/2023', '123', 'Income transaction', '+1.500,00'] },
+        { values: [undefined, '05/02/2023', '07/02/2023', '456', 'Expense transaction', '-750,25'] },
+        { values: [undefined, '10/02/2023', '12/02/2023', '789', 'Zero amount transaction', '0,00'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, { userId: 1 });
 
-      // Zero amount transactions are skipped in our implementation
-      expect(result).toHaveLength(2);
+      expect(result).toHaveLength(2); // Zero amount transaction should be skipped
 
-      // First transaction (income)
-      expect(result[0].description).toBe('Income transaction');
-      expect(result[0].amount).toBe(1500);
-      expect(result[0].type).toBe('income');
+      expect(result[0]).toMatchObject({
+        description: 'Income transaction',
+        amount: 1500.0,
+        type: 'income',
+      });
 
-      // Second transaction (expense)
-      expect(result[1].description).toBe('Expense transaction');
-      expect(result[1].amount).toBe(750.25);
-      expect(result[1].type).toBe('expense');
-
-      // Zero amount transactions are skipped
+      expect(result[1]).toMatchObject({
+        description: 'Expense transaction',
+        amount: 750.25,
+        type: 'expense',
+      });
     });
 
     it('should correctly parse execution dates and set them in the transaction', async () => {
       const base64Data = 'base64encodeddata';
 
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: { Sheet1: {} },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'],
-        [
-          '31/12/2023',
-          '01/01/2024',
-          '123',
-          'Year-end transaction',
-          '+1.000,00',
-        ],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
+        { values: [undefined, '31/12/2023', '01/01/2024', '123', 'Year-end transaction', '+1.000,00'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       // Spy on the parseDate method to verify how it's called
       const parseDateSpy = jest.spyOn(parser as any, 'parseDate');
@@ -259,54 +306,35 @@ describe('BnlXlsParser', () => {
     it('should parse the newer BNL XLS format with Causale ABI column', async () => {
       const base64Data = 'base64encodeddata';
 
-      // Mock xlsx responses
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return rows matching the screenshot format
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['C/C:', '01005 20600 00000000XXXX'],
-        ['Divisa C/C:', 'EUR'],
-        ['Saldo Contabile al:', '11/04/2025', '+1.333,45'],
-        [],
-        [
-          'Data contabile',
-          'Data valuta',
-          'Causale ABI',
-          'Descrizione',
-          'Importo',
-        ],
-        ['04/04/2025', '04/04/2025', '50', 'PAGAMENTI DIVERSI', '-407,97'],
-        ['03/04/2025', '03/04/2025', '26', 'VOSTRO BONIFICO', '-225,00'],
-        [
-          '03/04/2025',
-          '03/04/2025',
-          '48',
-          'BONIFICO DEL 03.04.25 DA NOME COGNOME',
-          '+1.450,00',
-        ],
-        ['02/04/2025', '31/03/2025', '66', 'CANONE CONTO MARZO', '-8,40'],
-        [
-          '31/03/2025',
-          '31/03/2025',
-          '15',
-          'RIMBORSO FINANZIAMENTO N. 1523129',
-          '-809,76',
-        ],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'C/C:', '01005 20600 00000000XXXX'] },
+        { values: [undefined, 'Divisa C/C:', 'EUR'] },
+        { values: [undefined, 'Saldo Contabile al:', '11/04/2025', '+1.333,45'] },
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Importo'] },
+        { values: [undefined, '04/04/2025', '04/04/2025', '50', 'PAGAMENTI DIVERSI', '-407,97'] },
+        { values: [undefined, '03/04/2025', '03/04/2025', '26', 'VOSTRO BONIFICO', '-225,00'] },
+        { values: [undefined, '03/04/2025', '03/04/2025', '48', 'BONIFICO DEL 03.04.25 DA NOME COGNOME', '+1.450,00'] },
+        { values: [undefined, '02/04/2025', '31/03/2025', '66', 'CANONE CONTO MARZO', '-8,40'] },
+        { values: [undefined, '31/03/2025', '31/03/2025', '15', 'RIMBORSO FINANZIAMENTO N. 1523129', '-809,76'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       const result = await parser.parseFile(base64Data, {
         userId: 1,
         bankAccountId: 123,
       });
 
-      expect(xlsx.read).toHaveBeenCalled();
-      expect(xlsx.utils.sheet_to_json).toHaveBeenCalled();
-      // We expect 5 transactions from the 5 transaction rows
       expect(result).toHaveLength(5);
 
       // First transaction (expense)
@@ -355,19 +383,23 @@ describe('BnlXlsParser', () => {
       // the date parsing by mocking the sheet_to_json response
       const base64Data = 'mockBase64Data';
 
-      // Mock xlsx responses
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return a row with a date in dd/MM/yyyy format
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'],
-        ['31/12/2023', 'Test transaction', '', '100,50'], // December 31, 2023
-      ]);
+      // Mock worksheet.eachRow to return a row with a date in dd/MM/yyyy format
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
+        { values: [undefined, '31/12/2023', 'Test transaction', '', '100,50'] }, // December 31, 2023
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       // Spy on the parseDate method
       const parseDateSpy = jest.spyOn(parser as any, 'parseDate');
@@ -392,21 +424,25 @@ describe('BnlXlsParser', () => {
       // Mock base64 data
       const base64Data = 'mockBase64Data';
 
-      // Mock xlsx responses
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return rows with different dates
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        ['Data contabile', 'Descrizione', 'Entrate', 'Uscite'],
-        ['01/01/2023', 'January transaction', '250,00', ''], // January 1, 2023
-        ['15/02/2023', 'February transaction', '', '75,30'], // February 15, 2023
-        ['31/12/2023', 'December transaction', '', '100,50'], // December 31, 2023
-      ]);
+      // Mock worksheet.eachRow to return rows with different dates
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Descrizione', 'Entrate', 'Uscite'] },
+        { values: [undefined, '01/01/2023', 'January transaction', '250,00', ''] }, // January 1, 2023
+        { values: [undefined, '15/02/2023', 'February transaction', '', '75,30'] }, // February 15, 2023
+        { values: [undefined, '31/12/2023', 'December transaction', '', '100,50'] }, // December 31, 2023
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       // Spy on the parseDate method
       const parseDateSpy = jest.spyOn(parser as any, 'parseDate');
@@ -442,35 +478,24 @@ describe('BnlXlsParser', () => {
     it('should correctly parse transactions with MOB reference numbers', async () => {
       const base64Data = 'base64encodeddata';
 
-      // Mock xlsx responses
-      (xlsx.read as jest.Mock).mockReturnValue({
-        SheetNames: ['Sheet1'],
-        Sheets: {
-          Sheet1: {},
-        },
-      });
+      mockWorkbook.worksheets = [mockWorksheet];
 
-      // Mock sheet_to_json to return a row with MOB reference number
+      // Mock worksheet.eachRow to return a row with MOB reference number
       // Note: Column indices must match how the parser is accessing the data
-      (xlsx.utils.sheet_to_json as jest.Mock).mockReturnValue([
-        // Column indexes:   0            1            2             3                   4                               5
-        [
-          'Data contabile',
-          'Data valuta',
-          'Causale ABI',
-          'Descrizione',
-          'Descrizione_Completa',
-          'Importo',
-        ],
-        [
-          '07/01/2025',
-          '07/01/2025',
-          '50',
-          'PAGAMENTI DIVERSI',
-          'MOB-6999764301 PAG. MAV 0 3065',
-          '-168,12',
-        ],
-      ]);
+      const mockRows = [
+        { values: [undefined, 'Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Descrizione_Completa', 'Importo'] },
+        { values: [undefined, '07/01/2025', '07/01/2025', '50', 'PAGAMENTI DIVERSI', 'MOB-6999764301 PAG. MAV 0 3065', '-168,12'] },
+      ];
+
+      mockWorksheet.eachRow.mockImplementation((callback) => {
+        mockRows.forEach((row, index) => {
+          const mockRow = {
+            values: row.values,
+            getCell: jest.fn().mockReturnValue({ text: row.values[index + 1] || '' }),
+          };
+          callback(mockRow, index + 1);
+        });
+      });
 
       // Spy on the determineTransactionType method to always return 'expense'
       const determineTypeSpy = jest
