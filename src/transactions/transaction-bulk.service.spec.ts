@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, IsNull } from 'typeorm';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { TransactionBulkService } from './transaction-bulk.service';
 import { Transaction } from './transaction.entity';
@@ -31,6 +31,12 @@ describe('TransactionBulkService', () => {
     demoActivatedAt: new Date('2024-01-01'),
   } as any;
 
+  const mockCategory = {
+    id: 1,
+    name: 'Groceries',
+    user: mockUser,
+  } as Category;
+
   const mockTransaction = {
     id: 1,
     description: 'Test Transaction',
@@ -41,7 +47,7 @@ describe('TransactionBulkService', () => {
     createdAt: new Date('2024-01-15'),
     updatedAt: new Date('2024-01-15'),
     user: mockUser,
-    category: null,
+    category: mockCategory,
     suggestedCategory: null,
     suggestedCategoryName: null,
     bankAccount: null,
@@ -52,12 +58,6 @@ describe('TransactionBulkService', () => {
     categorizationConfidence: null,
     transactionIdOpenBankAPI: null,
   } as Transaction;
-
-  const mockCategory = {
-    id: 1,
-    name: 'Groceries',
-    user: mockUser,
-  } as Category;
 
   const mockTag = {
     id: 1,
@@ -179,7 +179,7 @@ describe('TransactionBulkService', () => {
       const mockTransactions = [{ ...mockTransaction, id: 1 }];
       const mockPendingDuplicates = [
         { id: 1, resolved: true, existingTransaction: { id: 1 } },
-        { id: 2, resolved: false, existingTransaction: { id: 1 } },
+        { id: 2, resolved: true, existingTransaction: { id: 1 } },
       ];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
@@ -206,8 +206,8 @@ describe('TransactionBulkService', () => {
   describe('bulkCategorizeUncategorized', () => {
     it('should categorize uncategorized transactions successfully', async () => {
       const uncategorizedTransactions = [
-        { ...mockTransaction, id: 1, category: null },
-        { ...mockTransaction, id: 2, category: null },
+        { ...mockTransaction, id: 1, category: null as any },
+        { ...mockTransaction, id: 2, category: null as any },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
@@ -226,7 +226,7 @@ describe('TransactionBulkService', () => {
       const uncategorizedTransactions = Array.from({ length: 100 }, (_, i) => ({
         ...mockTransaction,
         id: i + 1,
-        category: null,
+        category: null as any,
       })) as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
@@ -241,7 +241,7 @@ describe('TransactionBulkService', () => {
 
     it('should handle transactions without category suggestions', async () => {
       const uncategorizedTransactions = [
-        { ...mockTransaction, id: 1, category: null },
+        { ...mockTransaction, id: 1, category: null as any },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
@@ -256,7 +256,7 @@ describe('TransactionBulkService', () => {
 
     it('should handle categorization errors gracefully', async () => {
       const uncategorizedTransactions = [
-        { ...mockTransaction, id: 1, category: null },
+        { ...mockTransaction, id: 1, category: null as any },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
@@ -272,7 +272,7 @@ describe('TransactionBulkService', () => {
 
     it('should use default batch size when not provided', async () => {
       const uncategorizedTransactions = [
-        { ...mockTransaction, id: 1, category: null },
+        { ...mockTransaction, id: 1, category: null as any },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
@@ -284,8 +284,8 @@ describe('TransactionBulkService', () => {
       expect(transactionRepository.find).toHaveBeenCalledWith({
         where: {
           user: { id: mockUser.id },
-          category: null,
-          suggestedCategory: null,
+          category: IsNull(),
+          suggestedCategory: IsNull(),
         },
         relations: ['user'],
         order: { executionDate: 'DESC' },
@@ -461,6 +461,7 @@ describe('TransactionBulkService', () => {
       const mockTransactions = [{ ...mockTransaction, id: 1 }];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
+      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue([]);
 
       const result = await service.validateBulkOperation(transactionIds, mockUser.id);
 
