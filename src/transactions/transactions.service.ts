@@ -31,6 +31,7 @@ import { RecurringPatternDetectorService } from '../recurring-transactions/recur
 import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
+import { TransactionBulkService } from './transaction-bulk.service';
 import { parseLocalizedAmount } from '../utils/amount.utils';
 import { parseDate } from '../utils/date-utils';
 import { parse } from 'csv-parse/sync';
@@ -63,6 +64,7 @@ export class TransactionsService {
     private transactionOperationsService: TransactionOperationsService,
     private transactionImportService: TransactionImportService,
     private transactionCategorizationService: TransactionCategorizationService,
+    private transactionBulkService: TransactionBulkService,
     private importLogsService: ImportLogsService,
     private gocardlessService: GocardlessService,
     // AI categorization service removed
@@ -727,57 +729,8 @@ export class TransactionsService {
     transactionIds: number[],
     userId: number,
   ): Promise<number> {
-    if (!transactionIds || !transactionIds.length) {
-      throw new BadRequestException('Transaction IDs array is required');
-    }
-
-    // First check if the transactions exist and belong to the user
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        id: In(transactionIds),
-        user: { id: userId },
-      },
-    });
-
-    if (!transactions.length) {
-      return 0;
-    }
-
-    // Check for pending duplicates for each transaction
-    for (const transaction of transactions) {
-      const pendingDuplicates =
-        await this.pendingDuplicatesService.findAllByExistingTransactionId(
-          transaction.id,
-        );
-      const unresolvedDuplicates = pendingDuplicates.filter(
-        (pd) => !pd.resolved,
-      );
-
-      if (unresolvedDuplicates.length > 0) {
-        throw new ConflictException(
-          `Cannot delete transaction ${transaction.id}: it is referenced by ${unresolvedDuplicates.length} unresolved pending duplicate(s)`,
-        );
-      }
-
-      // Clean up resolved pending duplicates
-      if (pendingDuplicates.length > 0) {
-        for (const pd of pendingDuplicates) {
-          await this.pendingDuplicatesService.update(
-            pd.id,
-            { existingTransaction: null },
-            userId,
-          );
-        }
-      }
-    }
-
-    // Delete all transactions in bulk
-    const result = await this.transactionsRepository.delete({
-      id: In(transactionIds),
-      user: { id: userId },
-    });
-
-    return result.affected || 0;
+    // Delegate to the dedicated TransactionBulkService
+    return this.transactionBulkService.bulkDeleteByIds(transactionIds, userId);
   }
 
   /**
@@ -821,31 +774,8 @@ export class TransactionsService {
     errors: number;
     estimatedCost: number;
   }> {
-    // Find uncategorized transactions
-    const uncategorizedTransactions = await this.transactionsRepository.find({
-      where: {
-        user: { id: userId },
-        category: IsNull(),
-        suggestedCategory: IsNull(),
-      },
-      relations: ['user'],
-      order: { executionDate: 'DESC' },
-    });
-
-    let totalProcessed = 0;
-    let keywordMatched = 0;
-    let errors = 0;
-
-    // Auto-categorization disabled to prevent incorrect categorizations
-    totalProcessed = uncategorizedTransactions.length;
-
-    return {
-      totalProcessed,
-      keywordMatched,
-      aiSuggestions: 0, // AI categorization removed
-      errors,
-      estimatedCost: 0, // No AI cost
-    };
+    // Delegate to the dedicated TransactionBulkService
+    return this.transactionBulkService.bulkCategorizeUncategorized(userId, batchSize);
   }
 
   /**

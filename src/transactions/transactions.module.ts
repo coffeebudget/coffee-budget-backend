@@ -22,6 +22,7 @@ import { GocardlessModule } from '../gocardless/gocardless.module';
 import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
+import { TransactionBulkService } from './transaction-bulk.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 @Module({
@@ -52,6 +53,7 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionOperationsService,
     TransactionImportService,
     TransactionCategorizationService,
+    TransactionBulkService,
   ],
   exports: [
     TransactionsService,
@@ -59,6 +61,7 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionOperationsService,
     TransactionImportService,
     TransactionCategorizationService,
+    TransactionBulkService,
     TypeOrmModule,
   ],
 })
