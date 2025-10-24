@@ -5,10 +5,12 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { PendingDuplicate } from './entities/pending-duplicate.entity';
 import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { User } from '../users/user.entity';
 import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transaction-choice.dto';
+import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
+import { DuplicateDetectionService } from './duplicate-detection.service';
 describe('PendingDuplicatesController', () => {
   let controller: PendingDuplicatesController;
   let service: PendingDuplicatesService;
@@ -18,14 +20,9 @@ describe('PendingDuplicatesController', () => {
       controllers: [PendingDuplicatesController],
       providers: [
         PendingDuplicatesService,
-        {
-          provide: getRepositoryToken(PendingDuplicate),
-          useClass: Repository,
-        },
-        {
-          provide: getRepositoryToken(Transaction),
-          useClass: Repository,
-        },
+        RepositoryMockFactory.createRepositoryProvider(PendingDuplicate),
+        RepositoryMockFactory.createRepositoryProvider(Transaction),
+        RepositoryMockFactory.createRepositoryProvider(RecurringTransaction),
         {
           provide: TransactionOperationsService,
           useValue: {
@@ -35,8 +32,12 @@ describe('PendingDuplicatesController', () => {
           },
         },
         {
-          provide: getRepositoryToken(RecurringTransaction),
-          useClass: Repository,
+          provide: DuplicateDetectionService,
+          useValue: {
+            detectDuplicates: jest.fn().mockResolvedValue([]),
+            analyzeTransactionSimilarity: jest.fn().mockResolvedValue({}),
+            getDuplicateConfidence: jest.fn().mockResolvedValue(0.8),
+          },
         },
       ],
     }).compile();

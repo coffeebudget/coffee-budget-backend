@@ -9,7 +9,7 @@ import { Currency } from '../enums/currency.enum';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 
 describe('BankAccountsService', () => {
   let service: BankAccountsService;
@@ -24,6 +24,9 @@ describe('BankAccountsService', () => {
     id: 1,
     auth0Id: 'auth0|123',
     email: 'test@example.com',
+    isDemoUser: false,
+    demoExpiryDate: new Date('2024-12-31'),
+    demoActivatedAt: new Date('2024-01-01'),
     bankAccounts: [],
     creditCards: [],
     transactions: null,
@@ -36,6 +39,7 @@ describe('BankAccountsService', () => {
     name: 'Test Account',
     balance: 1000,
     type: 'CHECKING',
+    gocardlessAccountId: 'test-gocardless-id',
     user: mockUser,
     currency: Currency.USD,
     transactions: [],

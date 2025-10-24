@@ -29,6 +29,8 @@ import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
 import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
 import { TransactionOperationsService } from './transaction-operations.service';
+import { TransactionImportService } from './transaction-import.service';
+import { TransactionCategorizationService } from './transaction-categorization.service';
 import { parseLocalizedAmount } from '../utils/amount.utils';
 import { parseDate } from '../utils/date-utils';
 import { parse } from 'csv-parse/sync';
@@ -59,6 +61,8 @@ export class TransactionsService {
     @Inject(forwardRef(() => RecurringPatternDetectorService))
     private recurringPatternDetectorService: RecurringPatternDetectorService,
     private transactionOperationsService: TransactionOperationsService,
+    private transactionImportService: TransactionImportService,
+    private transactionCategorizationService: TransactionCategorizationService,
     private importLogsService: ImportLogsService,
     private gocardlessService: GocardlessService,
     // AI categorization service removed
@@ -593,632 +597,20 @@ export class TransactionsService {
     importLogId: number;
     status: ImportStatus;
   }> {
-    this.logger.log(
-      `Starting import for user ${userId} with format: ${importDto.bankFormat || 'generic'}`,
-    );
-
-    // Create an import log entry
-    const importLog = await this.importLogsService.create({
-      userId,
-      status: ImportStatus.PROCESSING,
-      source: 'csv',
-      format: importDto.bankFormat || 'generic',
-      fileName: importDto.fileName || 'Unknown file',
-      startTime: new Date(),
-      logs: `Started import process for user ${userId} with format: ${importDto.bankFormat || 'generic'}`,
-    });
-
-    try {
-      // Bank-specific import formats
-      if (importDto.bankFormat) {
-        try {
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Using bank-specific parser: ${importDto.bankFormat}`,
-          );
-
-          const parser = BankFileParserFactory.getParser(importDto.bankFormat);
-          const parsedTransactions = await parser.parseFile(
-            importDto.csvData || '',
-            {
-              bankAccountId: importDto.bankAccountId,
-              creditCardId: importDto.creditCardId,
-              userId,
-            },
-          );
-
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Successfully parsed ${parsedTransactions.length} transactions from ${importDto.bankFormat} file`,
-          );
-          await this.importLogsService.update(importLog.id, {
-            totalRecords: parsedTransactions.length,
-            processedRecords: 0,
-            successfulRecords: 0,
-            failedRecords: 0,
-          });
-
-          // Process parsed transactions before saving
-          for (const tx of parsedTransactions) {
-            // Calculate billing date for credit card transactions
-            if (tx.creditCard && tx.creditCard.id && tx.executionDate) {
-              // Fetch the credit card to get the billing day
-              const creditCard = await this.creditCardsRepository.findOne({
-                where: { id: tx.creditCard.id, user: { id: userId } },
-              });
-
-              if (creditCard) {
-                tx.billingDate = this.calculateBillingDate(
-                  tx.executionDate,
-                  creditCard.billingDay,
-                );
-              }
-            } else if (tx.bankAccount && tx.executionDate) {
-              // For bank account transactions, billing date equals execution date
-              tx.billingDate = new Date(tx.executionDate);
-            }
-
-            // Add keyword-based category suggestion based on description
-            if (!tx.category && tx.description) {
-              const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-                tx.description,
-                userId,
-              );
-
-              if (suggestedCategory) {
-                tx.category = suggestedCategory;
-                tx.suggestedCategoryName = suggestedCategory.name;
-              }
-            }
-
-            // Process tagNames if provided by bank-specific parsers (e.g., Fineco)
-            if ((tx as any).tagNames && Array.isArray((tx as any).tagNames)) {
-              const tagNames = (tx as any).tagNames;
-              const createdTags: Tag[] = [];
-
-              for (const tagName of tagNames) {
-                const existingTag = await this.tagsService.findByName(
-                  tagName,
-                  userId,
-                );
-                if (existingTag) {
-                  createdTags.push(existingTag);
-                } else {
-                  const newTag = await this.tagsService.create(
-                    { name: tagName },
-                    { id: userId } as User,
-                  );
-                  createdTags.push(newTag);
-                }
-              }
-
-              tx.tags = createdTags;
-              // Remove the temporary tagNames property
-              delete (tx as any).tagNames;
-            }
-          }
-
-          // Save all the parsed transactions to the database
-          const createdTransactions: Transaction[] = [];
-          let successCount = 0;
-          let failCount = 0;
-
-          for (let i = 0; i < parsedTransactions.length; i++) {
-            try {
-              const tx = parsedTransactions[i];
-              const transaction = await this.createAutomatedTransaction(
-                tx,
-                userId,
-                'csv_import',
-              );
-
-              if (transaction) {
-                createdTransactions.push(transaction);
-                successCount++;
-              } else {
-                // Transaction was prevented due to 100% duplicate match
-                await this.importLogsService.appendToLog(
-                  importLog.id,
-                  `Prevented duplicate transaction: ${tx.description} (${tx.amount})`,
-                );
-                successCount++; // Still count as successful since it was handled
-              }
-
-              // Update import log every 10 transactions or at the end
-              if (i % 10 === 0 || i === parsedTransactions.length - 1) {
-                await this.importLogsService.incrementCounters(importLog.id, {
-                  processed: 1,
-                  successful: 1,
-                });
-              }
-            } catch (error) {
-              failCount++;
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                `Error processing transaction ${i + 1}: ${error.message}`,
-              );
-
-              await this.importLogsService.incrementCounters(importLog.id, {
-                processed: 1,
-                failed: 1,
-              });
-            }
-          }
-
-          const summary = `Import completed. Successfully imported ${successCount} of ${parsedTransactions.length} transactions.`;
-          const finalStatus =
-            successCount === parsedTransactions.length
-              ? ImportStatus.COMPLETED
-              : ImportStatus.PARTIALLY_COMPLETED;
-
-          await this.importLogsService.updateStatus(
-            importLog.id,
-            finalStatus,
-            summary,
-          );
-
-          return {
-            transactions: createdTransactions,
-            importLogId: importLog.id,
-            status: finalStatus,
-          };
-        } catch (error) {
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Failed to import ${importDto.bankFormat} file: ${error.message}`,
-          );
-
-          await this.importLogsService.updateStatus(
-            importLog.id,
-            ImportStatus.FAILED,
-            `Import failed: ${error.message}`,
-          );
-
-          this.logger.error(
-            `Failed to import ${importDto.bankFormat} file: ${error.message}`,
-          );
-          throw new BadRequestException(
-            `Failed to parse ${importDto.bankFormat} file: ${error.message}`,
-          );
-        }
-      }
-
-      // Generic CSV import
-      if (!importDto.csvData || !importDto.columnMappings) {
-        await this.importLogsService.updateStatus(
-          importLog.id,
-          ImportStatus.FAILED,
-          'Import failed: Missing CSV data or column mappings',
-        );
-
-        throw new BadRequestException('Missing CSV data or column mappings');
-      }
-
-      // Check if the CSV data is base64 encoded and decode it if necessary
-      let csvData = importDto.csvData;
-      if (this.isBase64(csvData)) {
-        try {
-          csvData = Buffer.from(csvData, 'base64').toString('utf-8');
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            'Successfully decoded base64 CSV data',
-          );
-        } catch (error) {
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Failed to decode base64 data: ${error.message}`,
-          );
-
-          await this.importLogsService.updateStatus(
-            importLog.id,
-            ImportStatus.FAILED,
-            `Import failed: Invalid CSV data format`,
-          );
-
-          this.logger.error(`Failed to decode base64 data: ${error.message}`);
-          throw new BadRequestException('Invalid CSV data format');
-        }
-      }
-
-      // Now parse the decoded CSV data
-      const records = parse(csvData, {
-        columns: true,
-        skip_empty_lines: true,
-        delimiter: ',', // Explicitly set delimiter
-        relax_column_count: true,
-        trim: true,
-      });
-
-      await this.importLogsService.appendToLog(
-        importLog.id,
-        `Successfully parsed ${records.length} records from CSV`,
-      );
-      await this.importLogsService.update(importLog.id, {
-        totalRecords: records.length,
-        processedRecords: 0,
-        successfulRecords: 0,
-        failedRecords: 0,
-      });
-
-      this.logger.log(`Successfully parsed ${records.length} records from CSV`);
-      if (records.length > 0) {
-        this.logger.debug(`First record sample: ${JSON.stringify(records[0])}`);
-        await this.importLogsService.appendToLog(
-          importLog.id,
-          `First record sample: ${JSON.stringify(records[0])}`,
-        );
-      } else {
-        this.logger.warn('No records found in CSV data');
-        await this.importLogsService.appendToLog(
-          importLog.id,
-          'No records found in CSV data',
-        );
-        await this.importLogsService.updateStatus(
-          importLog.id,
-          ImportStatus.COMPLETED,
-          'Import completed: No records found in CSV data',
-        );
-
-        return {
-          transactions: [],
-          importLogId: importLog.id,
-          status: ImportStatus.COMPLETED,
-        };
-      }
-
-      // Set a default date format if none is provided
-      const dateFormat = importDto.dateFormat || 'yyyy-MM-dd';
-      const bankAccountId = importDto.bankAccountId || null;
-      const creditCardId = importDto.creditCardId || null;
-
-      const transactions: Transaction[] = [];
-      let successCount = 0;
-      let failCount = 0;
-
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i];
-        try {
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Processing record ${i + 1}/${records.length}`,
-          );
-
-          this.logger.debug(`Processing record: ${JSON.stringify(record)}`);
-          const transactionData: Partial<Transaction> = {};
-
-          // Map CSV columns to transaction fields based on columnMappings
-          transactionData.description =
-            record[importDto.columnMappings.description];
-          this.logger.debug(
-            `Mapped description: ${transactionData.description}`,
-          );
-
-          // Parse amount with proper handling of different number formats
-          const amountStr = record[importDto.columnMappings.amount];
-          this.logger.debug(`Raw amount string: ${amountStr}`);
-
-          const parsedAmount = parseLocalizedAmount(amountStr);
-          this.logger.debug(`Parsed amount: ${parsedAmount}`);
-
-          // Check if parsing was successful
-          if (isNaN(parsedAmount)) {
-            const errorMessage = `Invalid amount format: ${amountStr}`;
-            this.logger.error(errorMessage);
-            await this.importLogsService.appendToLog(
-              importLog.id,
-              errorMessage,
-            );
-            await this.importLogsService.incrementCounters(importLog.id, {
-              processed: 1,
-              failed: 1,
-            });
-            failCount++;
-            continue;
-          }
-
-          transactionData.amount = parsedAmount;
-
-          // Determine transaction type
-          transactionData.type =
-            record[importDto.columnMappings.type] ||
-            (transactionData.amount >= 0 ? 'income' : 'expense');
-
-          // Normalize the amount based on transaction type
-          transactionData.amount = this.normalizeAmount(
-            transactionData.amount,
-            transactionData.type as 'income' | 'expense',
-          );
-
-          // Parse executionDate using the provided date format or default
-          const executionDateString =
-            record[importDto.columnMappings.executionDate];
-          if (executionDateString) {
-            try {
-              transactionData.executionDate = parseDate(
-                executionDateString,
-                dateFormat,
-                new Date(),
-              );
-            } catch (error) {
-              const errorMessage = `Invalid date format for executionDate: ${executionDateString}. Expected format: ${dateFormat}`;
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                errorMessage,
-              );
-              await this.importLogsService.incrementCounters(importLog.id, {
-                processed: 1,
-                failed: 1,
-              });
-              failCount++;
-              continue;
-            }
-          }
-
-          // Ensure description is not null or empty
-          if (!transactionData.description) {
-            const errorMessage =
-              'Description is required for each transaction.';
-            await this.importLogsService.appendToLog(
-              importLog.id,
-              errorMessage,
-            );
-            await this.importLogsService.incrementCounters(importLog.id, {
-              processed: 1,
-              failed: 1,
-            });
-            failCount++;
-            continue;
-          }
-
-          // Handle bank account
-          if (bankAccountId) {
-            const bankAccount = await this.bankAccountsRepository.findOne({
-              where: { id: bankAccountId, user: { id: userId } },
-            });
-
-            if (bankAccount) {
-              transactionData.bankAccount = bankAccount;
-            } else {
-              const errorMessage = `Bank account "${bankAccountId}" not found. Please create it first.`;
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                errorMessage,
-              );
-              await this.importLogsService.incrementCounters(importLog.id, {
-                processed: 1,
-                failed: 1,
-              });
-              failCount++;
-              continue;
-            }
-          }
-
-          // Handle credit card
-          if (creditCardId) {
-            const creditCard = await this.creditCardsRepository.findOne({
-              where: { id: creditCardId, user: { id: userId } },
-            });
-
-            if (creditCard) {
-              transactionData.creditCard = creditCard;
-
-              // Calculate billing date if credit card is provided
-              if (transactionData.executionDate) {
-                transactionData.billingDate = this.calculateBillingDate(
-                  transactionData.executionDate,
-                  creditCard.billingDay,
-                );
-              }
-            } else {
-              const errorMessage = `Credit card "${creditCardId}" not found. Please create it first.`;
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                errorMessage,
-              );
-              await this.importLogsService.incrementCounters(importLog.id, {
-                processed: 1,
-                failed: 1,
-              });
-              failCount++;
-              continue;
-            }
-          }
-
-          // Validate that either bank account or credit card is provided, but not both
-          if (transactionData.bankAccount && transactionData.creditCard) {
-            const errorMessage =
-              'A transaction cannot have both a bank account and a credit card.';
-            await this.importLogsService.appendToLog(
-              importLog.id,
-              errorMessage,
-            );
-            await this.importLogsService.incrementCounters(importLog.id, {
-              processed: 1,
-              failed: 1,
-            });
-            failCount++;
-            continue;
-          }
-
-          // Handle category creation
-          const categoryName = record[importDto.columnMappings.categoryName];
-          if (categoryName) {
-            const existingCategory = await this.categoriesService.findByName(
-              categoryName,
-              userId,
-            );
-            if (!existingCategory) {
-              const newCategory = await this.categoriesService.create(
-                {
-                  name: categoryName,
-                },
-                { id: userId } as User,
-              );
-              transactionData.category = newCategory;
-            } else {
-              transactionData.category = existingCategory;
-            }
-          } else {
-            const suggestedCategory =
-              await this.categoriesService.suggestCategoryForDescription(
-                transactionData.description,
-                userId,
-              );
-            if (suggestedCategory) {
-              transactionData.category = suggestedCategory;
-            }
-          }
-
-          // Handle tag creation
-          const tagNames = record[importDto.columnMappings.tagNames];
-          if (tagNames) {
-            const tagNamesArray = tagNames.split(',').map((tag) => tag.trim());
-            const createdTags: Tag[] = [];
-
-            for (const tagName of tagNamesArray) {
-              const existingTag = await this.tagsService.findByName(
-                tagName,
-                userId,
-              );
-              if (!existingTag) {
-                const newTag = await this.tagsService.create(
-                  { name: tagName },
-                  { id: userId } as User,
-                );
-                createdTags.push(newTag);
-              } else {
-                createdTags.push(existingTag);
-              }
-            }
-            transactionData.tags = createdTags;
-          }
-
-          try {
-            const transaction = await this.createAutomatedTransaction(
-              transactionData,
-              userId,
-              'csv_import',
-            );
-
-            if (transaction) {
-              this.logger.debug(
-                `Created transaction: ${JSON.stringify(transaction)}`,
-              );
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                `Successfully created transaction for "${transactionData.description}"`,
-              );
-              transactions.push(transaction);
-              successCount++;
-            } else {
-              // Transaction was prevented due to 100% duplicate match
-              await this.importLogsService.appendToLog(
-                importLog.id,
-                `Prevented duplicate transaction: ${transactionData.description} (${transactionData.amount})`,
-              );
-              successCount++; // Still count as successful since it was handled
-            }
-
-            await this.importLogsService.incrementCounters(importLog.id, {
-              processed: 1,
-              successful: 1,
-            });
-          } catch (error) {
-            this.logger.error(
-              `Error processing record: ${JSON.stringify(record)}`,
-              error.stack,
-            );
-            await this.importLogsService.appendToLog(
-              importLog.id,
-              `Error processing record: ${error.message}`,
-            );
-            await this.importLogsService.incrementCounters(importLog.id, {
-              processed: 1,
-              failed: 1,
-            });
-            failCount++;
-          }
-        } catch (error) {
-          this.logger.error(
-            `Unexpected error processing record: ${error.message}`,
-          );
-          await this.importLogsService.appendToLog(
-            importLog.id,
-            `Unexpected error: ${error.message}`,
-          );
-          await this.importLogsService.incrementCounters(importLog.id, {
-            processed: 1,
-            failed: 1,
-          });
-          failCount++;
-        }
-      }
-
-      // Process for recurring patterns
-      await this.processForRecurringPatterns(transactions, userId);
-
-      const summary = `Import completed. Successfully imported ${successCount} of ${records.length} transactions.`;
-      this.logger.log(summary);
-
-      const finalStatus =
-        failCount > 0
-          ? ImportStatus.PARTIALLY_COMPLETED
-          : ImportStatus.COMPLETED;
-
-      await this.importLogsService.updateStatus(
-        importLog.id,
-        finalStatus,
-        summary,
-      );
-
-      return {
-        transactions,
-        importLogId: importLog.id,
-        status: finalStatus,
-      };
-    } catch (error) {
-      // Handle any uncaught errors
-      const errorMessage = `Import failed with error: ${error.message}`;
-      this.logger.error(errorMessage, error.stack);
-
-      await this.importLogsService.updateStatus(
-        importLog.id,
-        ImportStatus.FAILED,
-        errorMessage,
-      );
-
-      throw error;
-    }
+    // Delegate to the dedicated TransactionImportService
+    return this.transactionImportService.importTransactions(importDto, userId);
   }
 
-  // Helper method to check if a string is base64 encoded
-  private isBase64(str: string): boolean {
-    // A simple check for base64 encoding pattern
-    const base64Regex = /^[A-Za-z0-9+/=]+$/;
-    // Additional check to avoid false positives with short strings
-    return base64Regex.test(str) && str.length % 4 === 0 && str.length > 20;
-  }
 
   async categorizeTransactionByDescription(
     transaction: Transaction,
     userId: number,
   ): Promise<Transaction> {
-    if (!transaction.description) {
-      return transaction;
-    }
-
-    // Try keyword-based categorization only (AI categorization disabled)
-    const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-      transaction.description,
+    // Delegate to the dedicated TransactionCategorizationService
+    return this.transactionCategorizationService.categorizeTransactionByDescription(
+      transaction,
       userId,
     );
-
-    if (suggestedCategory) {
-      transaction.category = suggestedCategory;
-      await this.transactionsRepository.save(transaction);
-    }
-
-    return transaction;
   }
 
   private async processForRecurringPatterns(
@@ -1300,41 +692,12 @@ export class TransactionsService {
     categoryId: number,
     userId: number,
   ): Promise<number> {
-    if (!transactionIds || !transactionIds.length) {
-      throw new BadRequestException('Transaction IDs array is required');
-    }
-
-    // Verify the category exists and belongs to the user
-    const category = await this.categoriesRepository.findOne({
-      where: { id: categoryId, user: { id: userId } },
-    });
-
-    if (!category) {
-      throw new NotFoundException(`Category with ID ${categoryId} not found`);
-    }
-
-    // Find all the transactions that belong to the user
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        id: In(transactionIds),
-        user: { id: userId },
-      },
-      relations: ['category'],
-    });
-
-    if (!transactions.length) {
-      return 0;
-    }
-
-    // Update the category for each transaction
-    for (const transaction of transactions) {
-      transaction.category = category;
-    }
-
-    // Save all transactions
-    await this.transactionsRepository.save(transactions);
-
-    return transactions.length;
+    // Delegate to the dedicated TransactionCategorizationService
+    return this.transactionCategorizationService.bulkCategorizeByIds(
+      transactionIds,
+      categoryId,
+      userId,
+    );
   }
 
   /**
@@ -1347,49 +710,11 @@ export class TransactionsService {
     transactionIds: number[],
     userId: number,
   ): Promise<number> {
-    if (!transactionIds || !transactionIds.length) {
-      throw new BadRequestException('Transaction IDs array is required');
-    }
-
-    // First check if the transactions exist
-    const transactions = await this.transactionsRepository.find({
-      where: {
-        id: In(transactionIds),
-        user: { id: userId },
-      },
-    });
-
-    if (!transactions.length) {
-      return 0;
-    }
-
-    // Use a query runner to execute direct SQL
-    const queryRunner =
-      this.transactionsRepository.manager.connection.createQueryRunner();
-    await queryRunner.connect();
-
-    try {
-      await queryRunner.startTransaction();
-
-      // Direct SQL to set categoryId to NULL
-      const result = await queryRunner.manager.query(
-        `UPDATE "transaction" 
-         SET "categoryId" = NULL 
-         WHERE "id" IN (${transactionIds.join(',')}) 
-         AND "userId" = $1`,
-        [userId],
-      );
-
-      await queryRunner.commitTransaction();
-
-      // Count the number of affected rows
-      return transactions.length;
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    // Delegate to the dedicated TransactionCategorizationService
+    return this.transactionCategorizationService.bulkUncategorizeByIds(
+      transactionIds,
+      userId,
+    );
   }
 
   /**
@@ -1462,35 +787,11 @@ export class TransactionsService {
     transactionId: number,
     userId: number,
   ): Promise<Transaction> {
-    const transaction = await this.transactionsRepository.findOne({
-      where: { id: transactionId, user: { id: userId } },
-      relations: ['suggestedCategory', 'category'],
-    });
-
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-
-    if (!transaction.suggestedCategory) {
-      throw new BadRequestException('No suggested category available');
-    }
-
-    // Set the category from suggestion
-    const acceptedCategory = transaction.suggestedCategory;
-    transaction.category = acceptedCategory;
-    transaction.suggestedCategory = null;
-    transaction.suggestedCategoryName = null;
-
-    // Save the transaction first
-    const savedTransaction =
-      await this.transactionsRepository.save(transaction);
-
-    // AI categorization service removed - automatic keyword learning disabled
-    this.logger.log(
-      `Category "${acceptedCategory.name}" applied to transaction ${transactionId}`,
+    // Delegate to the dedicated TransactionCategorizationService
+    return this.transactionCategorizationService.acceptSuggestedCategory(
+      transactionId,
+      userId,
     );
-
-    return savedTransaction;
   }
 
   /**
@@ -1500,24 +801,11 @@ export class TransactionsService {
     transactionId: number,
     userId: number,
   ): Promise<Transaction> {
-    const transaction = await this.transactionsRepository.findOne({
-      where: { id: transactionId, user: { id: userId } },
-      relations: ['suggestedCategory'],
-    });
-
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-
-    if (!transaction.suggestedCategory) {
-      throw new BadRequestException('No suggested category available');
-    }
-
-    // Clear the suggested category
-    transaction.suggestedCategory = null;
-    transaction.suggestedCategoryName = null;
-
-    return this.transactionsRepository.save(transaction);
+    // Delegate to the dedicated TransactionCategorizationService
+    return this.transactionCategorizationService.rejectSuggestedCategory(
+      transactionId,
+      userId,
+    );
   }
 
   /**

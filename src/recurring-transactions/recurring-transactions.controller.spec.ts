@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { RecurringTransactionsController } from './recurring-transactions.controller';
 import { RecurringTransactionsService } from './recurring-transactions.service';
-import { RecurringTransactionCronService } from './recurring-transaction-cron.service';
+// import { RecurringTransactionCronService } from './recurring-transaction-cron.service'; // Deprecated
 import { RecurringPatternDetectorService } from './recurring-pattern-detector.service';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RecurringTransaction } from './entities/recurring-transaction.entity';
@@ -42,12 +42,12 @@ describe('RecurringTransactionsController', () => {
             remove: jest.fn(),
           },
         },
-        {
-          provide: RecurringTransactionCronService,
-          useValue: {
-            handleRecurringTransactions: jest.fn(),
-          },
-        },
+        // {
+        //   provide: RecurringTransactionCronService, // Deprecated
+        //   useValue: {
+        //     handleRecurringTransactions: jest.fn(),
+        //   },
+        // },
         {
           provide: RecurringPatternDetectorService,
           useValue: {

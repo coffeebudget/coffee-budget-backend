@@ -17,6 +17,15 @@ export class User {
   @Column()
   email: string;
 
+  @Column({ default: false })
+  isDemoUser: boolean;
+
+  @Column({ nullable: true })
+  demoExpiryDate: Date;
+
+  @Column({ nullable: true })
+  demoActivatedAt: Date;
+
   @OneToMany(() => BankAccount, (bankAccount) => bankAccount.user)
   bankAccounts: BankAccount[];
 

@@ -20,6 +20,8 @@ import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-dup
 import { RecurringTransactionsModule } from '../recurring-transactions/recurring-transactions.module';
 import { GocardlessModule } from '../gocardless/gocardless.module';
 import { TransactionOperationsService } from './transaction-operations.service';
+import { TransactionImportService } from './transaction-import.service';
+import { TransactionCategorizationService } from './transaction-categorization.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 @Module({
@@ -48,11 +50,15 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionsService,
     ImportLogsService,
     TransactionOperationsService,
+    TransactionImportService,
+    TransactionCategorizationService,
   ],
   exports: [
     TransactionsService,
     ImportLogsService,
     TransactionOperationsService,
+    TransactionImportService,
+    TransactionCategorizationService,
     TypeOrmModule,
   ],
 })
