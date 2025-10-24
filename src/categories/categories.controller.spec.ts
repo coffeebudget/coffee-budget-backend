@@ -4,6 +4,8 @@ import { CategoriesService } from './categories.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
 import { KeywordStatsService } from './keyword-stats.service';
+import { ExpenseAnalysisService } from './expense-analysis.service';
+import { BudgetManagementService } from './budget-management.service';
 import { User } from '../users/user.entity';
 import { Category } from './entities/category.entity';
 
@@ -16,9 +18,17 @@ describe('CategoriesController', () => {
 
   const mockUser: User = {
     id: 1,
+    auth0Id: 'auth0|123456',
     email: 'test@example.com',
-    // Add other required properties
-  } as User;
+    isDemoUser: false,
+    demoExpiryDate: new Date('2024-12-31'),
+    demoActivatedAt: new Date('2024-01-01'),
+    bankAccounts: [],
+    creditCards: [],
+    transactions: null,
+    tags: null,
+    categories: null,
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -57,6 +67,22 @@ describe('CategoriesController', () => {
             getPopularKeywords: jest.fn().mockResolvedValue([]),
             getTopKeywordsByCategorySuccess: jest.fn().mockResolvedValue([]),
             trackKeywordUsage: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: ExpenseAnalysisService,
+          useValue: {
+            analyzeExpenses: jest.fn().mockResolvedValue({}),
+            getExpenseTrends: jest.fn().mockResolvedValue({}),
+            getCategoryPerformance: jest.fn().mockResolvedValue({}),
+          },
+        },
+        {
+          provide: BudgetManagementService,
+          useValue: {
+            calculateBudgetProgress: jest.fn().mockResolvedValue({}),
+            getBudgetSummary: jest.fn().mockResolvedValue({}),
+            updateBudgetLimits: jest.fn().mockResolvedValue({}),
           },
         },
       ],

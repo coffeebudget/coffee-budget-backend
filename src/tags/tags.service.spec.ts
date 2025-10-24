@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tag } from './entities/tag.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 

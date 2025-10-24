@@ -5,7 +5,7 @@ import { Category } from './entities/category.entity';
 import { Repository, IsNull, Raw, FindManyOptions } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';

@@ -11,7 +11,7 @@ import { Tag } from '../tags/entities/tag.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { TransactionsService } from '../transactions/transactions.service';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { createCategoryMock } from '../../test/test-utils';
 import { addDays, addMonths, format } from 'date-fns';
 
@@ -32,6 +32,9 @@ describe('RecurringTransactionGeneratorService', () => {
     id: 1,
     auth0Id: 'test-auth0-id',
     email: 'test@example.com',
+    isDemoUser: false,
+    demoExpiryDate: new Date('2024-12-31'),
+    demoActivatedAt: new Date('2024-01-01'),
     bankAccounts: [],
     creditCards: [],
     transactions: [],
@@ -55,6 +58,7 @@ describe('RecurringTransactionGeneratorService', () => {
       balance: 1000,
       currency: 'USD',
       type: 'checking',
+      gocardlessAccountId: 'test-gocardless-id',
       createdAt: new Date(),
       updatedAt: new Date(),
       transactions: [],
@@ -169,10 +173,11 @@ describe('RecurringTransactionGeneratorService', () => {
         amount: 100,
         description: 'Monthly subscription',
         type: 'expense',
-        frequency: 'monthly',
-        dayOfMonth: 15,
-        status: 'active',
-        nextExecutionDate: new Date('2023-01-15'),
+        frequencyType: 'monthly',
+        frequencyEveryN: 1,
+        startDate: new Date('2023-01-01'),
+        nextOccurrence: new Date('2023-01-15'),
+        status: 'SCHEDULED',
       } as unknown as RecurringTransaction;
 
       const result = service.calculateNextExecutionDate(
@@ -190,10 +195,11 @@ describe('RecurringTransactionGeneratorService', () => {
         amount: 100,
         description: 'Weekly subscription',
         type: 'expense',
-        frequency: 'weekly',
-        dayOfWeek: 3, // Wednesday
-        status: 'active',
-        nextExecutionDate: new Date('2023-01-04'),
+        frequencyType: 'weekly',
+        frequencyEveryN: 1,
+        startDate: new Date('2023-01-01'),
+        nextOccurrence: new Date('2023-01-04'),
+        status: 'SCHEDULED',
       } as unknown as RecurringTransaction;
 
       const result = service.calculateNextExecutionDate(
@@ -211,10 +217,11 @@ describe('RecurringTransactionGeneratorService', () => {
         amount: 100,
         description: 'Bi-weekly subscription',
         type: 'expense',
-        frequency: 'bi-weekly',
+        frequencyType: 'weekly',
+        frequencyEveryN: 2,
         startDate: new Date('2022-12-15'),
-        status: 'active',
-        nextExecutionDate: new Date('2023-01-12'),
+        status: 'SCHEDULED',
+        nextOccurrence: new Date('2023-01-12'),
       } as unknown as RecurringTransaction;
 
       const result = service.calculateNextExecutionDate(
@@ -232,11 +239,13 @@ describe('RecurringTransactionGeneratorService', () => {
         amount: 100,
         description: 'Yearly subscription',
         type: 'expense',
-        frequency: 'yearly',
+        frequencyType: 'yearly',
+        frequencyEveryN: 1,
         month: 4, // May (0-indexed)
         dayOfMonth: 15,
-        status: 'active',
-        nextExecutionDate: new Date('2023-05-15'),
+        status: 'SCHEDULED',
+        nextOccurrence: new Date('2023-05-15'),
+        startDate: new Date('2022-05-15'),
       } as unknown as RecurringTransaction;
 
       const result = service.calculateNextExecutionDate(
@@ -251,8 +260,10 @@ describe('RecurringTransactionGeneratorService', () => {
       const startDate = new Date('2023-01-01');
       const recurringTransaction = {
         id: 1,
-        nextExecutionDate: new Date('2023-02-15'),
-        frequency: 'monthly',
+        nextOccurrence: new Date('2023-02-15'),
+        startDate: new Date('2023-01-01'),
+        frequencyType: 'monthly',
+        frequencyEveryN: 1,
         dayOfMonth: 15,
       } as unknown as RecurringTransaction;
 
@@ -271,8 +282,9 @@ describe('RecurringTransactionGeneratorService', () => {
         amount: 100,
         description: 'Invalid frequency',
         type: 'expense',
-        frequency: 'invalid',
-        status: 'active',
+        frequencyType: 'invalid',
+        status: 'SCHEDULED',
+        startDate: new Date('2023-01-01'),
       } as any;
 
       const result = service.calculateNextExecutionDate(

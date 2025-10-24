@@ -4,10 +4,11 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { PendingDuplicate } from './entities/pending-duplicate.entity';
 import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { NotFoundException } from '@nestjs/common';
 import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transaction-choice.dto';
+import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 
 describe('PendingDuplicatesService', () => {
   let service: PendingDuplicatesService;
@@ -19,18 +20,9 @@ describe('PendingDuplicatesService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PendingDuplicatesService,
-        {
-          provide: getRepositoryToken(PendingDuplicate),
-          useClass: Repository,
-        },
-        {
-          provide: getRepositoryToken(Transaction),
-          useClass: Repository,
-        },
-        {
-          provide: getRepositoryToken(RecurringTransaction),
-          useClass: Repository,
-        },
+        RepositoryMockFactory.createRepositoryProvider(PendingDuplicate),
+        RepositoryMockFactory.createRepositoryProvider(Transaction),
+        RepositoryMockFactory.createRepositoryProvider(RecurringTransaction),
         {
           provide: TransactionOperationsService,
           useValue: {
@@ -53,12 +45,7 @@ describe('PendingDuplicatesService', () => {
       TransactionOperationsService,
     );
 
-    // Mock repository methods
-    jest.spyOn(pendingDuplicatesRepository, 'findOne').mockImplementation();
-    jest.spyOn(pendingDuplicatesRepository, 'find').mockImplementation();
-    jest.spyOn(pendingDuplicatesRepository, 'save').mockImplementation();
-    jest.spyOn(pendingDuplicatesRepository, 'create').mockImplementation();
-    jest.spyOn(transactionRepository, 'findOne').mockImplementation();
+    // Repository methods are already mocked by RepositoryMockFactory
   });
 
   it('should be defined', () => {
@@ -228,7 +215,10 @@ describe('PendingDuplicatesService', () => {
 
       expect(result).toEqual({
         existingTransaction: pendingDuplicate.existingTransaction,
-        newTransaction,
+        newTransaction: {
+          existingTransaction: pendingDuplicate.existingTransaction,
+          newTransaction,
+        },
         resolved: true,
       });
 

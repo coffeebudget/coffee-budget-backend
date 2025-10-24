@@ -1,0 +1,308 @@
+# Coffee Budget Backend - Cursor Rules
+
+## Backend Context
+This is the NestJS backend API for the Coffee Budget personal finance application.
+
+## Architecture
+- **Framework**: NestJS with TypeScript
+- **Database**: PostgreSQL with TypeORM
+- **Authentication**: JWT with Auth0
+- **External APIs**: GoCardless integration
+- **Testing**: Jest with comprehensive mocking
+
+## Current Development Phase
+
+### **Phase 1: COMPLETED ✅**
+- **Test Success Rate**: 100% (29/29 test suites passing)
+- **Individual Tests**: 145/145 passing
+- **Coverage**: 36.94% statements, 20.04% branches, 15.25% functions, 36.85% lines
+- **Documentation**: Comprehensive testing standards created
+
+### **Phase 2: IN PROGRESS 🎯**
+- **Goal**: Refactor transactions.service.ts (main "god service")
+- **Focus**: Break up large service into smaller, focused services
+- **Approach**: Systematic refactoring with test coverage
+
+## Key Services
+
+### **TransactionsService** (Priority: HIGH)
+- **Location**: `src/transactions/transactions.service.ts`
+- **Status**: 50% coverage, needs refactoring
+- **Responsibilities**: Transaction CRUD, import processing, duplicate detection
+- **Dependencies**: Multiple repositories, external services
+
+### **CategoriesService** (Priority: HIGH)
+- **Location**: `src/categories/categories.service.ts`
+- **Status**: 22.47% coverage, needs improvement
+- **Responsibilities**: Category management, keyword matching, expense analysis
+
+### **GocardlessService** (Priority: MEDIUM)
+- **Location**: `src/gocardless/gocardless.service.ts`
+- **Status**: 10.32% coverage, external dependency
+- **Responsibilities**: External API integration, account synchronization
+
+## Development Guidelines
+
+### **Test-Driven Development (TDD) Approach**
+- **RED-GREEN-REFACTOR**: Write failing test → Make it pass → Refactor
+- **Test First**: Always write tests before implementation
+- **Small Steps**: Make minimal changes to pass tests
+- **Continuous Testing**: Run tests frequently during development
+- **Test Coverage**: Aim for 90%+ coverage on new code
+
+### **TDD Workflow for Backend**
+1. **Write failing test** - Define service behavior you want
+2. **Run test** - Confirm it fails (RED)
+3. **Write minimal service code** - Just enough to pass test
+4. **Run test** - Confirm it passes (GREEN)
+5. **Refactor service** - Improve code while keeping tests green
+6. **Repeat** - Continue with next service behavior
+
+## Testing Standards
+
+### **Repository Mocking**
+```typescript
+// ✅ Always use RepositoryMockFactory
+import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
+
+providers: [
+  RepositoryMockFactory.createRepositoryProvider(Transaction),
+  RepositoryMockFactory.createRepositoryProvider(BankAccount),
+]
+```
+
+### **Entity Mocking**
+```typescript
+// ✅ Complete entity mocks with all required properties
+const mockUser = {
+  id: 1,
+  auth0Id: 'auth0|123456',
+  email: 'test@example.com',
+  isDemoUser: false,
+  demoExpiryDate: new Date('2024-12-31'),
+  demoActivatedAt: new Date('2024-01-01'),
+  bankAccounts: [],
+  creditCards: [],
+  transactions: [],
+  tags: [],
+  categories: [],
+  recurringTransactions: [],
+} as User;
+```
+
+### **Service Mocking**
+```typescript
+// ✅ Complete service mocks with all methods
+{
+  provide: ServiceName,
+  useValue: {
+    method1: jest.fn().mockResolvedValue(mockResult),
+    method2: jest.fn().mockResolvedValue(mockResult),
+    // ... all methods
+  },
+}
+```
+
+## Common Patterns
+
+### **Test Structure**
+```typescript
+describe('ServiceName', () => {
+  let service: ServiceName;
+  let module: TestingModule;
+
+  beforeEach(async () => {
+    module = await Test.createTestingModule({
+      providers: [
+        ServiceName,
+        RepositoryMockFactory.createRepositoryProvider(Entity),
+        // ... other dependencies
+      ],
+    }).compile();
+
+    service = module.get<ServiceName>(ServiceName);
+  });
+
+  afterEach(async () => {
+    await module.close();
+  });
+
+  describe('methodName', () => {
+    it('should handle success case', async () => {
+      // Arrange
+      // Act
+      // Assert
+    });
+  });
+});
+```
+
+### **Error Handling**
+```typescript
+// ✅ Proper error handling in tests
+it('should throw error when entity not found', async () => {
+  (repository.findOne as jest.Mock).mockResolvedValue(null);
+  
+  await expect(service.methodName(id)).rejects.toThrow(
+    'Entity not found'
+  );
+});
+```
+
+## Refactoring Guidelines
+
+### **Service Boundaries**
+- **Single Responsibility**: One service, one purpose
+- **Dependency Injection**: Use constructor injection
+- **Interface Segregation**: Small, focused interfaces
+- **Dependency Inversion**: Depend on abstractions, not concretions
+
+### **Breaking Up God Services**
+1. **Identify responsibilities** - What does the service do?
+2. **Group related functionality** - Logical service boundaries
+3. **Extract services** - Create focused services
+4. **Update dependencies** - Adjust service dependencies
+5. **Update tests** - Adapt tests to new structure
+
+### **Common Refactoring Patterns**
+```typescript
+// Before: God service
+class TransactionsService {
+  // 50+ methods doing everything
+}
+
+// After: Focused services
+class TransactionsService {
+  // Core transaction operations only
+}
+
+class TransactionImportService {
+  // Import processing only
+}
+
+class TransactionDuplicateService {
+  // Duplicate detection only
+}
+```
+
+## File Organization
+
+### **Service Structure**
+```
+src/transactions/
+├── transactions.service.ts          # Core transaction operations
+├── transactions.controller.ts       # HTTP endpoints
+├── transactions.module.ts          # Module definition
+├── transaction-operations.service.ts # Transaction operations
+├── transactions-import.service.ts   # Import processing
+├── dto/                            # Data transfer objects
+├── entities/                       # TypeORM entities
+└── parsers/                        # Bank-specific parsers
+```
+
+### **Test Structure**
+```
+src/test/
+├── test-utils/
+│   ├── repository-mocks.ts         # RepositoryMockFactory
+│   └── standardized-test-setup.ts  # Test utilities
+└── integration/
+    └── [workflow-name].integration.spec.ts
+```
+
+## Common Issues & Solutions
+
+### **Test Failures**
+- **Import paths**: Check for incorrect relative paths
+- **Entity mocks**: Ensure all required properties included
+- **Service dependencies**: Add missing service providers
+- **Logic tests**: Update expectations for service behavior changes
+
+### **Coverage Issues**
+- **Critical services**: Focus on TransactionsService and CategoriesService
+- **Integration tests**: Add tests for complete user workflows
+- **Error scenarios**: Test exception handling and edge cases
+
+### **Refactoring Challenges**
+- **God services**: Break up large services into focused components
+- **Circular dependencies**: Use forwardRef() or restructure modules
+- **Test maintenance**: Update tests when service interfaces change
+
+## Development Workflow
+
+### **Before Making Changes**
+1. **Run tests**: `npm test` to ensure 100% success rate
+2. **Check coverage**: `npm test -- --coverage` to understand current state
+3. **Review documentation**: Check `docs/development/` guides
+
+### **During Development**
+1. **Follow testing standards**: Use `RepositoryMockFactory` for all repository mocks
+2. **Maintain test coverage**: Add tests for new functionality
+3. **Use systematic approach**: Follow established patterns
+4. **Update documentation**: Keep guides current with changes
+
+### **After Making Changes**
+1. **Run full test suite**: Ensure no regressions
+2. **Check coverage**: Verify coverage hasn't decreased
+3. **Update documentation**: Reflect any new patterns or standards
+
+## AI Assistant Guidelines
+
+### **TDD Approach for All Development**
+1. **Always start with tests** - Write failing test first (RED)
+2. **Write minimal implementation** - Just enough to pass test (GREEN)
+3. **Refactor while green** - Improve code while tests pass (REFACTOR)
+4. **Run tests frequently** - After every small change
+5. **Maintain test coverage** - Aim for 90%+ on new code
+
+### **When Helping with Tests**
+1. **Always use RepositoryMockFactory** for repository mocks
+2. **Include all required entity properties** in mocks
+3. **Mock all service dependencies** in test modules
+4. **Follow AAA pattern** (Arrange, Act, Assert)
+5. **Use descriptive test names** that explain the scenario
+6. **Write tests for behavior, not implementation** - Focus on what the service does, not how
+
+### **When Helping with Refactoring**
+1. **Maintain test coverage** - don't decrease existing coverage
+2. **Follow single responsibility principle** - one service, one purpose
+3. **Use dependency injection** - avoid tight coupling
+4. **Update tests accordingly** - adapt tests to new service structure
+5. **Document changes** - update relevant documentation
+6. **Refactor in small steps** - Make one change at a time, run tests after each
+
+### **When Helping with New Features**
+1. **Start with tests** - write tests before implementation (TDD)
+2. **Follow existing patterns** - use established conventions
+3. **Consider integration** - how does it fit with existing services?
+4. **Update documentation** - keep guides current
+5. **Maintain coverage** - ensure new code is well-tested
+6. **Write failing test first** - Define expected behavior before implementation
+
+## Current Focus: Phase 2 Refactoring
+
+### **Target Service**: transactions.service.ts
+- **Current size**: 1780+ lines (god service)
+- **Coverage**: 50% (needs improvement)
+- **Dependencies**: Multiple repositories, external services
+- **Responsibilities**: Too many - needs to be broken up
+
+### **Refactoring Strategy**
+1. **Analyze current structure** - Understand all responsibilities
+2. **Identify service boundaries** - Logical groupings of functionality
+3. **Extract focused services** - Create smaller, focused services
+4. **Update dependencies** - Adjust service dependencies
+5. **Update tests** - Adapt tests to new structure
+6. **Verify functionality** - Ensure no regressions
+
+### **Expected Outcomes**
+- **Improved maintainability** - Smaller, focused services
+- **Better testability** - Easier to test individual components
+- **Reduced complexity** - Clearer service boundaries
+- **Enhanced coverage** - Better test coverage for focused services
+
+---
+
+*This file provides focused context for backend development and Phase 2 refactoring.*
+*Last updated: January 2025*
+*Version: 1.0*

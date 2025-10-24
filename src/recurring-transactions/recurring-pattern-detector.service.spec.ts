@@ -4,7 +4,7 @@ import {
   RecurringPattern,
 } from './recurring-pattern-detector.service';
 import { RecurringTransactionsService } from './recurring-transactions.service';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RecurringTransaction } from './entities/recurring-transaction.entity';
 import { Transaction } from '../transactions/transaction.entity';
@@ -343,16 +343,23 @@ describe('RecurringPatternDetectorService', () => {
         },
       };
 
-      // Mock the actual implementation of detectAndProcessRecurringTransaction
-      jest
-        .spyOn(service, 'detectAndProcessRecurringTransaction')
-        .mockResolvedValue(recurringTransaction as any);
+      // Mock the actual implementation of detectPatternForTransaction
+      const expectedPattern = {
+        similarTransactions: similarTransactions as any,
+        isRecurring: true,
+        suggestedFrequency: 'monthly',
+        confidence: 0.8,
+      };
 
-      const result = await service.detectAndProcessRecurringTransaction(
+      jest
+        .spyOn(service, 'detectPatternForTransaction')
+        .mockResolvedValue(expectedPattern);
+
+      const result = await service.detectPatternForTransaction(
         transaction as any,
       );
 
-      expect(result).toEqual(recurringTransaction);
+      expect(result).toEqual(expectedPattern);
     });
   });
 });

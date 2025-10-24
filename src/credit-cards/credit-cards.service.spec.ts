@@ -5,7 +5,7 @@ import { CreditCard } from './entities/credit-card.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { TransactionOperationsService } from '../shared/transaction-operations.service';
+import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { Repository } from 'typeorm';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { NotFoundException } from '@nestjs/common';

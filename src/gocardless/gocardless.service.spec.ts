@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
 import { GocardlessService } from './gocardless.service';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 
 describe('GocardlessService', () => {
   let service: GocardlessService;
@@ -23,6 +26,28 @@ describe('GocardlessService', () => {
                   return null;
               }
             }),
+          },
+        },
+        {
+          provide: getRepositoryToken(BankAccount),
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            create: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
+          },
+        },
+        {
+          provide: getRepositoryToken(CreditCard),
+          useValue: {
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            create: jest.fn(),
+            update: jest.fn(),
+            delete: jest.fn(),
           },
         },
       ],
