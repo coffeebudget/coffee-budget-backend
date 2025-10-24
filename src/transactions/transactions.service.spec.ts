@@ -26,6 +26,7 @@ import { RecurringPatternDetectorService } from '../recurring-transactions/recur
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { TransactionImportService } from '../transactions/transaction-import.service';
 import { TransactionCategorizationService } from '../transactions/transaction-categorization.service';
+import { TransactionBulkService } from '../transactions/transaction-bulk.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 describe('TransactionsService', () => {
@@ -183,6 +184,34 @@ describe('TransactionsService', () => {
             rejectSuggestedCategory: jest.fn().mockResolvedValue({}),
             validateCategoryForUser: jest.fn().mockResolvedValue({}),
             suggestCategoryForTransaction: jest.fn().mockResolvedValue(null),
+          },
+        },
+        {
+          provide: TransactionBulkService,
+          useValue: {
+            bulkDeleteByIds: jest.fn().mockResolvedValue(0),
+            bulkCategorizeUncategorized: jest.fn().mockResolvedValue({
+              totalProcessed: 0,
+              keywordMatched: 0,
+              aiSuggestions: 0,
+              errors: 0,
+              estimatedCost: 0,
+            }),
+            bulkUpdateStatus: jest.fn().mockResolvedValue(0),
+            bulkUpdateTags: jest.fn().mockResolvedValue(0),
+            validateBulkOperation: jest.fn().mockResolvedValue({
+              isValid: true,
+              foundTransactions: 0,
+              missingTransactions: [],
+              conflicts: [],
+            }),
+            getBulkOperationStats: jest.fn().mockResolvedValue({
+              totalTransactions: 0,
+              categorizedCount: 0,
+              uncategorizedCount: 0,
+              statusCounts: {},
+              categoryDistribution: {},
+            }),
           },
         },
         {
