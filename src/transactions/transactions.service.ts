@@ -32,6 +32,7 @@ import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
 import { TransactionBulkService } from './transaction-bulk.service';
+import { TransactionDuplicateService } from './transaction-duplicate.service';
 import { parseLocalizedAmount } from '../utils/amount.utils';
 import { parseDate } from '../utils/date-utils';
 import { parse } from 'csv-parse/sync';
@@ -65,6 +66,7 @@ export class TransactionsService {
     private transactionImportService: TransactionImportService,
     private transactionCategorizationService: TransactionCategorizationService,
     private transactionBulkService: TransactionBulkService,
+    private transactionDuplicateService: TransactionDuplicateService,
     private importLogsService: ImportLogsService,
     private gocardlessService: GocardlessService,
     // AI categorization service removed
@@ -190,7 +192,7 @@ export class TransactionsService {
 
     // Check for duplicates only if not skipped
     if (!skipDuplicateCheck) {
-      const duplicateTransaction = await this.findPotentialDuplicate(
+      const duplicateTransaction = await this.transactionDuplicateService.findPotentialDuplicate(
         createTransactionDto.amount,
         createTransactionDto.type,
         transactionExecutionDate,
@@ -198,12 +200,12 @@ export class TransactionsService {
       );
 
       if (duplicateTransaction) {
-        return this.handleDuplicateConfirmation(
+        return this.transactionDuplicateService.handleDuplicateConfirmation(
           duplicateTransaction,
           createTransactionDto,
           userId,
           duplicateChoice,
-        ) as Promise<Transaction>;
+        );
       }
     }
 
@@ -414,27 +416,19 @@ export class TransactionsService {
     return !!existingTransaction;
   }
 
-  // Extracted method to find potential duplicates
+  // Delegate to TransactionDuplicateService
   private async findPotentialDuplicate(
     amount: number,
-    type: string,
+    type: 'income' | 'expense',
     executionDate: Date,
     userId: number,
   ): Promise<Transaction | null> {
-    const fourDaysBefore = new Date(executionDate);
-    fourDaysBefore.setDate(fourDaysBefore.getDate() - 4);
-
-    const fourDaysAfter = new Date(executionDate);
-    fourDaysAfter.setDate(fourDaysAfter.getDate() + 4);
-
-    return this.transactionsRepository.findOne({
-      where: {
-        amount,
-        type: type as NonNullable<Transaction['type']>,
-        executionDate: Between(fourDaysBefore, fourDaysAfter),
-        user: { id: userId },
-      },
-    });
+    return this.transactionDuplicateService.findPotentialDuplicate(
+      amount,
+      type,
+      executionDate,
+      userId,
+    );
   }
 
   // Methods for creating automated transactions for imports and API
@@ -452,61 +446,19 @@ export class TransactionsService {
     );
   }
 
-  // Method to handle duplicate resolution
+  // Delegate to TransactionDuplicateService
   async handleDuplicateResolution(
     existingTransaction: Transaction | null,
     newTransactionData: any,
     userId: number,
     choice: DuplicateTransactionChoice,
-  ): Promise<{
-    existingTransaction: Transaction | null;
-    newTransaction: Transaction | null;
-  }> {
-    const result = {
+  ): Promise<Transaction> {
+    return this.transactionDuplicateService.handleDuplicateResolution(
       existingTransaction,
-      newTransaction: null as Transaction | null,
-    };
-
-    if (!existingTransaction) {
-      // If there's no existing transaction, just create a new one
-      const newTransaction = await this.createTransactionFromAnyFormat(
-        newTransactionData,
-        userId,
-      );
-      result.newTransaction = newTransaction;
-      return result;
-    }
-
-    switch (choice) {
-      case DuplicateTransactionChoice.MAINTAIN_BOTH:
-        // Create a new transaction with the data
-        const newTransaction = await this.createTransactionFromAnyFormat(
-          newTransactionData,
-          userId,
-        );
-        result.newTransaction = newTransaction;
-        break;
-
-      case DuplicateTransactionChoice.USE_NEW:
-        // Update existing transaction with new data
-        const updatedTransaction = await this.update(
-          existingTransaction.id,
-          newTransactionData,
-          userId,
-        );
-        result.existingTransaction = updatedTransaction;
-        break;
-
-      case DuplicateTransactionChoice.KEEP_EXISTING:
-        // Do nothing, keep the existing transaction
-        break;
-
-      default:
-        // Default to keeping the existing transaction
-        break;
-    }
-
-    return result;
+      newTransactionData,
+      userId,
+      choice,
+    );
   }
 
   // Helper method to handle both DTO format and entity format when creating transactions
@@ -543,37 +495,19 @@ export class TransactionsService {
     }
   }
 
-  // For backward compatibility
+  // Delegate to TransactionDuplicateService
   async handleDuplicateConfirmation(
     duplicateTransaction: Transaction,
     newTransactionData: CreateTransactionDto | any,
     userId: number,
     userChoice?: DuplicateTransactionChoice,
-  ): Promise<Transaction | null> {
-    // If no choice is provided, throw an exception with the duplicate transaction ID
-    if (!userChoice) {
-      throw new ConflictException({
-        message: 'Duplicate transaction detected',
-        duplicateTransactionId: duplicateTransaction.id,
-        duplicateTransaction: {
-          id: duplicateTransaction.id,
-          description: duplicateTransaction.description,
-          amount: duplicateTransaction.amount,
-          executionDate: duplicateTransaction.executionDate,
-          type: duplicateTransaction.type,
-        },
-      });
-    }
-
-    const result = await this.handleDuplicateResolution(
+  ): Promise<Transaction> {
+    return this.transactionDuplicateService.handleDuplicateConfirmation(
       duplicateTransaction,
       newTransactionData,
       userId,
       userChoice,
     );
-
-    // Return the appropriate transaction based on the choice
-    return result.newTransaction || result.existingTransaction;
   }
 
   private calculateBillingDate(executionDate: Date, billingDay: number): Date {

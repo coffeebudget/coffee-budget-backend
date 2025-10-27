@@ -27,6 +27,7 @@ import { TransactionOperationsService } from '../transactions/transaction-operat
 import { TransactionImportService } from '../transactions/transaction-import.service';
 import { TransactionCategorizationService } from '../transactions/transaction-categorization.service';
 import { TransactionBulkService } from '../transactions/transaction-bulk.service';
+import { TransactionDuplicateService } from '../transactions/transaction-duplicate.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 describe('TransactionsService', () => {
@@ -212,6 +213,19 @@ describe('TransactionsService', () => {
               statusCounts: {},
               categoryDistribution: {},
             }),
+          },
+        },
+        {
+          provide: TransactionDuplicateService,
+          useValue: {
+            findPotentialDuplicate: jest.fn().mockResolvedValue(null),
+            detectSimilarTransactions: jest.fn().mockResolvedValue([]),
+            calculateSimilarityScore: jest.fn().mockResolvedValue(0),
+            handleDuplicateResolution: jest.fn().mockResolvedValue({}),
+            handleDuplicateConfirmation: jest.fn().mockResolvedValue({}),
+            preventDuplicateCreation: jest.fn().mockResolvedValue(false),
+            getDuplicateThreshold: jest.fn().mockResolvedValue(60),
+            updateDuplicateThreshold: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
@@ -668,10 +682,9 @@ describe('TransactionsService', () => {
         user: { id: mockUserId },
       };
 
-      // Mock the createTransactionFromAnyFormat method
-      (service as any).createTransactionFromAnyFormat = jest
-        .fn()
-        .mockResolvedValue(createdTransaction);
+      // Mock the TransactionDuplicateService
+      jest.spyOn((service as any).transactionDuplicateService, 'handleDuplicateResolution')
+        .mockResolvedValue(createdTransaction as any);
 
       const result = await service.handleDuplicateResolution(
         existingTransaction as Transaction,
@@ -680,13 +693,13 @@ describe('TransactionsService', () => {
         DuplicateTransactionChoice.MAINTAIN_BOTH,
       );
 
-      expect(result).toEqual({
+      expect(result).toEqual(createdTransaction);
+      expect((service as any).transactionDuplicateService.handleDuplicateResolution).toHaveBeenCalledWith(
         existingTransaction,
-        newTransaction: createdTransaction,
-      });
-      expect(
-        (service as any).createTransactionFromAnyFormat,
-      ).toHaveBeenCalledWith(newTransactionData, mockUserId);
+        newTransactionData,
+        mockUserId,
+        DuplicateTransactionChoice.MAINTAIN_BOTH,
+      );
     });
 
     it('should handle KEEP_EXISTING choice correctly', async () => {
@@ -707,8 +720,9 @@ describe('TransactionsService', () => {
         source: 'manual',
       };
 
-      // Clear mocks before this specific test
-      jest.clearAllMocks();
+      // Mock the TransactionDuplicateService
+      jest.spyOn((service as any).transactionDuplicateService, 'handleDuplicateResolution')
+        .mockResolvedValue(existingTransaction as any);
 
       const result = await service.handleDuplicateResolution(
         existingTransaction as Transaction,
@@ -717,10 +731,13 @@ describe('TransactionsService', () => {
         DuplicateTransactionChoice.KEEP_EXISTING,
       );
 
-      expect(result).toEqual({
+      expect(result).toEqual(existingTransaction);
+      expect((service as any).transactionDuplicateService.handleDuplicateResolution).toHaveBeenCalledWith(
         existingTransaction,
-        newTransaction: null,
-      });
+        newTransactionData,
+        mockUserId,
+        DuplicateTransactionChoice.KEEP_EXISTING,
+      );
 
       // Verify no new transaction was created
       expect(transactionRepository.save).not.toHaveBeenCalled();

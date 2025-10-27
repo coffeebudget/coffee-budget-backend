@@ -23,6 +23,7 @@ import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
 import { TransactionBulkService } from './transaction-bulk.service';
+import { TransactionDuplicateService } from './transaction-duplicate.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 
 @Module({
@@ -54,6 +55,7 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionImportService,
     TransactionCategorizationService,
     TransactionBulkService,
+    TransactionDuplicateService,
   ],
   exports: [
     TransactionsService,
@@ -62,6 +64,7 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionImportService,
     TransactionCategorizationService,
     TransactionBulkService,
+    TransactionDuplicateService,
     TypeOrmModule,
   ],
 })
