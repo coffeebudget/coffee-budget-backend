@@ -3,8 +3,6 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
-  forwardRef,
-  Inject,
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,7 +25,6 @@ import { Tag } from '../tags/entities/tag.entity';
 import { PendingDuplicatesService } from '../pending-duplicates/pending-duplicates.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
-import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
 import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
@@ -41,6 +38,8 @@ import { BankFileParserFactory, GocardlessParser } from './parsers';
 import { ImportLogsService } from './import-logs.service';
 import { ImportStatus } from './entities/import-log.entity';
 import { GocardlessService } from '../gocardless/gocardless.service';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { TransactionCreatedEvent } from '../shared/events/transaction.events';
 // AI categorization service removed - focusing on keyword-based categorization only
 
 @Injectable()
@@ -60,8 +59,6 @@ export class TransactionsService {
     private pendingDuplicatesService: PendingDuplicatesService,
     private categoriesService: CategoriesService,
     private tagsService: TagsService,
-    @Inject(forwardRef(() => RecurringPatternDetectorService))
-    private recurringPatternDetectorService: RecurringPatternDetectorService,
     private transactionOperationsService: TransactionOperationsService,
     private transactionImportService: TransactionImportService,
     private transactionCategorizationService: TransactionCategorizationService,
@@ -69,6 +66,7 @@ export class TransactionsService {
     private transactionDuplicateService: TransactionDuplicateService,
     private importLogsService: ImportLogsService,
     private gocardlessService: GocardlessService,
+    private eventPublisher: EventPublisherService,
     // AI categorization service removed
   ) {}
 
@@ -248,7 +246,23 @@ export class TransactionsService {
       tags,
     });
 
-    return await this.transactionsRepository.save(transaction);
+    const savedTransaction = await this.transactionsRepository.save(transaction);
+
+    // Publish TransactionCreatedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new TransactionCreatedEvent(savedTransaction, userId)
+      );
+    } catch (error) {
+      this.logger.error('Failed to publish TransactionCreatedEvent', {
+        error: error.message,
+        transactionId: savedTransaction.id,
+        userId,
+      });
+      // Don't re-throw to avoid breaking the transaction creation flow
+    }
+
+    return savedTransaction;
   }
 
   async delete(id: number, userId: number): Promise<void> {
@@ -553,16 +567,11 @@ export class TransactionsService {
     transactions: Transaction[],
     userId: number,
   ): Promise<void> {
-    try {
-      // Only analyze patterns, don't create recurring transactions
-      for (const transaction of transactions) {
-        await this.detectRecurringPatternAsync(transaction);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error processing transactions for recurring patterns: ${error.message}`,
-      );
-    }
+    // This method is now handled by event handlers
+    // No direct processing needed here
+    this.logger.debug(
+      `Recurring pattern analysis is now handled by event handlers for ${transactions.length} transactions`,
+    );
   }
 
   async markTransactionAsRecurring(transaction: Transaction): Promise<void> {
@@ -583,28 +592,6 @@ export class TransactionsService {
     return type === 'income' ? absAmount : -absAmount;
   }
 
-  private async detectRecurringPatternAsync(
-    transaction: Transaction,
-  ): Promise<void> {
-    try {
-      const pattern =
-        await this.recurringPatternDetectorService.detectPatternForTransaction(
-          transaction,
-        );
-
-      if (pattern && pattern.isRecurring) {
-        this.logger.debug(
-          `Found recurring pattern for transaction ID ${transaction.id}`,
-        );
-        // We don't link to recurring transactions anymore, just log the pattern
-        this.logger.debug(
-          `Pattern: ${pattern.suggestedFrequency} with confidence ${pattern.confidence}`,
-        );
-      }
-    } catch (error) {
-      this.logger.error(`Error detecting recurring pattern: ${error.message}`);
-    }
-  }
 
   async findByRecurringTransactionId(
     recurringTransactionId: number,

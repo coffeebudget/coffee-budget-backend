@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BankAccountsService } from './bank-accounts.service';
 import { BankAccountsController } from './bank-accounts.controller';
@@ -10,11 +10,7 @@ import { Category } from '../categories/entities/category.entity';
 import { Tag } from '../tags/entities/tag.entity';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { UsersModule } from '../users/users.module';
-import { CategoriesModule } from '../categories/categories.module';
-import { TagsModule } from '../tags/tags.module';
 import { SharedModule } from '../shared/shared.module';
-import { TransactionsModule } from '../transactions/transactions.module';
-import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicates.module';
 
 @Module({
   imports: [
@@ -28,11 +24,7 @@ import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicate
       PendingDuplicate,
     ]),
     UsersModule,
-    forwardRef(() => CategoriesModule),
-    forwardRef(() => TagsModule),
     SharedModule,
-    forwardRef(() => TransactionsModule),
-    forwardRef(() => PendingDuplicatesModule),
   ],
   controllers: [BankAccountsController],
   providers: [BankAccountsService],

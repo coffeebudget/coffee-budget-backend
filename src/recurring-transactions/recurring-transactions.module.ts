@@ -1,11 +1,9 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RecurringTransactionsService } from './recurring-transactions.service';
 import { RecurringTransactionGeneratorService } from './recurring-transaction-generator.service';
 import { RecurringTransaction } from './entities/recurring-transaction.entity';
 import { RecurringTransactionsController } from './recurring-transactions.controller';
-import { CategoriesModule } from '../categories/categories.module';
-import { TagsModule } from '../tags/tags.module';
 import { BankAccountsModule } from '../bank-accounts/bank-accounts.module';
 import { CreditCardsModule } from '../credit-cards/credit-cards.module';
 import { SharedModule } from '../shared/shared.module';
@@ -14,6 +12,8 @@ import { Category } from '../categories/entities/category.entity';
 import { Tag } from '../tags/entities/tag.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { TransactionEventHandler } from './event-handlers/transaction.event-handler';
+import { CategoryEventHandler } from './event-handlers/category.event-handler';
 
 /**
  * Module for recurring transactions - simplified for analytics only
@@ -27,8 +27,6 @@ import { CreditCard } from '../credit-cards/entities/credit-card.entity';
       BankAccount,
       CreditCard,
     ]),
-    forwardRef(() => CategoriesModule),
-    forwardRef(() => TagsModule),
     BankAccountsModule,
     CreditCardsModule,
     SharedModule,
@@ -38,6 +36,8 @@ import { CreditCard } from '../credit-cards/entities/credit-card.entity';
     RecurringTransactionsService,
     RecurringTransactionGeneratorService,
     RecurringPatternDetectorService,
+    TransactionEventHandler,
+    CategoryEventHandler,
   ],
   exports: [
     RecurringTransactionsService,

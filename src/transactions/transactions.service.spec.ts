@@ -20,6 +20,7 @@ import { PendingDuplicatesService } from '../pending-duplicates/pending-duplicat
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { ImportLogsService } from './import-logs.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
 import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
@@ -243,6 +244,14 @@ describe('TransactionsService', () => {
           useValue: {
             getTransactions: jest.fn().mockResolvedValue([]),
             getAccounts: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: EventPublisherService,
+          useValue: {
+            publish: jest.fn().mockResolvedValue(undefined),
+            publishBatch: jest.fn().mockResolvedValue(undefined),
+            publishSync: jest.fn(),
           },
         },
       ],

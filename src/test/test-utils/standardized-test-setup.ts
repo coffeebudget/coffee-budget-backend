@@ -35,27 +35,30 @@ export class StandardizedTestSetup {
     entities.forEach(entity => {
       const repository = module.get<Repository<any>>(getRepositoryToken(entity));
       
-      // Set up common mock behaviors
-      if (repository.save) {
-        repository.save.mockImplementation((entity) => 
+      // Set up common mock behaviors - these are already Jest mocks from RepositoryMockFactory
+      // Type assertion to avoid TypeScript issues with Jest mocks
+      const mockRepository = repository as any;
+      
+      if (mockRepository.save && mockRepository.save.mockImplementation) {
+        mockRepository.save.mockImplementation((entity: any) => 
           Promise.resolve({ id: 1, ...entity })
         );
       }
       
-      if (repository.create) {
-        repository.create.mockImplementation((dto) => dto);
+      if (mockRepository.create && mockRepository.create.mockImplementation) {
+        mockRepository.create.mockImplementation((dto: any) => dto);
       }
       
-      if (repository.find) {
-        repository.find.mockResolvedValue([]);
+      if (mockRepository.find && mockRepository.find.mockResolvedValue) {
+        mockRepository.find.mockResolvedValue([]);
       }
       
-      if (repository.findOne) {
-        repository.findOne.mockResolvedValue(null);
+      if (mockRepository.findOne && mockRepository.findOne.mockResolvedValue) {
+        mockRepository.findOne.mockResolvedValue(null);
       }
       
-      if (repository.count) {
-        repository.count.mockResolvedValue(0);
+      if (mockRepository.count && mockRepository.count.mockResolvedValue) {
+        mockRepository.count.mockResolvedValue(0);
       }
     });
   }

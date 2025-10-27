@@ -10,6 +10,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
 
 describe('BankAccountsService', () => {
   let service: BankAccountsService;
@@ -89,6 +90,14 @@ describe('BankAccountsService', () => {
             findMatchingTransactions: jest.fn(),
             createAutomatedTransaction: jest.fn(),
             findMatchingRecurringTransaction: jest.fn(),
+          },
+        },
+        {
+          provide: EventPublisherService,
+          useValue: {
+            publish: jest.fn().mockResolvedValue(undefined),
+            publishBatch: jest.fn().mockResolvedValue(undefined),
+            publishSync: jest.fn(),
           },
         },
       ],

@@ -19,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { GocardlessModule } from './gocardless/gocardless.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 import databaseConfig from './config/database.config';
 
@@ -41,6 +42,23 @@ import databaseConfig from './config/database.config';
       },
     }),
     ScheduleModule.forRoot(),
+    // 📡 EVENT SYSTEM: Event-driven architecture
+    EventEmitterModule.forRoot({
+      // Set this to `true` if you want to use the default settings
+      wildcard: false,
+      // The delimiter used to segment namespaces
+      delimiter: '.',
+      // Set this to `true` if you want to emit the newListener event
+      newListener: false,
+      // Set this to `true` if you want to emit the removeListener event
+      removeListener: false,
+      // The maximum amount of listeners that can be assigned to an event
+      maxListeners: 10,
+      // Show event name in memory leak message when more than maximum amount of listeners is assigned
+      verboseMemoryLeak: false,
+      // Disable throwing uncaughtException if an error event is emitted and it has no listeners
+      ignoreErrors: false,
+    }),
     // 🔒 SECURITY: Rate limiting (100 requests per minute)
     ThrottlerModule.forRoot([{
       ttl: 60000, // 1 minute

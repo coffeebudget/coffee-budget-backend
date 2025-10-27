@@ -13,6 +13,8 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { CategoryCreatedEvent, CategoryUpdatedEvent, CategoryDeletedEvent } from '../shared/events/category.events';
 
 @Injectable()
 export class CategoriesService {
@@ -25,6 +27,7 @@ export class CategoriesService {
     private recurringTransactionsRepository: Repository<RecurringTransaction>,
     private keywordExtractionService: KeywordExtractionService,
     private keywordStatsService: KeywordStatsService,
+    private eventPublisher: EventPublisherService,
   ) {}
 
   async create(
@@ -54,7 +57,20 @@ export class CategoriesService {
       ...createCategoryDto,
       user,
     });
-    return this.categoriesRepository.save(category);
+    
+    const savedCategory = await this.categoriesRepository.save(category);
+
+    // Publish CategoryCreatedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new CategoryCreatedEvent(savedCategory, user.id)
+      );
+    } catch (error) {
+      // Log error but don't break the category creation flow
+      console.error('Failed to publish CategoryCreatedEvent', error);
+    }
+
+    return savedCategory;
   }
 
   async update(
@@ -109,7 +125,19 @@ export class CategoriesService {
     if (updateCategoryDto.warningThreshold !== undefined)
       category.warningThreshold = updateCategoryDto.warningThreshold;
 
-    return this.categoriesRepository.save(category);
+    const savedCategory = await this.categoriesRepository.save(category);
+
+    // Publish CategoryUpdatedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new CategoryUpdatedEvent(savedCategory, userId)
+      );
+    } catch (error) {
+      // Log error but don't break the category update flow
+      console.error('Failed to publish CategoryUpdatedEvent', error);
+    }
+
+    return savedCategory;
   }
 
   async findAll(userId: number): Promise<Category[]> {
@@ -164,6 +192,16 @@ export class CategoriesService {
 
       if (result.affected === 0) {
         throw new NotFoundException(`Category with ID ${id} not found`);
+      }
+
+      // Publish CategoryDeletedEvent for event-driven processing
+      try {
+        await this.eventPublisher.publish(
+          new CategoryDeletedEvent(id, userId)
+        );
+      } catch (error) {
+        // Log error but don't break the category deletion flow
+        console.error('Failed to publish CategoryDeletedEvent', error);
       }
 
       await queryRunner.commitTransaction();
