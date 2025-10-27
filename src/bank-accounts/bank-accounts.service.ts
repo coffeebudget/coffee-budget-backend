@@ -12,6 +12,8 @@ import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { BankAccountCreatedEvent, BankAccountUpdatedEvent, BankAccountDeletedEvent } from '../shared/events/bank-account.events';
 
 @Injectable()
 export class BankAccountsService {
@@ -24,6 +26,7 @@ export class BankAccountsService {
     private recurringTransactionRepository: Repository<RecurringTransaction>,
     @InjectRepository(CreditCard)
     private creditCardRepository: Repository<CreditCard>,
+    private eventPublisher: EventPublisherService,
   ) {}
 
   async create(
@@ -34,7 +37,20 @@ export class BankAccountsService {
       ...createBankAccountDto,
       user,
     });
-    return this.bankAccountsRepository.save(bankAccount);
+    
+    const savedBankAccount = await this.bankAccountsRepository.save(bankAccount);
+
+    // Publish BankAccountCreatedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new BankAccountCreatedEvent(savedBankAccount, user.id)
+      );
+    } catch (error) {
+      // Log error but don't break the bank account creation flow
+      console.error('Failed to publish BankAccountCreatedEvent', error);
+    }
+
+    return savedBankAccount;
   }
 
   async findAll(userId: number): Promise<BankAccount[]> {
@@ -64,7 +80,19 @@ export class BankAccountsService {
   ): Promise<BankAccount> {
     const bankAccount = await this.findOne(id, userId);
     await this.bankAccountsRepository.update(id, updateBankAccountDto);
-    return this.findOne(id, userId);
+    const updatedBankAccount = await this.findOne(id, userId);
+
+    // Publish BankAccountUpdatedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new BankAccountUpdatedEvent(updatedBankAccount, userId)
+      );
+    } catch (error) {
+      // Log error but don't break the bank account update flow
+      console.error('Failed to publish BankAccountUpdatedEvent', error);
+    }
+
+    return updatedBankAccount;
   }
 
   async remove(id: number, userId: number): Promise<void> {
@@ -99,6 +127,16 @@ export class BankAccountsService {
     const result = await this.bankAccountsRepository.delete(id);
     if (result.affected === 0) {
       throw new NotFoundException(`Bank Account with ID ${id} not found`);
+    }
+
+    // Publish BankAccountDeletedEvent for event-driven processing
+    try {
+      await this.eventPublisher.publish(
+        new BankAccountDeletedEvent(id, userId)
+      );
+    } catch (error) {
+      // Log error but don't break the bank account deletion flow
+      console.error('Failed to publish BankAccountDeletedEvent', error);
     }
   }
 }

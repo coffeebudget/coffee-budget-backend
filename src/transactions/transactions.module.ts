@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TransactionsService } from './transactions.service';
 import { TransactionsController } from './transactions.controller';
@@ -25,6 +25,8 @@ import { TransactionCategorizationService } from './transaction-categorization.s
 import { TransactionBulkService } from './transaction-bulk.service';
 import { TransactionDuplicateService } from './transaction-duplicate.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
+import { BankAccountEventHandler } from './event-handlers/bank-account.event-handler';
+import { CategoryEventHandler } from './event-handlers/category.event-handler';
 
 @Module({
   imports: [
@@ -38,10 +40,10 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
       PendingDuplicate,
     ]),
     CategoriesModule,
-    forwardRef(() => TagsModule),
-    forwardRef(() => PendingDuplicatesModule),
+    TagsModule,
+    PendingDuplicatesModule,
     PreventedDuplicatesModule,
-    forwardRef(() => RecurringTransactionsModule),
+    RecurringTransactionsModule,
     SharedModule,
     BankAccountsModule,
     CreditCardsModule,
@@ -56,6 +58,8 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
     TransactionCategorizationService,
     TransactionBulkService,
     TransactionDuplicateService,
+    BankAccountEventHandler,
+    CategoryEventHandler,
   ],
   exports: [
     TransactionsService,

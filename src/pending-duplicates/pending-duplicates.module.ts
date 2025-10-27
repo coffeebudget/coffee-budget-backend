@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PendingDuplicatesService } from './pending-duplicates.service';
 import { PendingDuplicatesController } from './pending-duplicates.controller';
@@ -8,17 +8,17 @@ import { Transaction } from '../transactions/transaction.entity';
 import { User } from '../users/user.entity';
 import { SharedModule } from '../shared/shared.module';
 import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-duplicates.module';
-import { TransactionsModule } from '../transactions/transactions.module';
+import { TransactionEventHandler } from './event-handlers/transaction.event-handler';
+import { BankAccountEventHandler } from './event-handlers/bank-account.event-handler';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PendingDuplicate, Transaction, User]),
     SharedModule,
     PreventedDuplicatesModule,
-    forwardRef(() => TransactionsModule),
   ],
   controllers: [PendingDuplicatesController],
-  providers: [PendingDuplicatesService, DuplicateDetectionService],
+  providers: [PendingDuplicatesService, DuplicateDetectionService, TransactionEventHandler, BankAccountEventHandler],
   exports: [PendingDuplicatesService, DuplicateDetectionService, TypeOrmModule],
 })
 export class PendingDuplicatesModule {}

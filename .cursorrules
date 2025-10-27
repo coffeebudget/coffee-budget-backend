@@ -9,6 +9,7 @@ This is the NestJS backend API for the Coffee Budget personal finance applicatio
 - **Authentication**: JWT with Auth0
 - **External APIs**: GoCardless integration
 - **Testing**: Jest with comprehensive mocking
+- **Event System**: Event-driven architecture with EventEmitter2 (NO circular dependencies)
 
 ## Current Development Phase
 
@@ -40,6 +41,58 @@ This is the NestJS backend API for the Coffee Budget personal finance applicatio
 - **Location**: `src/gocardless/gocardless.service.ts`
 - **Status**: 10.32% coverage, external dependency
 - **Responsibilities**: External API integration, account synchronization
+
+## Event-Driven Architecture (MANDATORY)
+
+### **Event System Rules**
+- **NO CIRCULAR DEPENDENCIES**: Never use `forwardRef()` - use events instead
+- **Event Publishers**: Services publish domain events for cross-module communication
+- **Event Handlers**: Services listen to events from other modules
+- **Loose Coupling**: Modules communicate via events, not direct dependencies
+
+### **Event Implementation Pattern**
+```typescript
+// 1. Define Event (in src/shared/events/)
+export class TransactionCreatedEvent extends BaseEventClass {
+  constructor(public readonly transaction: Transaction, userId: number) {
+    super(userId);
+  }
+}
+
+// 2. Publish Event (in service)
+constructor(private eventPublisher: EventPublisherService) {}
+this.eventPublisher.publish(new TransactionCreatedEvent(transaction, userId));
+
+// 3. Handle Event (in consuming module)
+@OnEvent('TransactionCreatedEvent')
+async handleTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
+  // Handle the event
+}
+```
+
+### **Existing Event Infrastructure**
+- **BaseEventClass**: `src/shared/events/base.event.ts`
+- **EventPublisherService**: `src/shared/events/event-publisher.service.ts`
+- **BaseEventHandler**: `src/shared/events/base.event-handler.ts`
+- **EventEmitterModule**: Configured in `AppModule`
+
+### **Current Events**
+- **TransactionCreatedEvent**: Published by TransactionsService
+- **BankAccountCreatedEvent/UpdatedEvent/DeletedEvent**: Published by BankAccountsService
+- **CategoryCreatedEvent/UpdatedEvent/DeletedEvent**: Published by CategoriesService
+
+### **Event Handlers (8 total)**
+- **PendingDuplicatesModule**: Handles Transaction, BankAccount events
+- **RecurringTransactionsModule**: Handles Transaction, Category events
+- **CategoriesModule**: Handles Transaction events
+- **TagsModule**: Handles Transaction events
+- **TransactionsModule**: Handles BankAccount, Category events
+
+### **Circular Dependency Prevention**
+- **NEVER** import modules that would create circular dependencies
+- **ALWAYS** use events for cross-module communication
+- **IF** you need data from another module, publish an event and handle it
+- **ONLY** exception: Functional dependencies (like GoCardless ↔ Transactions)
 
 ## Development Guidelines
 
@@ -225,8 +278,9 @@ src/test/
 
 ### **Refactoring Challenges**
 - **God services**: Break up large services into focused components
-- **Circular dependencies**: Use forwardRef() or restructure modules
+- **Circular dependencies**: Use events instead of forwardRef() - NEVER use forwardRef()
 - **Test maintenance**: Update tests when service interfaces change
+- **Event integration**: When refactoring, convert direct dependencies to events
 
 ## Development Workflow
 
@@ -278,6 +332,10 @@ src/test/
 4. **Update documentation** - keep guides current
 5. **Maintain coverage** - ensure new code is well-tested
 6. **Write failing test first** - Define expected behavior before implementation
+7. **Use events for cross-module communication** - Never create circular dependencies
+8. **Check for existing events** - Reuse existing events when possible
+9. **Create new events if needed** - Follow the event naming and structure patterns
+10. **Mock EventPublisherService** - Always mock in tests for services that publish events
 
 ## Current Focus: Phase 2 Refactoring
 

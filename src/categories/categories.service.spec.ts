@@ -10,6 +10,7 @@ import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplica
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { User } from '../users/user.entity';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -86,6 +87,14 @@ describe('CategoriesService', () => {
         {
           provide: KeywordStatsService,
           useValue: mockKeywordStatsService,
+        },
+        {
+          provide: EventPublisherService,
+          useValue: {
+            publish: jest.fn().mockResolvedValue(undefined),
+            publishBatch: jest.fn().mockResolvedValue(undefined),
+            publishSync: jest.fn(),
+          },
         },
       ],
     }).compile();
