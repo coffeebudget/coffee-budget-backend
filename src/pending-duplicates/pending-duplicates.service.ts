@@ -5,11 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not } from 'typeorm';
+import { ModuleRef } from '@nestjs/core';
 import { PendingDuplicate } from './entities/pending-duplicate.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { User } from '../users/user.entity';
 import { CreatePendingDuplicateDto } from './dto/create-pending-duplicate.dto';
-import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transaction-choice.dto';
 
 @Injectable()
@@ -19,7 +19,7 @@ export class PendingDuplicatesService {
     private pendingDuplicatesRepository: Repository<PendingDuplicate>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-    private transactionOperationsService: TransactionOperationsService,
+    private moduleRef: ModuleRef,
   ) {}
 
   async findPendingDuplicates(userId: number): Promise<PendingDuplicate[]> {
@@ -183,9 +183,21 @@ export class PendingDuplicatesService {
     // Process based on user choice - use the new enum values
     if (choice !== DuplicateTransactionChoice.KEEP_EXISTING) {
       try {
+        // Get TransactionOperationsService dynamically to avoid circular dependency
+        const { TransactionOperationsService } = await import(
+          '../transactions/transaction-operations.service'
+        );
+        const transactionOperationsService = this.moduleRef.get(TransactionOperationsService, {
+          strict: false,
+        });
+        
+        if (!transactionOperationsService) {
+          throw new Error('TransactionOperationsService not available in current context');
+        }
+
         // Use the TransactionOperationsService to handle the resolution
         const resolvedTransaction =
-          await this.transactionOperationsService.handleDuplicateResolution(
+          await transactionOperationsService.handleDuplicateResolution(
             pendingDuplicate.existingTransaction as Transaction,
             pendingDuplicate.newTransactionData,
             userId,
@@ -211,7 +223,19 @@ export class PendingDuplicatesService {
     description: string,
     amount: number,
   ): Promise<Transaction[]> {
-    return this.transactionOperationsService.findMatchingTransactions(
+    // Get TransactionOperationsService dynamically to avoid circular dependency
+    const { TransactionOperationsService } = await import(
+      '../transactions/transaction-operations.service'
+    );
+    const transactionOperationsService = this.moduleRef.get(TransactionOperationsService, {
+      strict: false,
+    });
+    
+    if (!transactionOperationsService) {
+      throw new Error('TransactionOperationsService not available in current context');
+    }
+
+    return transactionOperationsService.findMatchingTransactions(
       userId,
       description,
       amount,

@@ -20,6 +20,7 @@ import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-dup
 import { RecurringTransactionsModule } from '../recurring-transactions/recurring-transactions.module';
 import { GocardlessModule } from '../gocardless/gocardless.module';
 import { TransactionOperationsService } from './transaction-operations.service';
+import { TransactionCreationService } from './transaction-creation.service';
 import { TransactionImportService } from './transaction-import.service';
 import { TransactionCategorizationService } from './transaction-categorization.service';
 import { TransactionBulkService } from './transaction-bulk.service';
@@ -54,6 +55,7 @@ import { CategoryEventHandler } from './event-handlers/category.event-handler';
     TransactionsService,
     ImportLogsService,
     TransactionOperationsService,
+    TransactionCreationService,
     TransactionImportService,
     TransactionCategorizationService,
     TransactionBulkService,
