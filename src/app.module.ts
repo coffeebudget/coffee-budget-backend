@@ -20,6 +20,7 @@ import { GocardlessModule } from './gocardless/gocardless.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { MerchantCategorizationModule } from './merchant-categorization/merchant-categorization.module';
 
 import databaseConfig from './config/database.config';
 
@@ -77,6 +78,7 @@ import databaseConfig from './config/database.config';
     SharedModule,
     DashboardModule,
     GocardlessModule,
+    MerchantCategorizationModule,
   ],
   controllers: [AppController],
   providers: [

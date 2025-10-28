@@ -57,6 +57,10 @@ describe('TransactionBulkService', () => {
     source: 'manual' as const,
     categorizationConfidence: null,
     transactionIdOpenBankAPI: null,
+    merchantName: null,
+    merchantCategoryCode: null,
+    debtorName: null,
+    creditorName: null,
   } as Transaction;
 
   const mockTag = {

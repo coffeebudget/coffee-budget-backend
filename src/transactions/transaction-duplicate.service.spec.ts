@@ -51,6 +51,10 @@ describe('TransactionDuplicateService', () => {
     user: mockUser,
     categorizationConfidence: null as any,
     transactionIdOpenBankAPI: null as any,
+    merchantName: null,
+    merchantCategoryCode: null,
+    debtorName: null,
+    creditorName: null,
   } as Transaction;
 
   const mockDuplicateTransaction = {
@@ -72,6 +76,10 @@ describe('TransactionDuplicateService', () => {
     user: mockUser,
     categorizationConfidence: null as any,
     transactionIdOpenBankAPI: null as any,
+    merchantName: null,
+    merchantCategoryCode: null,
+    debtorName: null,
+    creditorName: null,
   } as Transaction;
 
   beforeEach(async () => {

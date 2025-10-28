@@ -59,6 +59,9 @@ export class GocardlessParser extends BaseParser {
         return null;
       }
 
+      // Extract merchant information
+      const merchantName = this.extractMerchantName(tx, amount);
+      
       const transaction: Partial<Transaction> & { tagNames?: string[] } = {
         amount: Math.abs(amount),
         description: this.buildEnhancedDescription(tx),
@@ -68,6 +71,11 @@ export class GocardlessParser extends BaseParser {
         status: isPending ? 'pending' : 'executed',
         tagNames: this.extractTags(tx), // Custom property for tag processing
         transactionIdOpenBankAPI: tx.transactionId, // GoCardless unique transaction ID
+        // Store merchant information for advanced categorization
+        merchantName: merchantName,
+        merchantCategoryCode: tx.merchantCategoryCode || null,
+        debtorName: tx.debtorName || null,
+        creditorName: tx.creditorName || null,
       };
 
       // Set bank account or credit card
@@ -118,19 +126,24 @@ export class GocardlessParser extends BaseParser {
     return cleaned.substring(0, 255); // Limit length
   }
 
+  private extractMerchantName(tx: TransactionDto, amount: number): string | null {
+    // Get merchant name (creditor for expenses, debtor for income)
+    if (amount < 0 && tx.creditorName) {
+      // For expenses, use creditor name (who we paid to)
+      return tx.creditorName.trim();
+    } else if (amount > 0 && tx.debtorName) {
+      // For income, use debtor name (who paid us)
+      return tx.debtorName.trim();
+    }
+    return null;
+  }
+
   private buildEnhancedDescription(tx: TransactionDto): string {
     const descriptions: string[] = [];
     const amount = parseFloat(tx.transactionAmount.amount);
 
     // Get merchant name (creditor for expenses, debtor for income)
-    let merchantName = '';
-    if (amount < 0 && tx.creditorName) {
-      // For expenses, use creditor name (who we paid to)
-      merchantName = tx.creditorName.trim();
-    } else if (amount > 0 && tx.debtorName) {
-      // For income, use debtor name (who paid us)
-      merchantName = tx.debtorName.trim();
-    }
+    const merchantName = this.extractMerchantName(tx, amount);
 
     // Collect other description sources
     const otherDescriptions: string[] = [];

@@ -4,6 +4,8 @@ import { Repository, In } from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { Category } from '../categories/entities/category.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
+import { EnhancedTransactionData, CategorizationOptions } from '../merchant-categorization/dto/merchant-categorization.dto';
 
 @Injectable()
 export class TransactionCategorizationService {
@@ -13,24 +15,72 @@ export class TransactionCategorizationService {
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     private readonly categoriesService: CategoriesService,
+    private readonly merchantCategorizationService: MerchantCategorizationService,
   ) {}
 
   async categorizeTransactionByDescription(
     transaction: Transaction,
     userId: number,
+    options: CategorizationOptions = {},
   ): Promise<Transaction> {
     if (!transaction.description) {
       return transaction;
     }
 
     try {
-      const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+      // Priority 1: Manual categorization (if already set)
+      if (transaction.category) {
+        return transaction;
+      }
+
+      // Priority 2: Merchant-based AI categorization (for GoCardless transactions)
+      if (transaction.merchantName && options.enableMerchantAI !== false) {
+        const enhancedTransaction: EnhancedTransactionData = {
+          transactionId: transaction.id.toString(),
+          amount: transaction.amount,
+          description: transaction.description,
+          merchantName: transaction.merchantName || undefined,
+          merchantCategoryCode: transaction.merchantCategoryCode || undefined,
+          merchantType: transaction.type === 'expense' ? 'creditor' : 'debtor',
+          enhancedDescription: transaction.description,
+        };
+
+        const merchantResult = await this.merchantCategorizationService.categorizeByMerchant(
+          enhancedTransaction,
+          userId,
+          options,
+        );
+
+        if (merchantResult && merchantResult.confidence >= 70) {
+          // Find the category by ID
+          const category = await this.categoryRepository.findOne({
+            where: { id: merchantResult.categoryId, user: { id: userId } },
+          });
+
+          if (category) {
+            transaction.category = category;
+            transaction.categorizationConfidence = merchantResult.confidence;
+            await this.transactionRepository.save(transaction);
+            return transaction;
+          }
+        }
+      }
+
+      // Priority 3: Enhanced keyword matching (with merchant context)
+      const enhancedDescription = this.buildEnhancedDescription(
         transaction.description,
+        transaction.merchantName,
+        transaction.merchantCategoryCode,
+      );
+
+      const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
+        enhancedDescription,
         userId,
       );
 
       if (suggestedCategory) {
         transaction.category = suggestedCategory;
+        transaction.categorizationConfidence = this.calculateKeywordConfidence(enhancedDescription, suggestedCategory);
         await this.transactionRepository.save(transaction);
       }
 
@@ -167,5 +217,55 @@ export class TransactionCategorizationService {
       description,
       userId,
     );
+  }
+
+  /**
+   * Build enhanced description with merchant context
+   */
+  private buildEnhancedDescription(
+    description: string,
+    merchantName?: string | null,
+    merchantCategoryCode?: string | null,
+  ): string {
+    const parts: string[] = [];
+
+    // Add merchant name if available
+    if (merchantName) {
+      parts.push(merchantName);
+    }
+
+    // Add original description
+    parts.push(description);
+
+    // Add merchant category code if available
+    if (merchantCategoryCode) {
+      parts.push(`MCC: ${merchantCategoryCode}`);
+    }
+
+    return parts.join(' | ');
+  }
+
+  /**
+   * Calculate confidence score for keyword-based categorization
+   */
+  private calculateKeywordConfidence(description: string, category: Category): number {
+    if (!category.keywords || category.keywords.length === 0) {
+      return 50; // Base confidence for categories without keywords
+    }
+
+    const descriptionLower = description.toLowerCase();
+    const matchingKeywords = category.keywords.filter(keyword =>
+      descriptionLower.includes(keyword.toLowerCase())
+    );
+
+    if (matchingKeywords.length === 0) {
+      return 30; // Low confidence if no keywords match
+    }
+
+    // Calculate confidence based on keyword matches
+    const matchRatio = matchingKeywords.length / category.keywords.length;
+    const baseConfidence = Math.min(95, 50 + (matchRatio * 45));
+    
+    return Math.round(baseConfidence);
   }
 }
