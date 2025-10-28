@@ -6,6 +6,7 @@ import { TransactionCategorizationService } from './transaction-categorization.s
 import { Transaction } from './transaction.entity';
 import { Category } from '../categories/entities/category.entity';
 import { CategoriesService } from '../categories/categories.service';
+import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 
 describe('TransactionCategorizationService', () => {
@@ -13,6 +14,7 @@ describe('TransactionCategorizationService', () => {
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
   let categoryRepository: jest.Mocked<Repository<Category>>;
   let categoriesService: jest.Mocked<CategoriesService>;
+  let merchantCategorizationService: jest.Mocked<MerchantCategorizationService>;
 
   const mockUser = {
     id: 1,
@@ -65,6 +67,10 @@ describe('TransactionCategorizationService', () => {
     source: 'manual',
     transactionIdOpenBankAPI: null,
     categorizationConfidence: 0.8,
+    merchantName: null,
+    merchantCategoryCode: null,
+    debtorName: null,
+    creditorName: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   } as any;
@@ -83,6 +89,15 @@ describe('TransactionCategorizationService', () => {
             findCategoryByKeywordMatch: jest.fn(),
           },
         },
+        {
+          provide: MerchantCategorizationService,
+          useValue: {
+            categorizeByMerchant: jest.fn(),
+            learnFromUserCorrection: jest.fn(),
+            invalidateMerchantCache: jest.fn(),
+            getMerchantStats: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -90,6 +105,7 @@ describe('TransactionCategorizationService', () => {
     transactionRepository = module.get(getRepositoryToken(Transaction));
     categoryRepository = module.get(getRepositoryToken(Category));
     categoriesService = module.get(CategoriesService);
+    merchantCategorizationService = module.get(MerchantCategorizationService);
   });
 
   describe('categorizeTransactionByDescription', () => {

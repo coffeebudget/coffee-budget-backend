@@ -82,4 +82,17 @@ export class Transaction {
 
   @Column({ nullable: true, type: 'varchar' })
   transactionIdOpenBankAPI: string | null;
+
+  // GoCardless merchant information for advanced categorization
+  @Column({ nullable: true, type: 'varchar' })
+  merchantName: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  merchantCategoryCode: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  debtorName: string | null;
+
+  @Column({ nullable: true, type: 'varchar' })
+  creditorName: string | null;
 }

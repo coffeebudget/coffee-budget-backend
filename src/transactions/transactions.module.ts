@@ -19,6 +19,7 @@ import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicate
 import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-duplicates.module';
 import { RecurringTransactionsModule } from '../recurring-transactions/recurring-transactions.module';
 import { GocardlessModule } from '../gocardless/gocardless.module';
+import { MerchantCategorizationModule } from '../merchant-categorization/merchant-categorization.module';
 import { TransactionOperationsService } from './transaction-operations.service';
 import { TransactionCreationService } from './transaction-creation.service';
 import { TransactionImportService } from './transaction-import.service';
@@ -28,6 +29,10 @@ import { TransactionDuplicateService } from './transaction-duplicate.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { BankAccountEventHandler } from './event-handlers/bank-account.event-handler';
 import { CategoryEventHandler } from './event-handlers/category.event-handler';
+import { TransactionCategorizationTestService } from './transaction-categorization-test.service';
+import { TransactionCategorizationTestController } from './transaction-categorization-test.controller';
+import { TransactionMerchantEnrichmentService } from './transaction-merchant-enrichment.service';
+import { TransactionMerchantEnrichmentController } from './transaction-merchant-enrichment.controller';
 
 @Module({
   imports: [
@@ -49,8 +54,9 @@ import { CategoryEventHandler } from './event-handlers/category.event-handler';
     BankAccountsModule,
     CreditCardsModule,
     GocardlessModule,
+    MerchantCategorizationModule,
   ],
-  controllers: [TransactionsController, ImportLogsController],
+  controllers: [TransactionsController, ImportLogsController, TransactionCategorizationTestController, TransactionMerchantEnrichmentController],
   providers: [
     TransactionsService,
     ImportLogsService,
@@ -60,6 +66,8 @@ import { CategoryEventHandler } from './event-handlers/category.event-handler';
     TransactionCategorizationService,
     TransactionBulkService,
     TransactionDuplicateService,
+    TransactionCategorizationTestService,
+    TransactionMerchantEnrichmentService,
     BankAccountEventHandler,
     CategoryEventHandler,
   ],

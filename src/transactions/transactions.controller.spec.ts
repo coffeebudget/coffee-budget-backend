@@ -138,4 +138,56 @@ describe('TransactionsController', () => {
       ).not.toHaveBeenCalled();
     });
   });
+
+  describe('update', () => {
+    it('should update a transaction successfully', async () => {
+      const transactionId = 1;
+      const updateDto = {
+        description: 'Updated transaction',
+        amount: 100,
+        categoryId: 2,
+      };
+      const mockUpdatedTransaction = {
+        id: transactionId,
+        ...updateDto,
+        user: mockUser,
+      };
+
+      mockTransactionsService.update.mockResolvedValue(mockUpdatedTransaction);
+
+      const result = await controller.update(transactionId, updateDto, mockUser);
+
+      expect(mockTransactionsService.update).toHaveBeenCalledWith(
+        transactionId,
+        updateDto,
+        mockUser.id,
+      );
+      expect(result).toEqual(mockUpdatedTransaction);
+    });
+
+    it('should handle update requests without id field in body', async () => {
+      const transactionId = 1;
+      const updateDto = {
+        description: 'Updated transaction',
+        amount: 100,
+        categoryId: 2,
+      };
+      const mockUpdatedTransaction = {
+        id: transactionId,
+        ...updateDto,
+        user: mockUser,
+      };
+
+      mockTransactionsService.update.mockResolvedValue(mockUpdatedTransaction);
+
+      const result = await controller.update(transactionId, updateDto, mockUser);
+
+      expect(mockTransactionsService.update).toHaveBeenCalledWith(
+        transactionId,
+        updateDto,
+        mockUser.id,
+      );
+      expect(result).toEqual(mockUpdatedTransaction);
+    });
+  });
 });
