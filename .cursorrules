@@ -302,6 +302,13 @@ src/test/
 
 ## AI Assistant Guidelines
 
+### **SECURITY RULES - CRITICAL**
+1. **NEVER write sensitive data in .md files** - No API keys, secrets, passwords, tokens
+2. **NEVER commit real credentials** - Use placeholders like `[SET_IN_RAILWAY_VARIABLES]`
+3. **Use .env files for templates** - Create .env.production with placeholders only
+4. **Documentation should be generic** - Use example values, not real ones
+5. **If sensitive data is accidentally written** - Delete immediately and recreate without secrets
+
 ### **TDD Approach for All Development**
 1. **Always start with tests** - Write failing test first (RED)
 2. **Write minimal implementation** - Just enough to pass test (GREEN)
