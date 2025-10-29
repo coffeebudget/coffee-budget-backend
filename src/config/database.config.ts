@@ -24,8 +24,25 @@ export default registerAs('database', () => {
   if (databaseUrl && databaseUrl.includes('${{')) {
     console.log('Railway template variable detected:', databaseUrl);
     console.log('This should be automatically resolved by Railway, but it seems to not be working.');
-    console.log('Please check Railway documentation or contact support.');
-    databaseUrl = null; // Treat as not set to fall back to individual variables
+    console.log('Falling back to individual database variables...');
+    
+    // Try to get the actual DATABASE_URL from Railway's internal variables
+    // Railway sometimes sets this as a different variable name
+    const possibleDbUrls = [
+      process.env.RAILWAY_DATABASE_URL,
+      process.env.POSTGRES_URL,
+      process.env.DATABASE_CONNECTION_STRING,
+      process.env.DB_CONNECTION_STRING
+    ];
+    
+    const actualDbUrl = possibleDbUrls.find(url => url && !url.includes('${{'));
+    if (actualDbUrl) {
+      console.log('Found actual database URL in alternative variable:', actualDbUrl);
+      databaseUrl = actualDbUrl;
+    } else {
+      console.log('No alternative database URL found, will try individual variables');
+      databaseUrl = null; // Treat as not set to fall back to individual variables
+    }
   }
   
   if (databaseUrl) {
@@ -105,11 +122,11 @@ export default registerAs('database', () => {
     // Fallback to individual variables for local development
     // Check if we have all required variables
     // Railway might set these automatically when you connect a database
-    const host = process.env.DB_HOST || process.env.PGHOST;
-    const port = process.env.DB_PORT || process.env.PGPORT || '5432';
-    const username = process.env.DB_USER || process.env.PGUSER;
-    const password = process.env.DB_PASS || process.env.PGPASSWORD;
-    const database = process.env.DB_NAME || process.env.PGDATABASE;
+    const host = process.env.DB_HOST || process.env.PGHOST || process.env.POSTGRES_HOST;
+    const port = process.env.DB_PORT || process.env.PGPORT || process.env.POSTGRES_PORT || '5432';
+    const username = process.env.DB_USER || process.env.PGUSER || process.env.POSTGRES_USER;
+    const password = process.env.DB_PASS || process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+    const database = process.env.DB_NAME || process.env.PGDATABASE || process.env.POSTGRES_DB;
 
     console.log('Using individual DB variables:');
     console.log('DB_HOST:', host);
