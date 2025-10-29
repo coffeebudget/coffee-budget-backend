@@ -17,7 +17,18 @@ export default registerAs('database', () => {
   
   // Support both DATABASE_URL (Railway) and individual variables (local dev)
   // Prioritize DATABASE_URL if it exists
-  if (process.env.DATABASE_URL) {
+  // Handle Railway template variables like ${{DATABASE_URL}}
+  let databaseUrl = process.env.DATABASE_URL;
+  
+  // Check if DATABASE_URL is a Railway template variable that needs resolution
+  if (databaseUrl && databaseUrl.includes('${{')) {
+    console.log('Railway template variable detected:', databaseUrl);
+    console.log('This should be automatically resolved by Railway, but it seems to not be working.');
+    console.log('Please check Railway documentation or contact support.');
+    databaseUrl = null; // Treat as not set to fall back to individual variables
+  }
+  
+  if (databaseUrl) {
     try {
       console.log('DATABASE_URL found:', process.env.DATABASE_URL);
       
@@ -93,11 +104,12 @@ export default registerAs('database', () => {
   } else {
     // Fallback to individual variables for local development
     // Check if we have all required variables
-    const host = process.env.DB_HOST;
-    const port = process.env.DB_PORT || '5432';
-    const username = process.env.DB_USER;
-    const password = process.env.DB_PASS;
-    const database = process.env.DB_NAME;
+    // Railway might set these automatically when you connect a database
+    const host = process.env.DB_HOST || process.env.PGHOST;
+    const port = process.env.DB_PORT || process.env.PGPORT || '5432';
+    const username = process.env.DB_USER || process.env.PGUSER;
+    const password = process.env.DB_PASS || process.env.PGPASSWORD;
+    const database = process.env.DB_NAME || process.env.PGDATABASE;
 
     console.log('Using individual DB variables:');
     console.log('DB_HOST:', host);
