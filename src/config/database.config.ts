@@ -18,7 +18,7 @@ export default registerAs('database', () => {
   // Support both DATABASE_URL (Railway) and individual variables (local dev)
   // Prioritize DATABASE_URL if it exists
   // Handle Railway template variables like ${{DATABASE_URL}}
-  let databaseUrl = process.env.DATABASE_URL;
+  let databaseUrl: string | undefined = process.env.DATABASE_URL;
   
   // Check if DATABASE_URL is a Railway template variable that needs resolution
   if (databaseUrl && databaseUrl.includes('${{')) {
@@ -41,16 +41,16 @@ export default registerAs('database', () => {
       databaseUrl = actualDbUrl;
     } else {
       console.log('No alternative database URL found, will try individual variables');
-      databaseUrl = null; // Treat as not set to fall back to individual variables
+      databaseUrl = undefined; // Treat as not set to fall back to individual variables
     }
   }
   
   if (databaseUrl) {
     try {
-      console.log('DATABASE_URL found:', process.env.DATABASE_URL);
+      console.log('DATABASE_URL found:', databaseUrl);
       
       // Parse DATABASE_URL for Railway deployment
-      const url = new URL(process.env.DATABASE_URL);
+      const url = new URL(databaseUrl);
       
       console.log('Parsed URL components:', {
         protocol: url.protocol,
@@ -81,12 +81,15 @@ export default registerAs('database', () => {
       return config;
     } catch (error) {
       console.error('Error parsing DATABASE_URL with URL constructor:', error);
-      console.error('DATABASE_URL value:', process.env.DATABASE_URL);
+      console.error('DATABASE_URL value:', databaseUrl);
       
       // Fallback: try manual parsing for Railway format
       try {
-        const dbUrl = process.env.DATABASE_URL;
-        const match = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
+        if (!databaseUrl) {
+          throw new Error('DATABASE_URL is undefined');
+        }
+        
+        const match = databaseUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$/);
         
         if (match) {
           const [, username, password, hostname, port, database] = match;
