@@ -53,9 +53,23 @@ async function bootstrap() {
   });
 
   // 🔒 SECURITY: Enhanced CORS configuration
-  const allowedOrigins = isDevelopment 
-    ? ['http://localhost:3000', 'http://127.0.0.1:3000']
-    : process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000'];
+  let allowedOrigins: string[];
+  
+  if (isDevelopment) {
+    allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+  } else {
+    // Production: Use CORS_ORIGIN environment variable (comma-separated)
+    const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
+    if (corsOrigin) {
+      allowedOrigins = corsOrigin.split(',').map(origin => origin.trim()).filter(Boolean);
+    } else {
+      // Fallback for production if not set
+      allowedOrigins = ['http://localhost:3000'];
+      Logger.warn('⚠️  CORS_ORIGIN not set in production! Using localhost fallback. This may cause CORS errors.', 'Bootstrap');
+    }
+  }
+
+  Logger.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`, 'Bootstrap');
 
   app.enableCors({
     origin: allowedOrigins,
