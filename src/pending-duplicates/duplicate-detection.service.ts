@@ -127,30 +127,30 @@ export class DuplicateDetectionService {
 
         // Determine reason and confidence based on score
         if (score === 100) {
-          bestReason = 'Exact match (amount, description, date)';
+          bestReason = 'Exact match (amount, description, same date)';
           bestConfidence = 'high';
-        } else if (score >= 95) {
-          bestReason = 'Exact match (amount, description, different date)';
+        } else if (score >= 90) {
+          bestReason = 'Very high similarity (likely duplicate with minor date/description variance)';
           bestConfidence = 'high';
         } else if (score >= 80) {
-          bestReason = 'High similarity (same amount and type)';
-          bestConfidence = 'medium';
+          bestReason = 'High similarity (same amount, type, similar description/date)';
+          bestConfidence = 'high';
         } else if (score >= 70) {
-          bestReason = 'Medium similarity';
+          bestReason = 'Medium-high similarity (same amount, different date/description)';
           bestConfidence = 'medium';
         } else if (score >= 60) {
-          bestReason = 'Low similarity';
-          bestConfidence = 'low';
+          bestReason = 'Medium similarity (partial match)';
+          bestConfidence = 'medium';
         } else {
-          bestReason = 'Very low similarity';
+          bestReason = 'Low similarity';
           bestConfidence = 'low';
         }
       }
     }
 
     const isDuplicate = highestScore >= 60; // Consider 60%+ as potential duplicates
-    const shouldPrevent = highestScore >= 95; // Prevent 95%+ matches (includes exact matches)
-    const shouldCreatePending = highestScore >= 80 && highestScore < 95; // Pending for 80-94%
+    const shouldPrevent = highestScore >= 98; // Prevent 98%+ matches (near-exact matches only)
+    const shouldCreatePending = highestScore >= 70 && highestScore < 98; // Pending for 70-97%
 
     return {
       isDuplicate,
@@ -208,43 +208,47 @@ export class DuplicateDetectionService {
     const descScore = Math.round(descSimilarity * 40);
     score += descScore;
 
-    // Date match (20 points) - Exact date match only
+    // Date match (20 points) - Graduated scoring based on date proximity
     maxScore += 20;
     let dateScore = 0;
+    let daysDifference = 0;
     if (existingTransaction.executionDate) {
       const newDate = new Date(newTransaction.executionDate);
       const existingDate = new Date(existingTransaction.executionDate);
-      
-      // Check if dates are exactly the same day
-      if (newDate.toDateString() === existingDate.toDateString()) {
-        dateScore = 20; // Same day
+
+      // Calculate days difference
+      daysDifference = Math.abs(
+        Math.floor((newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24))
+      );
+
+      // Graduated scoring based on date proximity
+      if (daysDifference === 0) {
+        dateScore = 20; // Same day - 100%
+      } else if (daysDifference === 1) {
+        dateScore = 16; // ±1 day - 80%
+      } else if (daysDifference === 2) {
+        dateScore = 12; // ±2 days - 60%
+      } else if (daysDifference <= 7) {
+        dateScore = 8;  // ±3-7 days - 40%
       }
-      // No partial points for different dates - either same day or 0 points
+      // else dateScore stays 0 for >7 days difference
+
       score += dateScore;
     }
 
     const finalScore = Math.round((score / maxScore) * 100);
-    
-    // CRITICAL: Only consider transactions as potential duplicates if they have the SAME DATE
-    // This prevents false positives between transactions on different dates
-    if (dateScore === 0) {
-      // Different dates - return 0 to prevent any duplicate consideration
-      this.logger.debug(`Different execution dates - skipping duplicate check:
-        New: ${newTransaction.description} | ${newTransaction.executionDate}
-        Existing: ${existingTransaction.description} | ${existingTransaction.executionDate}`);
-      return 0;
-    }
-    
-    // Debug logging for transactions with high similarity (same date only)
+
+    // Debug logging for transactions with high similarity
     if (finalScore >= 60) {
       const normalizedNew = this.normalizeAmount(newTransaction.amount, newTransaction.type);
       const normalizedExisting = this.normalizeAmount(existingTransaction.amount, existingTransaction.type);
-        
-      this.logger.debug(`Similarity calculation (same date):
+
+      this.logger.debug(`Similarity calculation:
         New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type} | ${newTransaction.executionDate}
         Existing: ${existingTransaction.description} | ${existingTransaction.amount} | ${existingTransaction.type} | ${existingTransaction.executionDate}
+        Days difference: ${daysDifference}
         Amount comparison: ${newTransaction.amount} → ${normalizedNew} vs ${existingTransaction.amount} → ${normalizedExisting} (${amountMatch ? 'MATCH' : 'NO MATCH'})
-        Scores: Amount(${amountMatch ? 30 : 0}/30) Type(${typeMatch ? 10 : 0}/10) Desc(${descScore}/40, ${descSimilarity.toFixed(3)}) Date(${dateScore}/20)
+        Scores: Amount(${amountMatch ? 30 : 0}/30) Type(${typeMatch ? 10 : 0}/10) Desc(${descScore}/40, ${descSimilarity.toFixed(3)}) Date(${dateScore}/20, ${daysDifference}d)
         Final: ${finalScore}%`);
     }
 
@@ -686,14 +690,24 @@ export class DuplicateDetectionService {
     }
   }
 
-  private amountsMatch(amount1: number, type1: 'income' | 'expense', amount2: number, type2: 'income' | 'expense'): boolean {
+  private amountsMatch(
+    amount1: number,
+    type1: 'income' | 'expense',
+    amount2: number,
+    type2: 'income' | 'expense',
+    tolerance: number = 0.01 // Default $0.01 tolerance for floating-point differences
+  ): boolean {
     // Only compare if same transaction type
     if (type1 !== type2) return false;
-    
+
     const normalized1 = this.normalizeAmount(amount1, type1);
     const normalized2 = this.normalizeAmount(amount2, type2);
-    
-    return normalized1 === normalized2;
+
+    // Exact match
+    if (normalized1 === normalized2) return true;
+
+    // Near match within tolerance (handles floating-point rounding and currency conversion)
+    return Math.abs(normalized1 - normalized2) <= tolerance;
   }
 
   private isSimilarDescription(desc1: string, desc2: string): boolean {
