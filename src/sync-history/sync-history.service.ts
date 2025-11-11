@@ -90,10 +90,10 @@ export class SyncHistoryService {
       status = SyncStatus.PARTIAL;
     }
 
-    // Get import log IDs from results
+    // Get import log IDs from results (filter out undefined and 0 which are invalid IDs)
     const importLogIds = importResult.importResults
       .map((r) => r.importLogId)
-      .filter((id) => id !== undefined);
+      .filter((id) => id !== undefined && id > 0);
 
     // Fetch import logs
     const importLogs =

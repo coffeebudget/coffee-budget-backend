@@ -51,9 +51,8 @@ export class SyncReport {
   @Column({ type: 'int' })
   totalPendingDuplicates: number;
 
-  // Note: ImportLog relation will be added in Phase 2
-  // For now, we'll manually attach importLogs in the service
-  importLogs?: ImportLog[];
+  @OneToMany(() => ImportLog, (importLog) => importLog.syncReport)
+  importLogs: ImportLog[];
 
   @Column({ default: 'automatic' })
   syncType: string;
