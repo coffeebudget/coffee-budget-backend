@@ -21,6 +21,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MerchantCategorizationModule } from './merchant-categorization/merchant-categorization.module';
+import { SyncHistoryModule } from './sync-history/sync-history.module';
 
 import databaseConfig from './config/database.config';
 
@@ -79,6 +80,7 @@ import databaseConfig from './config/database.config';
     DashboardModule,
     GocardlessModule,
     MerchantCategorizationModule,
+    SyncHistoryModule,
   ],
   controllers: [AppController],
   providers: [
