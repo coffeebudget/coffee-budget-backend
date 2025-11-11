@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/user.entity';
+import { SyncReport } from '../../sync-history/entities/sync-report.entity';
 
 export enum ImportStatus {
   PENDING = 'pending',
@@ -23,6 +24,11 @@ export class ImportLog {
 
   @ManyToOne(() => User)
   user: User;
+
+  @ManyToOne(() => SyncReport, (syncReport) => syncReport.importLogs, {
+    nullable: true,
+  })
+  syncReport?: SyncReport;
 
   @Column({ type: 'enum', enum: ImportStatus, default: ImportStatus.PENDING })
   status: ImportStatus;

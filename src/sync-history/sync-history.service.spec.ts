@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SyncHistoryService } from './sync-history.service';
 import { SyncReport, SyncStatus } from './entities/sync-report.entity';
@@ -418,6 +418,156 @@ describe('SyncHistoryService', () => {
       await expect(
         service.createSyncReport(userId, importResult, syncStartTime),
       ).rejects.toThrow('User not found');
+    });
+
+    it('should link ImportLogs to SyncReport', async () => {
+      // Arrange
+      const userId = 1;
+      const syncStartTime = new Date('2025-11-11T09:00:00Z');
+      const importResult = {
+        summary: {
+          totalAccounts: 2,
+          successfulImports: 2,
+          failedImports: 0,
+          totalNewTransactions: 35,
+          totalDuplicates: 15,
+          totalPendingDuplicates: 3,
+        },
+        importResults: [
+          {
+            accountId: 'abc123',
+            accountName: 'Fineco',
+            accountType: 'bank_account',
+            success: true,
+            newTransactions: 15,
+            duplicates: 5,
+            pendingDuplicates: 2,
+            importLogId: 1,
+          },
+          {
+            accountId: 'def456',
+            accountName: 'UniCredit',
+            accountType: 'bank_account',
+            success: true,
+            newTransactions: 20,
+            duplicates: 10,
+            pendingDuplicates: 1,
+            importLogId: 2,
+          },
+        ],
+      };
+
+      const mockSyncReport: SyncReport = {
+        id: 1,
+        user: mockUser,
+        status: SyncStatus.SUCCESS,
+        syncStartedAt: syncStartTime,
+        syncCompletedAt: new Date('2025-11-11T09:15:00Z'),
+        totalAccounts: 2,
+        successfulAccounts: 2,
+        failedAccounts: 0,
+        totalNewTransactions: 35,
+        totalDuplicates: 15,
+        totalPendingDuplicates: 3,
+        importLogs: mockImportLogs.slice(0, 2), // First 2 import logs
+        syncType: 'automatic',
+        accountResults: importResult.importResults,
+        errorMessage: null,
+        createdAt: new Date('2025-11-11T09:15:00Z'),
+        updatedAt: new Date('2025-11-11T09:15:00Z'),
+      };
+
+      (userRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
+      (importLogRepository.find as jest.Mock).mockResolvedValue(
+        mockImportLogs.slice(0, 2),
+      );
+      (syncReportRepository.create as jest.Mock).mockReturnValue(
+        mockSyncReport,
+      );
+      (syncReportRepository.save as jest.Mock).mockResolvedValue(
+        mockSyncReport,
+      );
+
+      // Act
+      const result = await service.createSyncReport(
+        userId,
+        importResult,
+        syncStartTime,
+      );
+
+      // Assert
+      expect(importLogRepository.find).toHaveBeenCalledWith({
+        where: { id: In([1, 2]) },
+      });
+      expect(result.importLogs).toHaveLength(2);
+      expect(result.importLogs).toEqual(mockImportLogs.slice(0, 2));
+    });
+
+    it('should handle empty ImportLogs array when no importLogIds provided', async () => {
+      // Arrange
+      const userId = 1;
+      const syncStartTime = new Date('2025-11-11T09:00:00Z');
+      const importResult = {
+        summary: {
+          totalAccounts: 1,
+          successfulImports: 1,
+          failedImports: 0,
+          totalNewTransactions: 10,
+          totalDuplicates: 5,
+          totalPendingDuplicates: 1,
+        },
+        importResults: [
+          {
+            accountId: 'abc123',
+            accountName: 'Fineco',
+            accountType: 'bank_account',
+            success: true,
+            newTransactions: 10,
+            duplicates: 5,
+            pendingDuplicates: 1,
+            importLogId: 0, // No valid importLogId
+          },
+        ],
+      };
+
+      const mockSyncReport: SyncReport = {
+        id: 1,
+        user: mockUser,
+        status: SyncStatus.SUCCESS,
+        syncStartedAt: syncStartTime,
+        syncCompletedAt: new Date('2025-11-11T09:15:00Z'),
+        totalAccounts: 1,
+        successfulAccounts: 1,
+        failedAccounts: 0,
+        totalNewTransactions: 10,
+        totalDuplicates: 5,
+        totalPendingDuplicates: 1,
+        importLogs: [],
+        syncType: 'automatic',
+        accountResults: importResult.importResults,
+        errorMessage: null,
+        createdAt: new Date('2025-11-11T09:15:00Z'),
+        updatedAt: new Date('2025-11-11T09:15:00Z'),
+      };
+
+      (userRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
+      (syncReportRepository.create as jest.Mock).mockReturnValue(
+        mockSyncReport,
+      );
+      (syncReportRepository.save as jest.Mock).mockResolvedValue(
+        mockSyncReport,
+      );
+
+      // Act
+      const result = await service.createSyncReport(
+        userId,
+        importResult,
+        syncStartTime,
+      );
+
+      // Assert
+      expect(importLogRepository.find).not.toHaveBeenCalled();
+      expect(result.importLogs).toEqual([]);
     });
   });
 
