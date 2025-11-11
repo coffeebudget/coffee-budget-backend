@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { SyncReport, SyncStatus } from './entities/sync-report.entity';
@@ -219,5 +219,26 @@ export class SyncHistoryService {
       totalDuplicates,
       averageTransactionsPerSync,
     };
+  }
+
+  async getSyncReportById(
+    syncReportId: number,
+    userId: number,
+  ): Promise<SyncReport> {
+    const syncReport = await this.syncReportRepository.findOne({
+      where: { id: syncReportId },
+      relations: ['importLogs', 'user'],
+    });
+
+    if (!syncReport) {
+      throw new NotFoundException('Sync report not found');
+    }
+
+    // Check if the user owns this sync report
+    if (syncReport.user.id !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return syncReport;
   }
 }
