@@ -839,4 +839,92 @@ describe('SyncHistoryService', () => {
       });
     });
   });
+
+  describe('getSyncReportById', () => {
+    it('should return sync report with relations when user owns it', async () => {
+      // Arrange
+      const userId = 1;
+      const syncReportId = 1;
+      const mockSyncReport = {
+        id: 1,
+        user: { id: userId },
+        status: SyncStatus.SUCCESS,
+        syncStartedAt: new Date('2025-11-11T09:00:00Z'),
+        syncCompletedAt: new Date('2025-11-11T09:15:00Z'),
+        totalAccounts: 2,
+        successfulAccounts: 2,
+        failedAccounts: 0,
+        totalNewTransactions: 35,
+        totalDuplicates: 15,
+        totalPendingDuplicates: 3,
+        importLogs: mockImportLogs.slice(0, 2),
+        syncType: 'automatic',
+        accountResults: [],
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      (syncReportRepository.findOne as jest.Mock).mockResolvedValue(
+        mockSyncReport,
+      );
+
+      // Act
+      const result = await service.getSyncReportById(syncReportId, userId);
+
+      // Assert
+      expect(result).toEqual(mockSyncReport);
+      expect(syncReportRepository.findOne).toHaveBeenCalledWith({
+        where: { id: syncReportId },
+        relations: ['importLogs', 'user'],
+      });
+    });
+
+    it('should throw NotFoundException when sync report does not exist', async () => {
+      // Arrange
+      const userId = 1;
+      const syncReportId = 999;
+
+      (syncReportRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      // Act & Assert
+      await expect(
+        service.getSyncReportById(syncReportId, userId),
+      ).rejects.toThrow('Sync report not found');
+    });
+
+    it('should throw ForbiddenException when user does not own sync report', async () => {
+      // Arrange
+      const userId = 1;
+      const syncReportId = 1;
+      const mockSyncReport = {
+        id: 1,
+        user: { id: 2 }, // Different user
+        status: SyncStatus.SUCCESS,
+        syncStartedAt: new Date('2025-11-11T09:00:00Z'),
+        syncCompletedAt: new Date('2025-11-11T09:15:00Z'),
+        totalAccounts: 2,
+        successfulAccounts: 2,
+        failedAccounts: 0,
+        totalNewTransactions: 35,
+        totalDuplicates: 15,
+        totalPendingDuplicates: 3,
+        importLogs: [],
+        syncType: 'automatic',
+        accountResults: [],
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      (syncReportRepository.findOne as jest.Mock).mockResolvedValue(
+        mockSyncReport,
+      );
+
+      // Act & Assert
+      await expect(
+        service.getSyncReportById(syncReportId, userId),
+      ).rejects.toThrow('Access denied');
+    });
+  });
 });
