@@ -9,7 +9,7 @@ describe('SyncHistoryController', () => {
   let service: SyncHistoryService;
 
   const mockUser = {
-    userId: 1,
+    id: 1,
     auth0Id: 'auth0|123456',
     email: 'test@example.com',
   };
