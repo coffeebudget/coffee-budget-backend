@@ -47,7 +47,7 @@ export class SyncHistoryController {
     if (status) {
       options.status = status;
     }
-    return this.syncHistoryService.getUserSyncHistory(user.userId, options);
+    return this.syncHistoryService.getUserSyncHistory(user.id, options);
   }
 
   @Get('statistics')
@@ -62,7 +62,7 @@ export class SyncHistoryController {
     @CurrentUser() user: any,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number = 30,
   ) {
-    return this.syncHistoryService.getSyncStatistics(user.userId, days);
+    return this.syncHistoryService.getSyncStatistics(user.id, days);
   }
 
   @Get(':id')
@@ -79,6 +79,6 @@ export class SyncHistoryController {
     @CurrentUser() user: any,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.syncHistoryService.getSyncReportById(id, user.userId);
+    return this.syncHistoryService.getSyncReportById(id, user.id);
   }
 }
