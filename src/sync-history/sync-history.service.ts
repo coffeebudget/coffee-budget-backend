@@ -37,7 +37,7 @@ interface PaginationOptions {
   status?: SyncStatus;
 }
 
-interface PaginatedSyncReports {
+export interface PaginatedSyncReports {
   data: SyncReport[];
   total: number;
   page: number;
@@ -45,7 +45,7 @@ interface PaginatedSyncReports {
   totalPages: number;
 }
 
-interface SyncStatistics {
+export interface SyncStatistics {
   totalSyncs: number;
   successfulSyncs: number;
   failedSyncs: number;
