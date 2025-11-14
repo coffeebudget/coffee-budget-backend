@@ -46,9 +46,9 @@ export class MarkHistoricalMigrationsAsRun1700000000000
       await queryRunner.query(
         `
         INSERT INTO migrations (timestamp, name)
-        SELECT $1, $2
+        SELECT $1::bigint, $2::varchar
         WHERE NOT EXISTS (
-          SELECT 1 FROM migrations WHERE timestamp = $1 AND name = $2
+          SELECT 1 FROM migrations WHERE timestamp = $1::bigint AND name = $2::varchar
         )
         `,
         [migration.timestamp, migration.name],
