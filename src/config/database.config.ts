@@ -69,6 +69,8 @@ export default registerAs('database', () => {
         password: url.password,
         database: url.pathname.substring(1), // Remove leading slash
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+        migrationsRun: process.env.NODE_ENV === 'production',
         synchronize: process.env.NODE_ENV !== 'production',
         logging: process.env.DB_LOGGING === 'true',
       };
@@ -110,6 +112,8 @@ export default registerAs('database', () => {
             password,
             database,
             entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+            migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+            migrationsRun: process.env.NODE_ENV === 'production',
             synchronize: process.env.NODE_ENV !== 'production',
             logging: process.env.DB_LOGGING === 'true',
           };
@@ -158,6 +162,8 @@ export default registerAs('database', () => {
       password,
       database,
       entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+      migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+      migrationsRun: process.env.NODE_ENV === 'production',
       synchronize: process.env.NODE_ENV !== 'production',
       logging: process.env.DB_LOGGING === 'true',
     };
