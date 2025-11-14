@@ -1,9 +1,9 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddSuggestedCategoryToTransaction1745434451
+export class AddSuggestedCategoryToTransaction1745434451000
   implements MigrationInterface
 {
-  name = 'AddSuggestedCategoryToTransaction1745434451';
+  name = 'AddSuggestedCategoryToTransaction1745434451000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add suggestedCategoryName column

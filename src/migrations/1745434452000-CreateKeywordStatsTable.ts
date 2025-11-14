@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateKeywordStatsTable1745434452 implements MigrationInterface {
-  name = 'CreateKeywordStatsTable1745434452';
+export class CreateKeywordStatsTable1745434452000 implements MigrationInterface {
+  name = 'CreateKeywordStatsTable1745434452000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
