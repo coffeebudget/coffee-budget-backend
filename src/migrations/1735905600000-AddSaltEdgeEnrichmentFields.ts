@@ -4,7 +4,9 @@ export class AddSaltEdgeEnrichmentFields1735905600000
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.addColumns('transaction', [
+    const table = await queryRunner.getTable('transaction');
+
+    const columnsToAdd = [
       new TableColumn({
         name: 'saltEdgeCategory',
         type: 'varchar',
@@ -27,15 +29,32 @@ export class AddSaltEdgeEnrichmentFields1735905600000
         scale: 2,
         isNullable: true,
       }),
-    ]);
+    ];
+
+    // Only add columns that don't exist
+    for (const column of columnsToAdd) {
+      const hasColumn = table?.columns.some((c) => c.name === column.name);
+      if (!hasColumn) {
+        await queryRunner.addColumn('transaction', column);
+      }
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropColumns('transaction', [
+    const table = await queryRunner.getTable('transaction');
+    const columnsToRemove = [
       'saltEdgeCategory',
       'saltEdgeMerchantId',
       'saltEdgeMerchantName',
       'categorizationConfidence',
-    ]);
+    ];
+
+    // Only drop columns that exist
+    for (const columnName of columnsToRemove) {
+      const hasColumn = table?.columns.some((c) => c.name === columnName);
+      if (hasColumn) {
+        await queryRunner.dropColumn('transaction', columnName);
+      }
+    }
   }
 }
