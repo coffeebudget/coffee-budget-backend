@@ -6,6 +6,12 @@ export class CreateSyncReportsTable17500000000015
   name = 'CreateSyncReportsTable17500000000015';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Check if table already exists
+    const tableExists = await queryRunner.hasTable('sync_reports');
+    if (tableExists) {
+      return;
+    }
+
     // Create sync_reports table
     await queryRunner.createTable(
       new Table({
