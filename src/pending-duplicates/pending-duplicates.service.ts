@@ -47,9 +47,8 @@ export class PendingDuplicatesService {
     const pendingDuplicate = new PendingDuplicate();
 
     // Then set properties
-    pendingDuplicate.existingTransactionData = existingTransaction
-      ? JSON.stringify(existingTransaction)
-      : null;
+    // Store as objects, not strings - TypeORM 'json' column type expects objects
+    pendingDuplicate.existingTransactionData = existingTransaction || null;
     pendingDuplicate.newTransactionData = newTransactionData;
     pendingDuplicate.user = { id: userId } as User;
     pendingDuplicate.resolved = false;
