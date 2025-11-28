@@ -1,9 +1,9 @@
 import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
 
-export class CreateSyncReportsTable1750000000001
+export class CreateSyncReportsTable1749999999999
   implements MigrationInterface
 {
-  name = 'CreateSyncReportsTable1750000000001';
+  name = 'CreateSyncReportsTable1749999999999';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Check if table already exists
