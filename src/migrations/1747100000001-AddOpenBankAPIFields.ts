@@ -22,7 +22,7 @@ export class AddOpenBankAPIFields1747100000001 implements MigrationInterface {
         'transaction',
         new TableIndex({
           name: 'IDX_TRANSACTION_OPENBANK_API_UNIQUE',
-          columnNames: ['user', 'transactionIdOpenBankAPI', 'source'],
+          columnNames: ['userId', 'transactionIdOpenBankAPI', 'source'],
           isUnique: true,
           where: '"transactionIdOpenBankAPI" IS NOT NULL',
         }),
