@@ -4,6 +4,12 @@ export class CreateKeywordStatsTable1745434452000 implements MigrationInterface 
   name = 'CreateKeywordStatsTable1745434452000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Check if table already exists
+    const tableExists = await queryRunner.hasTable('keyword_stats');
+    if (tableExists) {
+      return;
+    }
+
     await queryRunner.query(`
       CREATE TABLE "keyword_stats" (
         "id" SERIAL NOT NULL,

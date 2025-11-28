@@ -4,6 +4,12 @@ export class CreateMerchantCategorizationTables1750000000000 implements Migratio
   name = 'CreateMerchantCategorizationTables1750000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Check if table already exists
+    const tableExists = await queryRunner.hasTable('merchant_categorization');
+    if (tableExists) {
+      return;
+    }
+
     // Create merchant_categorization table
     await queryRunner.createTable(
       new Table({
