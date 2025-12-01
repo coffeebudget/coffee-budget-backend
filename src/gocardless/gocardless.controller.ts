@@ -6,6 +6,8 @@ import {
   Param,
   Query,
   UseGuards,
+  Headers,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
@@ -15,6 +17,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { GocardlessService } from './gocardless.service';
+import { GocardlessSchedulerService } from './gocardless-scheduler.service';
 import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
 import {
@@ -35,7 +38,10 @@ import {
 @Controller('gocardless')
 @UseGuards(AuthGuard('jwt'))
 export class GocardlessController {
-  constructor(private readonly gocardlessService: GocardlessService) {}
+  constructor(
+    private readonly gocardlessService: GocardlessService,
+    private readonly schedulerService: GocardlessSchedulerService,
+  ) {}
 
   @Post('token')
   @ApiOperation({ summary: 'Create GoCardless access token' })

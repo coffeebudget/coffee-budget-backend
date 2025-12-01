@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GocardlessController } from './gocardless.controller';
+import { GocardlessCronController } from './gocardless-cron.controller';
 import { GocardlessService } from './gocardless.service';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
@@ -15,7 +16,7 @@ import { SyncHistoryModule } from '../sync-history/sync-history.module';
     TypeOrmModule.forFeature([BankAccount, CreditCard, User]),
     SyncHistoryModule,
   ],
-  controllers: [GocardlessController],
+  controllers: [GocardlessController, GocardlessCronController],
   providers: [GocardlessService, GocardlessSchedulerService],
   exports: [GocardlessService],
 })
