@@ -23,6 +23,7 @@ export class TransactionDuplicateService {
 
   /**
    * Find potential duplicate transaction based on amount, type, and execution date
+   * Uses $0.01 tolerance for amount matching to handle floating-point precision
    */
   async findPotentialDuplicate(
     amount: number,
@@ -37,19 +38,27 @@ export class TransactionDuplicateService {
     // Calculate date range for duplicate detection (±1 day)
     const startDate = new Date(executionDate);
     startDate.setDate(startDate.getDate() - 1);
-    
+
     const endDate = new Date(executionDate);
     endDate.setDate(endDate.getDate() + 1);
 
-    const duplicateTransaction = await this.transactionRepository.findOne({
-      where: {
-        user: { id: userId },
+    // Use QueryBuilder to apply amount tolerance
+    const tolerance = 0.01; // $0.01 tolerance
+    const duplicateTransaction = await this.transactionRepository
+      .createQueryBuilder('transaction')
+      .innerJoin('transaction.user', 'user')
+      .where('user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type })
+      .andWhere('transaction.executionDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .andWhere('ABS(transaction.amount - :amount) <= :tolerance', {
         amount,
-        type,
-        executionDate: Between(startDate, endDate),
-      },
-      order: { createdAt: 'DESC' },
-    });
+        tolerance,
+      })
+      .orderBy('transaction.createdAt', 'DESC')
+      .getOne();
 
     return duplicateTransaction;
   }

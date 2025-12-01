@@ -131,20 +131,36 @@ describe('TransactionDuplicateService', () => {
       const executionDate = new Date('2024-01-15');
       const userId = 1;
 
-      transactionRepository.findOne.mockResolvedValue(mockDuplicateTransaction);
+      // Mock QueryBuilder chain
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
 
       expect(result).toEqual(mockDuplicateTransaction);
-      expect(transactionRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          user: { id: userId },
-          amount,
-          type,
-          executionDate: expect.any(Object),
-        },
-        order: { createdAt: 'DESC' },
-      });
+      expect(transactionRepository.createQueryBuilder).toHaveBeenCalledWith('transaction');
+      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith('transaction.user', 'user');
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('user.id = :userId', { userId });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.type = :type', { type });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'transaction.executionDate BETWEEN :startDate AND :endDate',
+        expect.objectContaining({
+          startDate: expect.any(Date),
+          endDate: expect.any(Date),
+        }),
+      );
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'ABS(transaction.amount - :amount) <= :tolerance',
+        { amount, tolerance: 0.01 },
+      );
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('transaction.createdAt', 'DESC');
+      expect(mockQueryBuilder.getOne).toHaveBeenCalled();
     });
 
     it('should return null when no duplicate found', async () => {
@@ -153,7 +169,15 @@ describe('TransactionDuplicateService', () => {
       const executionDate = new Date('2024-01-15');
       const userId = 1;
 
-      transactionRepository.findOne.mockResolvedValue(null);
+      // Mock QueryBuilder chain returning null
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
 
@@ -167,32 +191,44 @@ describe('TransactionDuplicateService', () => {
       const userId = 1;
 
       const incomeTransaction = { ...mockDuplicateTransaction, amount: 100, type: 'income' as const };
-      transactionRepository.findOne.mockResolvedValue(incomeTransaction as any);
+
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(incomeTransaction),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
 
       expect(result).toEqual(incomeTransaction);
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.type = :type', { type: 'income' });
     });
 
-    it('should handle date range queries correctly', async () => {
+    it('should apply $0.01 tolerance to amount matching', async () => {
       const amount = -100;
       const type = 'expense';
       const executionDate = new Date('2024-01-15');
       const userId = 1;
 
-      transactionRepository.findOne.mockResolvedValue(mockDuplicateTransaction);
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       await service.findPotentialDuplicate(amount, type, executionDate, userId);
 
-      expect(transactionRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          user: { id: userId },
-          amount,
-          type,
-          executionDate: expect.any(Object),
-        },
-        order: { createdAt: 'DESC' },
-      });
+      // Verify tolerance is applied in the query
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'ABS(transaction.amount - :amount) <= :tolerance',
+        { amount: -100, tolerance: 0.01 },
+      );
     });
   });
 
@@ -588,7 +624,15 @@ describe('TransactionDuplicateService', () => {
       const userId = 1;
       const error = new Error('Database connection failed');
 
-      transactionRepository.findOne.mockRejectedValue(error);
+      // Mock QueryBuilder throwing error
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockRejectedValue(error),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       await expect(service.findPotentialDuplicate(amount, type, executionDate, userId)).rejects.toThrow(
         'Database connection failed',
@@ -620,8 +664,15 @@ describe('TransactionDuplicateService', () => {
         categoryId: 1,
       };
 
-      // Mock finding a potential duplicate
-      transactionRepository.findOne.mockResolvedValue(mockDuplicateTransaction);
+      // Mock finding a potential duplicate using QueryBuilder
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       // Mock duplicate confirmation
       jest.spyOn(service, 'handleDuplicateConfirmation').mockResolvedValue(mockTransaction);
@@ -657,8 +708,15 @@ describe('TransactionDuplicateService', () => {
         categoryId: 1,
       };
 
-      // Mock no duplicate found
-      transactionRepository.findOne.mockResolvedValue(null);
+      // Mock no duplicate found using QueryBuilder
+      const mockQueryBuilder = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(null),
+      };
+      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
 
       const duplicate = await service.findPotentialDuplicate(
         createDto.amount,

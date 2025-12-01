@@ -654,11 +654,12 @@ export class DuplicateDetectionService {
     const pendingDuplicate = new PendingDuplicate();
 
     pendingDuplicate.existingTransaction = originalTransaction;
-    pendingDuplicate.existingTransactionData = JSON.stringify({
+    // Store as object, not string - TypeORM 'json' column type expects objects
+    pendingDuplicate.existingTransactionData = {
       ...originalTransaction,
       detectionReason: reason,
       confidence,
-    });
+    };
     pendingDuplicate.newTransactionData = {
       ...duplicateTransaction,
       id: duplicateTransaction.id,
