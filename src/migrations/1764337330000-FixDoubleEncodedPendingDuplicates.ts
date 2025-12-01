@@ -7,17 +7,17 @@ export class FixDoubleEncodedPendingDuplicates1732804800000
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Fix double-encoded JSON in existingTransactionData
-    // PostgreSQL can parse the double-encoded JSON string and store it as proper JSON
+    // Cast json to jsonb first, then check if it's a string type
     await queryRunner.query(`
       UPDATE pending_duplicates
-      SET "existingTransactionData" = 
-        CASE 
-          WHEN jsonb_typeof("existingTransactionData") = 'string' 
-          THEN ("existingTransactionData"#>>'{}')::jsonb
+      SET "existingTransactionData" =
+        CASE
+          WHEN jsonb_typeof("existingTransactionData"::jsonb) = 'string'
+          THEN ("existingTransactionData"#>>'{}')::json
           ELSE "existingTransactionData"
         END
       WHERE "existingTransactionData" IS NOT NULL
-        AND jsonb_typeof("existingTransactionData") = 'string';
+        AND jsonb_typeof("existingTransactionData"::jsonb) = 'string';
     `);
   }
 
