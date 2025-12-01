@@ -779,7 +779,30 @@ export class TransactionsService {
             continue;
           }
 
-          // Use advanced duplicate detection
+          // PRIORITY 1: Check for exact match using transactionIdOpenBankAPI (100% accurate)
+          if (transactionData.transactionIdOpenBankAPI) {
+            const existingByApiId = await this.transactionsRepository.findOne({
+              where: {
+                user: { id: userId },
+                transactionIdOpenBankAPI: transactionData.transactionIdOpenBankAPI,
+                source: 'gocardless',
+              },
+            });
+
+            if (existingByApiId) {
+              duplicatesCount++;
+              this.logger.log(
+                `Prevented duplicate using API ID: ${transactionData.description} (API ID: ${transactionData.transactionIdOpenBankAPI})`,
+              );
+              await this.importLogsService.appendToLog(
+                importLog.id,
+                `Prevented duplicate using API ID: ${transactionData.description}`,
+              );
+              continue; // Skip this transaction - exact duplicate found
+            }
+          }
+
+          // PRIORITY 2: Use similarity-based duplicate detection for transactions without API ID
           const duplicateCheck = await this.transactionOperationsService
             .duplicateDetectionService.checkForDuplicateBeforeCreation(
               {
