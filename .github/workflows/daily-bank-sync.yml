@@ -1,0 +1,51 @@
+name: Daily Bank Sync
+
+on:
+  schedule:
+    # Run at 9:00 AM UTC daily (10:00 AM CET / 11:00 AM CEST)
+    - cron: '0 9 * * *'
+
+  # Allow manual trigger from GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  trigger-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Daily Bank Sync
+        run: |
+          echo "🔄 Triggering daily bank sync..."
+
+          response=$(curl -X POST \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -s -w "\n%{http_code}" \
+            https://coffee-budget-backend-production.up.railway.app/cron/daily-bank-sync)
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n-1)
+
+          echo "📊 Response:"
+          echo "$body"
+          echo ""
+          echo "Status Code: $http_code"
+
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Daily sync completed successfully"
+            exit 0
+          else
+            echo "❌ Daily sync failed with status $http_code"
+            echo "Response body: $body"
+            exit 1
+          fi
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "⚠️ Daily bank sync failed!"
+          echo "Check the logs above for details."
+          echo "You may need to:"
+          echo "  - Verify CRON_SECRET is set in GitHub repository secrets"
+          echo "  - Check Railway backend is running"
+          echo "  - Review Railway logs for errors"
