@@ -221,7 +221,14 @@ export class DuplicateDetectionService {
         Math.floor((newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24))
       );
 
-      // Graduated scoring based on date proximity
+      // Early rejection for transactions too far apart in time
+      // Rationale: 14-day window captures bank delays and CSV import timing
+      // while rejecting clearly unrelated transactions (recurring patterns from different months)
+      if (daysDifference > 14) {
+        return 0; // Not a duplicate - too far apart in time
+      }
+
+      // Graduated scoring based on date proximity (only for transactions within 14 days)
       if (daysDifference === 0) {
         dateScore = 20; // Same day - 100%
       } else if (daysDifference === 1) {
