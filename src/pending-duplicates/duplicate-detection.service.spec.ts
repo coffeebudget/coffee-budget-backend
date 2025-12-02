@@ -150,7 +150,7 @@ describe('DuplicateDetectionService', () => {
         expect(result.shouldCreatePending).toBe(true);
       });
 
-      it('should NOT detect duplicates with >7 days difference (0% date score)', async () => {
+      it('should detect duplicates with 8-14 days difference (0% date score but within threshold)', async () => {
         const existingTransaction = {
           id: 1,
           description: 'Netflix Subscription',
@@ -173,6 +173,62 @@ describe('DuplicateDetectionService', () => {
         expect(result.similarityScore).toBeLessThan(90);
         expect(result.isDuplicate).toBe(true); // Still flagged due to high other scores
         expect(result.shouldCreatePending).toBe(true);
+      });
+
+      it('should NOT detect duplicates with >14 days difference (early rejection)', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'Netflix Subscription',
+          amount: 15.99,
+          type: 'expense',
+          executionDate: new Date('2025-01-30'), // +15 days
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          baseTransactionData,
+          userId,
+        );
+
+        // Early rejection due to >14 days difference
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
+      });
+
+      it('should NOT detect duplicates for recurring transactions from different months (647 days apart)', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'ATM Withdrawal',
+          amount: 50.00,
+          type: 'expense',
+          executionDate: new Date('2023-12-21'), // 647 days before
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const newTransactionData = {
+          description: 'ATM Withdrawal',
+          amount: 50.00,
+          type: 'expense' as const,
+          executionDate: new Date('2025-09-29'),
+          source: 'gocardless',
+        };
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          newTransactionData,
+          userId,
+        );
+
+        // Should be rejected immediately due to >14 days difference
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
       });
 
       it('should handle transactions with very different dates and descriptions', async () => {
@@ -372,7 +428,7 @@ describe('DuplicateDetectionService', () => {
         expect(result.confidence).toBe('high');
       });
 
-      it('should handle recurring payments with slight date variance', async () => {
+      it('should handle recurring payments from different months (NOT duplicates)', async () => {
         const existingTransaction = {
           id: 1,
           description: 'Spotify Premium',
@@ -389,7 +445,7 @@ describe('DuplicateDetectionService', () => {
           description: 'Spotify Premium',
           amount: 9.99,
           type: 'expense' as const,
-          executionDate: new Date('2025-01-15'), // Next month billing
+          executionDate: new Date('2025-01-15'), // Next month billing (32 days later)
           source: 'gocardless',
         };
 
@@ -398,9 +454,11 @@ describe('DuplicateDetectionService', () => {
           userId,
         );
 
-        // Should NOT flag as duplicate due to >7 days difference
-        // This is intentional - monthly subscriptions are not duplicates
-        expect(result.similarityScore).toBeLessThan(90);
+        // Should NOT flag as duplicate due to >14 days difference (32 days)
+        // This is intentional - monthly subscriptions are separate transactions, not duplicates
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
       });
 
       it('should handle GoCardless pending vs posted transactions', async () => {
