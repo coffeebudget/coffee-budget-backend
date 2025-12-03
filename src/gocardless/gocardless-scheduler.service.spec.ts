@@ -130,13 +130,18 @@ describe('GocardlessSchedulerService', () => {
       expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledTimes(
         2,
       );
+      // Verify both calls include dateFrom parameter (48 hours ago as Date object)
       expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledWith(
         1,
-        {},
+        expect.objectContaining({
+          dateFrom: expect.any(Date), // Date object for 48 hours ago
+        }),
       );
       expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledWith(
         2,
-        {},
+        expect.objectContaining({
+          dateFrom: expect.any(Date), // Date object for 48 hours ago
+        }),
       );
       expect(syncHistoryService.createSyncReport).toHaveBeenCalledTimes(2);
     });

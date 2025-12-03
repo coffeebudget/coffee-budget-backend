@@ -28,10 +28,19 @@ export class GocardlessSchedulerService {
 
       for (const user of users) {
         try {
-          this.logger.log(`Syncing accounts for user ${user.id}`);
+          // Calculate 48-hour lookback window for efficient daily sync
+          // This covers delayed transactions while avoiding redundant fetches
+          const now = new Date();
+          const dateFrom = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 48 hours ago
+
+          this.logger.log(
+            `Syncing accounts for user ${user.id} (fetching transactions from ${dateFrom.toISOString().split('T')[0]} onwards)`,
+          );
 
           const gocardlessResult =
-            await this.gocardlessService.importAllConnectedAccounts(user.id, {});
+            await this.gocardlessService.importAllConnectedAccounts(user.id, {
+              dateFrom,
+            });
 
           // Transform GocardlessService result to SyncHistoryService format
           const transformedResult = {
