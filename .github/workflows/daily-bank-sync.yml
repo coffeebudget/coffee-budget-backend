@@ -31,7 +31,7 @@ jobs:
           echo ""
           echo "Status Code: $http_code"
 
-          if [ "$http_code" -eq 200 ]; then
+          if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 201 ]; then
             echo "✅ Daily sync completed successfully"
             exit 0
           else
