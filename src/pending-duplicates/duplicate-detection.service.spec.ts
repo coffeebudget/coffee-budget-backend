@@ -492,5 +492,135 @@ describe('DuplicateDetectionService', () => {
         expect(result.shouldCreatePending).toBe(true);
       });
     });
+
+    describe('Invalid Amount Validation', () => {
+      it('should NOT detect duplicates when new transaction has negative amount', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: 6.15,
+          type: 'expense',
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const newTransactionData = {
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: -2.8, // Invalid: negative amount
+          type: 'expense' as const,
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+        };
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          newTransactionData,
+          userId,
+        );
+
+        // Should reject due to negative amount (invalid data)
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
+      });
+
+      it('should NOT detect duplicates when existing transaction has negative amount', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: -2.8, // Invalid: negative amount
+          type: 'expense',
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const newTransactionData = {
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: 6.15,
+          type: 'expense' as const,
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+        };
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          newTransactionData,
+          userId,
+        );
+
+        // Should reject due to negative amount (invalid data)
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
+      });
+
+      it('should NOT detect duplicates when both transactions have negative amounts', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: -2.8, // Invalid: negative amount
+          type: 'expense',
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const newTransactionData = {
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: -2.8, // Invalid: negative amount
+          type: 'expense' as const,
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+        };
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          newTransactionData,
+          userId,
+        );
+
+        // Should reject due to negative amounts (invalid data)
+        expect(result.isDuplicate).toBe(false);
+        expect(result.similarityScore).toBe(0);
+        expect(result.shouldCreatePending).toBe(false);
+      });
+
+      it('should still detect duplicates when both amounts are positive and valid', async () => {
+        const existingTransaction = {
+          id: 1,
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: 2.8, // Valid: positive amount
+          type: 'expense',
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+          createdAt: new Date(),
+        } as Transaction;
+
+        transactionRepository.find.mockResolvedValue([existingTransaction]);
+
+        const newTransactionData = {
+          description: 'PELLEGRINI UN ROMA IT',
+          amount: 2.8, // Valid: positive amount
+          type: 'expense' as const,
+          executionDate: new Date('2025-11-25'),
+          source: 'gocardless',
+        };
+
+        const result = await service.checkForDuplicateBeforeCreation(
+          newTransactionData,
+          userId,
+        );
+
+        // Should detect as duplicate (valid positive amounts)
+        expect(result.isDuplicate).toBe(true);
+        expect(result.similarityScore).toBe(100);
+        expect(result.shouldPrevent).toBe(true);
+      });
+    });
   });
 });
