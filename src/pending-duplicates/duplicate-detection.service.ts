@@ -179,6 +179,16 @@ export class DuplicateDetectionService {
     let score = 0;
     let maxScore = 0;
 
+    // Early rejection: transactions with negative amounts are invalid data
+    // Our system stores all amounts as positive values and uses type field to indicate direction
+    // Negative amounts indicate data corruption or import issues
+    if (newTransaction.amount < 0 || existingTransaction.amount < 0) {
+      this.logger.warn(`Rejecting duplicate comparison - negative amount detected:
+        New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type}
+        Existing: ${existingTransaction.description} | ${existingTransaction.amount} | ${existingTransaction.type}`);
+      return 0; // Not a duplicate - invalid data
+    }
+
     // Amount match (30 points)
     maxScore += 30;
     const amountMatch = this.amountsMatch(
