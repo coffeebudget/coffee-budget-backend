@@ -357,8 +357,11 @@ export class CategoriesService {
               return category;
             }
           } else {
-            // Single word: check if it appears in description
-            if (normalizedDescription.includes(normalizedKeyword)) {
+            // Single word: check if it appears as a complete word in description
+            // Split description into words to avoid matching partial words
+            // (e.g., "coop" should match "coop lombardia" but not "cooperativa")
+            const descriptionWords = normalizedDescription.split(' ');
+            if (descriptionWords.includes(normalizedKeyword)) {
               return category;
             }
           }
