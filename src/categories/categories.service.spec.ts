@@ -495,4 +495,113 @@ describe('CategoriesService - Keyword Matching', () => {
       expect(allWordsMatch).toBe(true);
     });
   });
+
+  describe('Word Boundary Matching (Fix for "coop" vs "cooperativa")', () => {
+    const testWordBoundaryMatching = (
+      description: string,
+      keyword: string,
+    ): boolean => {
+      // Normalize keyword
+      const normalizedKeyword = keyword
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+      // Normalize description
+      const normalizedDescription = description
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+      // For multi-word keywords, check if all words appear in the description
+      if (normalizedKeyword.includes(' ')) {
+        const keywordWords = normalizedKeyword.split(' ');
+        const descriptionWords = normalizedDescription.split(' ');
+        return keywordWords.every((word) => descriptionWords.includes(word));
+      } else {
+        // Single word: check if it appears as a complete word in description
+        // Split description into words to avoid matching partial words
+        const descriptionWords = normalizedDescription.split(' ');
+        return descriptionWords.includes(normalizedKeyword);
+      }
+    };
+
+    test('should match "coop" in "COOP LOMBARDIA" (complete word)', () => {
+      const description = 'COOP LOMBARDIA S.C. STRADA PROVINCIALE';
+      const keyword = 'coop';
+
+      const result = testWordBoundaryMatching(description, keyword);
+
+      expect(result).toBe(true);
+    });
+
+    test('should NOT match "coop" in "cooperativa" (partial word)', () => {
+      const description = 'Bonifico a favore di cooperativa agricola';
+      const keyword = 'coop';
+
+      const result = testWordBoundaryMatching(description, keyword);
+
+      expect(result).toBe(false);
+    });
+
+    test('should match "coop" in "presso COOP" (complete word at end)', () => {
+      const description = 'Pagamento presso COOP';
+      const keyword = 'coop';
+
+      const result = testWordBoundaryMatching(description, keyword);
+
+      expect(result).toBe(true);
+    });
+
+    test('should match "esselunga" in "ESSELUNGA" but NOT in "essemercato"', () => {
+      const descriptionMatch = 'Pagamento ESSELUNGA VIA ROMA';
+      const descriptionNoMatch = 'Pagamento essemercato punto vendita';
+      const keyword = 'esselunga';
+
+      expect(testWordBoundaryMatching(descriptionMatch, keyword)).toBe(true);
+      expect(testWordBoundaryMatching(descriptionNoMatch, keyword)).toBe(false);
+    });
+
+    test('should still match multi-word keywords correctly', () => {
+      const description = 'Pag. del 01/12/25 ora 11:48 presso: COOP LOMBARDIA S.C.';
+      const keyword = 'coop lombardia';
+
+      const result = testWordBoundaryMatching(description, keyword);
+
+      expect(result).toBe(true);
+    });
+
+    test('should handle punctuation correctly with word boundaries', () => {
+      const testCases = [
+        {
+          description: 'Pag. presso: COOP, via Roma',
+          keyword: 'coop',
+          expected: true,
+          reason: 'Comma and colon should not prevent matching',
+        },
+        {
+          description: 'Bonifico COOP-LOMBARDIA servizi',
+          keyword: 'coop',
+          expected: true,
+          reason: 'Hyphen should split words',
+        },
+        {
+          description: 'Pagamento #COOP123',
+          keyword: 'coop',
+          expected: false,
+          reason: 'COOP123 is one word due to no separator',
+        },
+      ];
+
+      testCases.forEach((testCase) => {
+        const result = testWordBoundaryMatching(
+          testCase.description,
+          testCase.keyword,
+        );
+        expect(result).toBe(testCase.expected);
+      });
+    });
+  });
 });
