@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { GocardlessController } from './gocardless.controller';
 import { GocardlessService } from './gocardless.service';
+import { GocardlessSchedulerService } from './gocardless-scheduler.service';
 
 describe('GocardlessController', () => {
   let controller: GocardlessController;
@@ -24,6 +25,13 @@ describe('GocardlessController', () => {
             getAccountBalances: jest.fn(),
             getAccountTransactions: jest.fn(),
             getTransactionsFlow: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessSchedulerService,
+          useValue: {
+            dailyBankSync: jest.fn(),
+            getUsersWithGocardlessAccounts: jest.fn(),
           },
         },
       ],
