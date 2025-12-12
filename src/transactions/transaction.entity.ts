@@ -95,4 +95,48 @@ export class Transaction {
 
   @Column({ nullable: true, type: 'varchar' })
   creditorName: string | null;
+
+  // PayPal reconciliation fields (DEPRECATED - use enrichedFromPaymentActivityId instead)
+  @ManyToOne(() => Transaction, { nullable: true })
+  reconciledWithTransaction: Transaction | null;
+
+  @Column({
+    type: 'enum',
+    enum: ['not_reconciled', 'reconciled_as_primary', 'reconciled_as_secondary'],
+    default: 'not_reconciled',
+  })
+  reconciliationStatus: 'not_reconciled' | 'reconciled_as_primary' | 'reconciled_as_secondary';
+
+  // Payment Activity enrichment fields (NEW architecture)
+  /**
+   * Foreign key to PaymentActivity that enriched this transaction
+   * NULL if transaction was not enriched by payment activity
+   * When set, indicates this bank transaction was matched with a payment activity
+   */
+  @Column({ type: 'integer', nullable: true })
+  enrichedFromPaymentActivityId: number | null;
+
+  /**
+   * Original merchant name from bank transaction description
+   * Preserved before enrichment for audit trail
+   * Example: "PayPal Transfer" (original), "Starbucks" (enhanced)
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  originalMerchantName: string | null;
+
+  /**
+   * Enhanced merchant name from payment activity
+   * Replaces generic payment provider name with actual merchant
+   * Example: "Starbucks Seattle Store #123" from PayPal activity
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  enhancedMerchantName: string | null;
+
+  /**
+   * Confidence score for enrichment/categorization enhancement
+   * Based on payment activity reconciliation match quality
+   * Range: 0-100, NULL if not enriched
+   */
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  enhancedCategoryConfidence: number | null;
 }

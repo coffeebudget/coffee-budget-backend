@@ -5,6 +5,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { Tag } from '../tags/entities/tag.entity';
 import { Category } from '../categories/entities/category.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
+import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 
 @Entity()
 export class User {
@@ -49,4 +50,7 @@ export class User {
     { nullable: true },
   )
   recurringTransactions?: RecurringTransaction[] | null;
+
+  @OneToMany(() => PaymentAccount, (paymentAccount) => paymentAccount.user)
+  paymentAccounts: PaymentAccount[];
 }

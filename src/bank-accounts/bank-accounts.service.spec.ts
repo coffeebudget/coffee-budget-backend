@@ -33,6 +33,7 @@ describe('BankAccountsService', () => {
     transactions: null,
     tags: null,
     categories: null,
+    paymentAccounts: [],
   };
 
   const mockBankAccount: BankAccount = {

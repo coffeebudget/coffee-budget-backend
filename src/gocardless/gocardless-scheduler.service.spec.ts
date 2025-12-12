@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
 import { GocardlessService } from './gocardless.service';
+import { GocardlessPaypalReconciliationService } from './gocardless-paypal-reconciliation.service';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -28,6 +29,7 @@ describe('GocardlessSchedulerService', () => {
       tags: [],
       categories: [],
       recurringTransactions: [],
+      paymentAccounts: [],
     },
     {
       id: 2,
@@ -42,6 +44,7 @@ describe('GocardlessSchedulerService', () => {
       tags: [],
       categories: [],
       recurringTransactions: [],
+      paymentAccounts: [],
     },
   ];
 
@@ -90,6 +93,16 @@ describe('GocardlessSchedulerService', () => {
           provide: SyncHistoryService,
           useValue: {
             createSyncReport: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessPaypalReconciliationService,
+          useValue: {
+            processPayPalReconciliation: jest.fn().mockResolvedValue({
+              reconciledCount: 0,
+              unreconciledCount: 0,
+              unreconciledTransactions: [],
+            }),
           },
         },
         RepositoryMockFactory.createRepositoryProvider(User),
