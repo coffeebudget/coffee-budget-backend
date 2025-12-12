@@ -29,6 +29,13 @@ describe('TransactionBulkService', () => {
     isDemoUser: false,
     demoExpiryDate: new Date('2024-12-31'),
     demoActivatedAt: new Date('2024-01-01'),
+    bankAccounts: [],
+    creditCards: [],
+    transactions: [],
+    tags: [],
+    categories: [],
+    recurringTransactions: [],
+    paymentAccounts: [],
   } as any;
 
   const mockCategory = {
@@ -61,6 +68,12 @@ describe('TransactionBulkService', () => {
     merchantCategoryCode: null,
     debtorName: null,
     creditorName: null,
+    reconciledWithTransaction: null,
+    reconciliationStatus: 'not_reconciled' as const,
+    enrichedFromPaymentActivityId: null,
+    originalMerchantName: null,
+    enhancedMerchantName: null,
+    enhancedCategoryConfidence: null,
   } as Transaction;
 
   const mockTag = {

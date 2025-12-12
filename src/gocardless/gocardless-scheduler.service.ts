@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { User } from '../users/user.entity';
 import { GocardlessService } from './gocardless.service';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
+import { GocardlessPaypalReconciliationService } from './gocardless-paypal-reconciliation.service';
 
 @Injectable()
 export class GocardlessSchedulerService {
@@ -15,6 +16,7 @@ export class GocardlessSchedulerService {
     private readonly userRepository: Repository<User>,
     private readonly gocardlessService: GocardlessService,
     private readonly syncHistoryService: SyncHistoryService,
+    private readonly paypalReconciliationService: GocardlessPaypalReconciliationService,
   ) {}
 
   @Cron('0 9 * * *')
@@ -76,6 +78,26 @@ export class GocardlessSchedulerService {
           this.logger.log(
             `Successfully synced ${gocardlessResult.summary.totalAccounts} accounts for user ${user.id}`,
           );
+
+          // Process PayPal reconciliation after successful sync
+          try {
+            this.logger.log(
+              `Starting PayPal reconciliation for user ${user.id}`,
+            );
+            const reconciliationResult =
+              await this.paypalReconciliationService.processPayPalReconciliation(
+                user.id,
+              );
+            this.logger.log(
+              `PayPal reconciliation completed for user ${user.id}: ${reconciliationResult.reconciledCount} reconciled, ${reconciliationResult.unreconciledCount} unreconciled`,
+            );
+          } catch (reconciliationError) {
+            // Log error but don't fail the overall sync
+            this.logger.error(
+              `PayPal reconciliation failed for user ${user.id}: ${reconciliationError.message}`,
+              reconciliationError.stack,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to sync accounts for user ${user.id}: ${error.message}`,

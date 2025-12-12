@@ -27,6 +27,7 @@ describe('SyncHistoryService', () => {
     tags: [],
     categories: [],
     recurringTransactions: [],
+    paymentAccounts: [],
   };
 
   const mockImportLogs: ImportLog[] = [
