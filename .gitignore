@@ -69,3 +69,12 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 .prettierrc
+
+# Query results and debug output files (prevent credential leaks)
+*query-results*.txt
+*-results.txt
+*-output.txt
+*-debug.txt
+paypal-backup-*.json
+paypal-query-*.txt
+scripts/*-backup-*.json
