@@ -327,14 +327,31 @@ export class BudgetManagementService {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
-    // Get all transactions and calculate net impact per category (same logic as savings plan)
-    const allTransactions = await this.transactionsRepository
+    // 🔧 FIX: Get income transactions WITHOUT excludeFromExpenseAnalytics filter
+    // (excludeFromExpenseAnalytics should only exclude expenses, not income)
+    const incomeTransactions = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoin('transaction.category', 'category')
       .select('category.name', 'categoryName')
-      .addSelect('transaction.type', 'type')
       .addSelect('SUM(ABS(transaction.amount))', 'amount')
       .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :incomeType', { incomeType: 'income' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .groupBy('category.name')
+      .getRawMany();
+
+    // 🔧 FIX: Get expense transactions WITH excludeFromExpenseAnalytics filter
+    // (only exclude expenses from categories marked excludeFromExpenseAnalytics)
+    const expenseTransactions = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('category.name', 'categoryName')
+      .addSelect('SUM(ABS(transaction.amount))', 'amount')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :expenseType', { expenseType: 'expense' })
       .andWhere('transaction.executionDate BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
@@ -343,13 +360,13 @@ export class BudgetManagementService {
         '(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)',
       )
       .groupBy('category.name')
-      .addGroupBy('transaction.type')
       .getRawMany();
 
     // Calculate net per category
     const categoryNets: Record<string, { income: number; expense: number; net: number }> = {};
     
-    allTransactions.forEach((item) => {
+    // Process income transactions
+    incomeTransactions.forEach((item) => {
       const categoryName = item.categoryName || 'Uncategorized';
       const amount = Number(item.amount) || 0;
       
@@ -357,12 +374,23 @@ export class BudgetManagementService {
         categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
       }
       
-      if (item.type === 'income') {
-        categoryNets[categoryName].income += amount;
-      } else {
-        categoryNets[categoryName].expense += amount;
+      categoryNets[categoryName].income += amount;
+    });
+
+    // Process expense transactions
+    expenseTransactions.forEach((item) => {
+      const categoryName = item.categoryName || 'Uncategorized';
+      const amount = Number(item.amount) || 0;
+      
+      if (!categoryNets[categoryName]) {
+        categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
       }
       
+      categoryNets[categoryName].expense += amount;
+    });
+
+    // Calculate net flow for each category
+    Object.keys(categoryNets).forEach(categoryName => {
       categoryNets[categoryName].net = categoryNets[categoryName].income - categoryNets[categoryName].expense;
     });
 
@@ -380,13 +408,28 @@ export class BudgetManagementService {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
-    // Calcola totali direttamente dalle transazioni per evitare doppi conteggi
-    const totals = await this.transactionsRepository
+    // 🔧 FIX: Get income transactions WITHOUT excludeFromExpenseAnalytics filter
+    // (excludeFromExpenseAnalytics should only exclude expenses, not income)
+    const incomeTotal = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoin('transaction.category', 'category')
-      .select('transaction.type', 'type')
-      .addSelect('SUM(ABS(transaction.amount))', 'total')
+      .select('SUM(ABS(transaction.amount))', 'total')
       .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :incomeType', { incomeType: 'income' })
+      .andWhere('transaction.executionDate BETWEEN :start AND :end', {
+        start: startDate,
+        end: endDate,
+      })
+      .getRawOne();
+
+    // 🔧 FIX: Get expense transactions WITH excludeFromExpenseAnalytics filter
+    // (only exclude expenses from categories marked excludeFromExpenseAnalytics)
+    const expenseTotal = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('SUM(ABS(transaction.amount))', 'total')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :expenseType', { expenseType: 'expense' })
       .andWhere('transaction.executionDate BETWEEN :start AND :end', {
         start: startDate,
         end: endDate,
@@ -394,20 +437,10 @@ export class BudgetManagementService {
       .andWhere(
         '(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)',
       )
-      .groupBy('transaction.type')
-      .getRawMany();
+      .getRawOne();
 
-    let totalIncome = 0;
-    let totalExpenses = 0;
-
-    totals.forEach((item) => {
-      const amount = Number(item.total) || 0;
-      if (item.type === 'income') {
-        totalIncome += amount;
-      } else {
-        totalExpenses += amount;
-      }
-    });
+    const totalIncome = Number(incomeTotal?.total || 0);
+    const totalExpenses = Number(expenseTotal?.total || 0);
 
     // Converti in medie mensili
     const monthlyIncome = totalIncome / months;
