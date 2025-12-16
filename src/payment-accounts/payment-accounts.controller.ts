@@ -24,6 +24,8 @@ import { PaymentAccountsService } from './payment-accounts.service';
 import {
   CreatePaymentAccountDto,
   UpdatePaymentAccountDto,
+  GocardlessConnectionRequestDto,
+  GocardlessCallbackDto,
 } from './dto';
 import { PaymentAccount } from './payment-account.entity';
 
@@ -59,7 +61,7 @@ export class PaymentAccountsController {
     @Body() createDto: CreatePaymentAccountDto,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount> {
-    return this.paymentAccountsService.create(user.userId, createDto);
+    return this.paymentAccountsService.create(user.id, createDto);
   }
 
   @Get()
@@ -77,7 +79,7 @@ export class PaymentAccountsController {
     description: 'Authentication required',
   })
   async findAll(@CurrentUser() user: any): Promise<PaymentAccount[]> {
-    return this.paymentAccountsService.findAllByUser(user.userId);
+    return this.paymentAccountsService.findAllByUser(user.id);
   }
 
   @Get(':id')
@@ -107,7 +109,7 @@ export class PaymentAccountsController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount> {
-    return this.paymentAccountsService.findOne(id, user.userId);
+    return this.paymentAccountsService.findOne(id, user.id);
   }
 
   @Put(':id')
@@ -142,7 +144,7 @@ export class PaymentAccountsController {
     @Body() updateDto: UpdatePaymentAccountDto,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount> {
-    return this.paymentAccountsService.update(id, user.userId, updateDto);
+    return this.paymentAccountsService.update(id, user.id, updateDto);
   }
 
   @Delete(':id')
@@ -172,7 +174,7 @@ export class PaymentAccountsController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ): Promise<void> {
-    await this.paymentAccountsService.delete(id, user.userId);
+    await this.paymentAccountsService.delete(id, user.id);
   }
 
   @Get('provider/:provider')
@@ -199,6 +201,102 @@ export class PaymentAccountsController {
     @Param('provider') provider: string,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount | null> {
-    return this.paymentAccountsService.findByProvider(user.userId, provider);
+    return this.paymentAccountsService.findByProvider(user.id, provider);
+  }
+
+  @Post('gocardless/connect')
+  @ApiOperation({
+    summary: 'Initiate GoCardless connection for payment account',
+    description:
+      'Creates a GoCardless requisition and returns authorization URL for OAuth flow',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Requisition created successfully, returns auth URL',
+    schema: {
+      properties: {
+        authUrl: { type: 'string', example: 'https://gocardless.com/auth...' },
+        requisitionId: { type: 'string', example: 'req_xyz789' },
+      },
+    },
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Payment account not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async connectGocardless(
+    @Body() connectionRequest: GocardlessConnectionRequestDto,
+    @CurrentUser() user: any,
+  ): Promise<{ authUrl: string; requisitionId: string }> {
+    return this.paymentAccountsService.initiateGocardlessConnection(
+      user.id,
+      connectionRequest.paymentAccountId,
+      connectionRequest.institutionId,
+      connectionRequest.redirectUrl,
+    );
+  }
+
+  @Post('gocardless/callback')
+  @ApiOperation({
+    summary: 'Complete GoCardless connection after OAuth callback',
+    description:
+      'Processes the OAuth callback and updates payment account with GoCardless details',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'GoCardless connection completed successfully',
+    type: PaymentAccount,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Payment account not found or no accounts in requisition',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async gocardlessCallback(
+    @Body() callbackData: GocardlessCallbackDto,
+    @CurrentUser() user: any,
+  ): Promise<PaymentAccount> {
+    return this.paymentAccountsService.completeGocardlessConnection(
+      user.id,
+      callbackData.paymentAccountId,
+      callbackData.requisitionId,
+    );
+  }
+
+  @Post(':id/gocardless/disconnect')
+  @ApiOperation({
+    summary: 'Disconnect GoCardless from payment account',
+    description: 'Removes GoCardless integration from the payment account',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Payment account ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'GoCardless connection removed successfully',
+    type: PaymentAccount,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Payment account not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async disconnectGocardless(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ): Promise<PaymentAccount> {
+    return this.paymentAccountsService.disconnectGocardless(id, user.id);
   }
 }
