@@ -39,21 +39,21 @@ export class PaymentAccount {
    * Example: "My PayPal Account", "Business Klarna"
    */
   @Column({ type: 'varchar', length: 255, nullable: true })
-  displayName: string;
+  displayName?: string | null;
 
   /**
    * Provider-specific configuration (API keys, account IDs, etc.)
    * Stored as JSONB for flexibility across different providers
    */
   @Column({ type: 'jsonb', nullable: true })
-  providerConfig: Record<string, any>;
+  providerConfig?: Record<string, any> | null;
 
   /**
    * Optional link to the bank account where payments are settled
    * Used for automatic reconciliation hints
    */
   @Column({ nullable: true })
-  linkedBankAccountId: number;
+  linkedBankAccountId?: number | null;
 
   /**
    * Whether this payment account is currently active

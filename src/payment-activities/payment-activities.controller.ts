@@ -61,7 +61,7 @@ export class PaymentActivitiesController {
     @Body() createDto: CreatePaymentActivityDto,
     @CurrentUser() user: any,
   ): Promise<PaymentActivity> {
-    return this.paymentActivitiesService.create(user.userId, {
+    return this.paymentActivitiesService.create(user.id, {
       ...createDto,
       executionDate: new Date(createDto.executionDate),
     });
@@ -96,7 +96,7 @@ export class PaymentActivitiesController {
   ): Promise<PaymentActivity[]> {
     return this.paymentActivitiesService.findAllByPaymentAccount(
       paymentAccountId,
-      user.userId,
+      user.id,
     );
   }
 
@@ -128,7 +128,7 @@ export class PaymentActivitiesController {
     @Param('paymentAccountId', ParseIntPipe) paymentAccountId: number,
     @CurrentUser() user: any,
   ): Promise<PaymentActivity[]> {
-    return this.paymentActivitiesService.findPending(user.userId);
+    return this.paymentActivitiesService.findPending(user.id);
   }
 
   @Get('date-range/:paymentAccountId')
@@ -172,7 +172,7 @@ export class PaymentActivitiesController {
     @CurrentUser() user: any,
   ): Promise<PaymentActivity[]> {
     return this.paymentActivitiesService.findByDateRange(
-      user.userId,
+      user.id,
       new Date(startDate),
       new Date(endDate),
     );
@@ -205,7 +205,7 @@ export class PaymentActivitiesController {
     @Param('paymentAccountId', ParseIntPipe) paymentAccountId: number,
     @CurrentUser() user: any,
   ) {
-    return this.paymentActivitiesService.getReconciliationStats(user.userId);
+    return this.paymentActivitiesService.getReconciliationStats(user.id);
   }
 
   @Get(':id')
@@ -235,7 +235,7 @@ export class PaymentActivitiesController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ): Promise<PaymentActivity> {
-    return this.paymentActivitiesService.findOne(id, user.userId);
+    return this.paymentActivitiesService.findOne(id, user.id);
   }
 
   @Put(':id/reconciliation')
@@ -273,7 +273,7 @@ export class PaymentActivitiesController {
   ): Promise<PaymentActivity> {
     return this.paymentActivitiesService.updateReconciliation(
       id,
-      user.userId,
+      user.id,
       {
         reconciledTransactionId: updateDto.reconciledTransactionId!,
         reconciliationStatus: updateDto.reconciliationStatus as 'reconciled' | 'failed' | 'manual',
@@ -311,7 +311,7 @@ export class PaymentActivitiesController {
   ): Promise<PaymentActivity> {
     return this.paymentActivitiesService.markReconciliationFailed(
       id,
-      user.userId,
+      user.id,
     );
   }
 
@@ -361,7 +361,7 @@ export class PaymentActivitiesController {
 
     return this.paymentAccountImportService.importFromGoCardless(
       paymentAccountId,
-      user.userId,
+      user.id,
       dateFromParsed,
       dateToParsed,
     );
@@ -402,7 +402,7 @@ export class PaymentActivitiesController {
     const dateToParsed = dateTo ? new Date(dateTo) : undefined;
 
     return this.paymentAccountImportService.importAllPayPalAccountsForUser(
-      user.userId,
+      user.id,
       dateFromParsed,
       dateToParsed,
     );
