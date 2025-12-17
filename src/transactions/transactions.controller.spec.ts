@@ -41,6 +41,7 @@ describe('TransactionsController', () => {
     tags: [],
     transactions: [],
     recurringTransactions: [],
+    paymentAccounts: [],
   } as User;
 
   beforeEach(async () => {

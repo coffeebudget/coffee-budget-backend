@@ -41,6 +41,7 @@ describe('RecurringTransactionGeneratorService', () => {
     tags: [],
     categories: [],
     recurringTransactions: [],
+    paymentAccounts: [],
   } as User;
 
   const baseMockRecurringTransaction: Partial<RecurringTransaction> = {

@@ -20,6 +20,7 @@ describe('UserController', () => {
     transactions: null,
     tags: null,
     categories: null,
+    paymentAccounts: [],
   };
 
   beforeEach(async () => {

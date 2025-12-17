@@ -27,8 +27,11 @@ import { TransactionCategorizationService } from './transaction-categorization.s
 import { TransactionBulkService } from './transaction-bulk.service';
 import { TransactionDuplicateService } from './transaction-duplicate.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
+import { PaymentAccount } from '../payment-accounts/payment-account.entity';
+import { PaymentActivitiesModule } from '../payment-activities/payment-activities.module';
 import { BankAccountEventHandler } from './event-handlers/bank-account.event-handler';
 import { CategoryEventHandler } from './event-handlers/category.event-handler';
+import { PaymentActivityEventHandler } from './event-handlers/payment-activity.event-handler';
 import { TransactionCategorizationTestService } from './transaction-categorization-test.service';
 import { TransactionCategorizationTestController } from './transaction-categorization-test.controller';
 import { TransactionMerchantEnrichmentService } from './transaction-merchant-enrichment.service';
@@ -44,12 +47,14 @@ import { TransactionMerchantEnrichmentController } from './transaction-merchant-
       Category,
       Tag,
       PendingDuplicate,
+      PaymentAccount,
     ]),
     CategoriesModule,
     TagsModule,
     PendingDuplicatesModule,
     PreventedDuplicatesModule,
     RecurringTransactionsModule,
+    PaymentActivitiesModule,
     SharedModule,
     BankAccountsModule,
     CreditCardsModule,
@@ -70,6 +75,7 @@ import { TransactionMerchantEnrichmentController } from './transaction-merchant-
     TransactionMerchantEnrichmentService,
     BankAccountEventHandler,
     CategoryEventHandler,
+    PaymentActivityEventHandler,
   ],
   exports: [
     TransactionsService,
