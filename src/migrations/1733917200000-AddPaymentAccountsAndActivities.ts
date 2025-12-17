@@ -8,7 +8,7 @@ export class AddPaymentAccountsAndActivities1733917200000
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create payment_accounts table
     await queryRunner.query(`
-      CREATE TABLE "payment_accounts" (
+      CREATE TABLE IF NOT EXISTS "payment_accounts" (
         "id" SERIAL NOT NULL,
         "userId" integer NOT NULL,
         "provider" character varying(255) NOT NULL,
@@ -24,7 +24,7 @@ export class AddPaymentAccountsAndActivities1733917200000
 
     // Create payment_activities table
     await queryRunner.query(`
-      CREATE TABLE "payment_activities" (
+      CREATE TABLE IF NOT EXISTS "payment_activities" (
         "id" SERIAL NOT NULL,
         "paymentAccountId" integer NOT NULL,
         "externalId" character varying(255) NOT NULL,
@@ -47,66 +47,126 @@ export class AddPaymentAccountsAndActivities1733917200000
       )
     `);
 
-    // Create indexes on payment_activities
+    // Create indexes on payment_activities (check if exists first)
     await queryRunner.query(`
-      CREATE INDEX "IDX_payment_activities_paymentAccountId_executionDate"
+      CREATE INDEX IF NOT EXISTS "IDX_payment_activities_paymentAccountId_executionDate"
       ON "payment_activities" ("paymentAccountId", "executionDate")
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX "IDX_payment_activities_externalId"
+      CREATE UNIQUE INDEX IF NOT EXISTS "IDX_payment_activities_externalId"
       ON "payment_activities" ("externalId")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_payment_activities_reconciliationStatus"
+      CREATE INDEX IF NOT EXISTS "IDX_payment_activities_reconciliationStatus"
       ON "payment_activities" ("reconciliationStatus")
     `);
 
-    // Add enrichment columns to transaction table
+    // Add enrichment columns to transaction table (check if exists first)
     await queryRunner.query(`
-      ALTER TABLE "transaction"
-      ADD COLUMN "enrichedFromPaymentActivityId" integer
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'transaction' AND column_name = 'enrichedFromPaymentActivityId'
+        ) THEN
+          ALTER TABLE "transaction" ADD COLUMN "enrichedFromPaymentActivityId" integer;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "transaction"
-      ADD COLUMN "originalMerchantName" character varying(255)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'transaction' AND column_name = 'originalMerchantName'
+        ) THEN
+          ALTER TABLE "transaction" ADD COLUMN "originalMerchantName" character varying(255);
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "transaction"
-      ADD COLUMN "enhancedMerchantName" character varying(255)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'transaction' AND column_name = 'enhancedMerchantName'
+        ) THEN
+          ALTER TABLE "transaction" ADD COLUMN "enhancedMerchantName" character varying(255);
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "transaction"
-      ADD COLUMN "enhancedCategoryConfidence" numeric(5,2)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'transaction' AND column_name = 'enhancedCategoryConfidence'
+        ) THEN
+          ALTER TABLE "transaction" ADD COLUMN "enhancedCategoryConfidence" numeric(5,2);
+        END IF;
+      END $$;
     `);
 
-    // Add foreign key constraints
+    // Add foreign key constraints (check if exists first)
     await queryRunner.query(`
-      ALTER TABLE "payment_accounts"
-      ADD CONSTRAINT "FK_payment_accounts_userId"
-      FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'FK_payment_accounts_userId'
+        ) THEN
+          ALTER TABLE "payment_accounts"
+          ADD CONSTRAINT "FK_payment_accounts_userId"
+          FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "payment_accounts"
-      ADD CONSTRAINT "FK_payment_accounts_linkedBankAccountId"
-      FOREIGN KEY ("linkedBankAccountId") REFERENCES "bank_account"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'FK_payment_accounts_linkedBankAccountId'
+        ) THEN
+          ALTER TABLE "payment_accounts"
+          ADD CONSTRAINT "FK_payment_accounts_linkedBankAccountId"
+          FOREIGN KEY ("linkedBankAccountId") REFERENCES "bank_account"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "payment_activities"
-      ADD CONSTRAINT "FK_payment_activities_paymentAccountId"
-      FOREIGN KEY ("paymentAccountId") REFERENCES "payment_accounts"("id") ON DELETE CASCADE ON UPDATE NO ACTION
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'FK_payment_activities_paymentAccountId'
+        ) THEN
+          ALTER TABLE "payment_activities"
+          ADD CONSTRAINT "FK_payment_activities_paymentAccountId"
+          FOREIGN KEY ("paymentAccountId") REFERENCES "payment_accounts"("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "payment_activities"
-      ADD CONSTRAINT "FK_payment_activities_reconciledTransactionId"
-      FOREIGN KEY ("reconciledTransactionId") REFERENCES "transaction"("id") ON DELETE SET NULL ON UPDATE NO ACTION
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE constraint_name = 'FK_payment_activities_reconciledTransactionId'
+        ) THEN
+          ALTER TABLE "payment_activities"
+          ADD CONSTRAINT "FK_payment_activities_reconciledTransactionId"
+          FOREIGN KEY ("reconciledTransactionId") REFERENCES "transaction"("id") ON DELETE SET NULL ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
   }
 
