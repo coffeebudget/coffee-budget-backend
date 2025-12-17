@@ -263,11 +263,24 @@ export class PaymentAccountsController {
     @Body() callbackData: GocardlessCallbackDto,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount> {
-    return this.paymentAccountsService.completeGocardlessConnection(
-      user.id,
-      callbackData.paymentAccountId,
-      callbackData.requisitionId,
-    );
+    console.log('GoCardless callback received:', {
+      userId: user.id,
+      paymentAccountId: callbackData.paymentAccountId,
+      requisitionId: callbackData.requisitionId,
+    });
+
+    try {
+      const result = await this.paymentAccountsService.completeGocardlessConnection(
+        user.id,
+        callbackData.paymentAccountId,
+        callbackData.requisitionId,
+      );
+      console.log('GoCardless connection completed successfully');
+      return result;
+    } catch (error) {
+      console.error('Error completing GoCardless connection:', error);
+      throw error;
+    }
   }
 
   @Post(':id/gocardless/disconnect')
