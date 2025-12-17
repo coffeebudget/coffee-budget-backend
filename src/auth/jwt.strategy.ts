@@ -6,16 +6,24 @@ import * as jwksClient from 'jwks-rsa';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor() {
+    // Remove trailing slash from issuer if present to avoid double slashes
+    const issuer = process.env.AUTH0_ISSUER?.replace(/\/$/, '') || '';
+    const jwksUri = `${issuer}/.well-known/jwks.json`;
+    console.log('🔐 JWT Strategy initialized with JWKS URI:', jwksUri);
+    console.log('🔐 Expected audience:', process.env.AUTH0_AUDIENCE);
+    console.log('🔐 Expected issuer (normalized):', issuer);
+    console.log('🔐 Original AUTH0_ISSUER env var:', process.env.AUTH0_ISSUER);
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKeyProvider: jwksClient.passportJwtSecret({
-        jwksUri: `${process.env.AUTH0_ISSUER}.well-known/jwks.json`,
+        jwksUri,
         cache: true,
         rateLimit: true,
       }),
       audience: process.env.AUTH0_AUDIENCE,
-      issuer: process.env.AUTH0_ISSUER,
+      issuer: issuer,
       algorithms: ['RS256'],
     });
   }
@@ -33,10 +41,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
 
     if (!validAudience) {
       console.error('❌ Invalid audience in token!');
+      console.error('Expected:', process.env.AUTH0_AUDIENCE);
+      console.error('Received:', payload.aud);
       throw new UnauthorizedException('Invalid token audience');
     }
 
     const user = { sub: payload.sub, email: payload.email };
+    console.log('✅ JWT validated successfully for user:', payload.sub);
     return user;
   }
 }
