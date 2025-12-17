@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentActivitiesService } from './payment-activities.service';
 import { PaymentActivity } from './payment-activity.entity';
+import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { EventPublisherService } from '../shared/services/event-publisher.servic
 describe('PaymentActivitiesService', () => {
   let service: PaymentActivitiesService;
   let repository: Repository<PaymentActivity>;
+  let paymentAccountRepository: Repository<PaymentAccount>;
   let module: TestingModule;
 
   const mockUser = {
@@ -69,6 +71,7 @@ describe('PaymentActivitiesService', () => {
       providers: [
         PaymentActivitiesService,
         RepositoryMockFactory.createRepositoryProvider(PaymentActivity),
+        RepositoryMockFactory.createRepositoryProvider(PaymentAccount),
         {
           provide: EventPublisherService,
           useValue: {
@@ -80,6 +83,7 @@ describe('PaymentActivitiesService', () => {
 
     service = module.get<PaymentActivitiesService>(PaymentActivitiesService);
     repository = module.get(getRepositoryToken(PaymentActivity));
+    paymentAccountRepository = module.get(getRepositoryToken(PaymentAccount));
   });
 
   afterEach(async () => {
@@ -237,14 +241,8 @@ describe('PaymentActivitiesService', () => {
         rawData: { order_id: 'AMZ-123' },
       };
 
-      const queryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getExists: jest.fn().mockResolvedValue(true),
-      };
-
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(queryBuilder);
+      // Mock payment account exists for user
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(mockPaymentAccount);
       (repository.create as jest.Mock).mockReturnValue(mockPaymentActivity);
       (repository.save as jest.Mock).mockResolvedValue(mockPaymentActivity);
 
@@ -252,6 +250,12 @@ describe('PaymentActivitiesService', () => {
       const result = await service.create(userId, createData);
 
       // Assert
+      expect(paymentAccountRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          id: createData.paymentAccountId,
+          userId,
+        },
+      });
       expect(repository.create).toHaveBeenCalledWith({
         ...createData,
         reconciliationStatus: 'pending',
@@ -271,20 +275,20 @@ describe('PaymentActivitiesService', () => {
         rawData: {},
       };
 
-      const queryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getExists: jest.fn().mockResolvedValue(false), // Payment account doesn't exist
-      };
-
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(queryBuilder);
+      // Mock payment account not found (returns null)
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
       await expect(service.create(userId, createData)).rejects.toThrow(NotFoundException);
       await expect(service.create(userId, createData)).rejects.toThrow(
         'Payment account not found for user',
       );
+      expect(paymentAccountRepository.findOne).toHaveBeenCalledWith({
+        where: {
+          id: createData.paymentAccountId,
+          userId,
+        },
+      });
     });
 
     it('should set reconciliationStatus to pending by default', async () => {
@@ -298,14 +302,8 @@ describe('PaymentActivitiesService', () => {
         rawData: {},
       };
 
-      const queryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        getExists: jest.fn().mockResolvedValue(true),
-      };
-
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(queryBuilder);
+      // Mock payment account exists for user
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(mockPaymentAccount);
       (repository.create as jest.Mock).mockReturnValue(mockPaymentActivity);
       (repository.save as jest.Mock).mockResolvedValue(mockPaymentActivity);
 
