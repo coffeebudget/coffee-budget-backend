@@ -78,3 +78,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 paypal-backup-*.json
 paypal-query-*.txt
 scripts/*-backup-*.json
+
+# Environment files
+.env.development

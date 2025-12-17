@@ -488,7 +488,9 @@ export class TransactionsService {
         ...transactionData,
         bankAccountId: transactionData.bankAccount?.id,
         creditCardId: transactionData.creditCard?.id,
-        categoryId: transactionData.category?.id,
+        // Only set categoryId if category entity exists with valid ID
+        // This allows automatic keyword categorization to work when no category is provided
+        ...(transactionData.category?.id && { categoryId: transactionData.category.id }),
       };
 
       // Remove entity references to avoid conflicts

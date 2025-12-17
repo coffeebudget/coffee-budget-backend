@@ -30,6 +30,7 @@ describe('TransactionDuplicateService', () => {
     tags: [],
     categories: [],
     recurringTransactions: [],
+    paymentAccounts: [],
   } as any;
 
   const mockTransaction = {
@@ -55,6 +56,12 @@ describe('TransactionDuplicateService', () => {
     merchantCategoryCode: null,
     debtorName: null,
     creditorName: null,
+    reconciledWithTransaction: null,
+    reconciliationStatus: 'not_reconciled' as const,
+    enrichedFromPaymentActivityId: null,
+    originalMerchantName: null,
+    enhancedMerchantName: null,
+    enhancedCategoryConfidence: null,
   } as Transaction;
 
   const mockDuplicateTransaction = {
@@ -80,6 +87,12 @@ describe('TransactionDuplicateService', () => {
     merchantCategoryCode: null,
     debtorName: null,
     creditorName: null,
+    reconciledWithTransaction: null,
+    reconciliationStatus: 'not_reconciled' as const,
+    enrichedFromPaymentActivityId: null,
+    originalMerchantName: null,
+    enhancedMerchantName: null,
+    enhancedCategoryConfidence: null,
   } as Transaction;
 
   beforeEach(async () => {

@@ -78,6 +78,7 @@ describe('TransactionImportService', () => {
     tags: [],
     categories: [],
     recurringTransactions: [],
+    paymentAccounts: [],
   } as User;
 
   const mockBankAccount = {

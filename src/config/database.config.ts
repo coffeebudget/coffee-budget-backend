@@ -16,9 +16,9 @@ export default registerAs('database', () => {
   console.log('All DB-related environment variables:', dbVars);
   
   // Support both DATABASE_URL (Railway) and individual variables (local dev)
-  // Prioritize DATABASE_URL if it exists
+  // Prioritize DATABASE_PUBLIC_URL for external connections (railway run), then DATABASE_URL
   // Handle Railway template variables like ${{DATABASE_URL}}
-  let databaseUrl: string | undefined = process.env.DATABASE_URL;
+  let databaseUrl: string | undefined = process.env.DATABASE_PUBLIC_URL || process.env.DATABASE_URL;
   
   // Check if DATABASE_URL is a Railway template variable that needs resolution
   if (databaseUrl && databaseUrl.includes('${{')) {

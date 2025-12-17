@@ -5,19 +5,25 @@ import { GocardlessController } from './gocardless.controller';
 import { GocardlessCronController } from './gocardless-cron.controller';
 import { GocardlessService } from './gocardless.service';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
+import { GocardlessPaypalReconciliationService } from './gocardless-paypal-reconciliation.service';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { User } from '../users/user.entity';
+import { Transaction } from '../transactions/transaction.entity';
 import { SyncHistoryModule } from '../sync-history/sync-history.module';
 
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([BankAccount, CreditCard, User]),
+    TypeOrmModule.forFeature([BankAccount, CreditCard, User, Transaction]),
     SyncHistoryModule,
   ],
   controllers: [GocardlessController, GocardlessCronController],
-  providers: [GocardlessService, GocardlessSchedulerService],
+  providers: [
+    GocardlessService,
+    GocardlessSchedulerService,
+    GocardlessPaypalReconciliationService,
+  ],
   exports: [GocardlessService],
 })
 export class GocardlessModule {}
