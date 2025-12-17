@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
+import { GocardlessService } from '../gocardless/gocardless.service';
 
 describe('PaymentAccountsService', () => {
   let service: PaymentAccountsService;
@@ -60,6 +61,13 @@ describe('PaymentAccountsService', () => {
       providers: [
         PaymentAccountsService,
         RepositoryMockFactory.createRepositoryProvider(PaymentAccount),
+        {
+          provide: GocardlessService,
+          useValue: {
+            createRequisition: jest.fn(),
+            getRequisition: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
