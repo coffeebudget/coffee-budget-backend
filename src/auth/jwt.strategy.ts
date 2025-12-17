@@ -23,7 +23,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         rateLimit: true,
       }),
       audience: process.env.AUTH0_AUDIENCE,
-      issuer: issuer,
+      issuer: process.env.AUTH0_ISSUER, // Use original value with trailing slash for validation
       algorithms: ['RS256'],
     });
   }
