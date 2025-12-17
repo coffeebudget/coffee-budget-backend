@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { PaymentActivity } from './payment-activity.entity';
+import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { PaymentActivityCreatedEvent } from '../shared/events/payment-activity-created.event';
 
@@ -10,6 +11,8 @@ export class PaymentActivitiesService {
   constructor(
     @InjectRepository(PaymentActivity)
     private readonly paymentActivityRepository: Repository<PaymentActivity>,
+    @InjectRepository(PaymentAccount)
+    private readonly paymentAccountRepository: Repository<PaymentAccount>,
     private readonly eventPublisher: EventPublisherService,
   ) {}
 
@@ -72,14 +75,14 @@ export class PaymentActivitiesService {
     },
   ): Promise<PaymentActivity> {
     // Verify payment account belongs to user
-    const paymentAccountExists = await this.paymentActivityRepository
-      .createQueryBuilder('activity')
-      .leftJoin('activity.paymentAccount', 'account')
-      .where('account.id = :accountId', { accountId: data.paymentAccountId })
-      .andWhere('account.userId = :userId', { userId })
-      .getExists();
+    const paymentAccount = await this.paymentAccountRepository.findOne({
+      where: {
+        id: data.paymentAccountId,
+        userId,
+      },
+    });
 
-    if (!paymentAccountExists) {
+    if (!paymentAccount) {
       throw new NotFoundException('Payment account not found for user');
     }
 
