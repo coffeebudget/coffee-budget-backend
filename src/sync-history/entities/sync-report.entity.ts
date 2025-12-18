@@ -16,6 +16,19 @@ export enum SyncStatus {
   FAILED = 'failed',
 }
 
+export enum SyncSource {
+  GOCARDLESS = 'gocardless',
+  PAYPAL = 'paypal',
+  STRIPE = 'stripe',
+  PLAID = 'plaid',
+  MANUAL = 'manual',
+}
+
+export enum SyncSourceType {
+  BANK_ACCOUNT = 'bank_account',
+  PAYMENT_ACCOUNT = 'payment_account',
+}
+
 @Entity('sync_reports')
 export class SyncReport {
   @PrimaryGeneratedColumn()
@@ -62,6 +75,27 @@ export class SyncReport {
 
   @Column({ type: 'text', nullable: true })
   errorMessage: string | null;
+
+  // Source tracking fields for unified sync history
+  @Column({
+    type: 'enum',
+    enum: SyncSource,
+    default: SyncSource.GOCARDLESS,
+  })
+  source: SyncSource;
+
+  @Column({
+    type: 'enum',
+    enum: SyncSourceType,
+    default: SyncSourceType.BANK_ACCOUNT,
+  })
+  sourceType: SyncSourceType;
+
+  @Column({ type: 'int', nullable: true })
+  sourceId: number | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  sourceName: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

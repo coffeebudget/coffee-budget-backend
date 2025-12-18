@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThanOrEqual } from 'typeorm';
-import { SyncReport, SyncStatus } from './entities/sync-report.entity';
+import { SyncReport, SyncStatus, SyncSource, SyncSourceType } from './entities/sync-report.entity';
 import { User } from '../users/user.entity';
 import { ImportLog } from '../transactions/entities/import-log.entity';
 
@@ -35,6 +35,7 @@ interface PaginationOptions {
   page: number;
   limit: number;
   status?: SyncStatus;
+  source?: SyncSource;
 }
 
 export interface PaginatedSyncReports {
@@ -70,6 +71,12 @@ export class SyncHistoryService {
     userId: number,
     importResult: ImportResult,
     syncStartTime: Date,
+    sourceInfo?: {
+      source: SyncSource;
+      sourceType: SyncSourceType;
+      sourceId?: number;
+      sourceName?: string;
+    },
   ): Promise<SyncReport> {
     // Find user
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -119,6 +126,11 @@ export class SyncHistoryService {
       syncType: 'automatic',
       accountResults: importResult.importResults,
       errorMessage,
+      // Source tracking fields
+      source: sourceInfo?.source || SyncSource.GOCARDLESS,
+      sourceType: sourceInfo?.sourceType || SyncSourceType.BANK_ACCOUNT,
+      sourceId: sourceInfo?.sourceId || null,
+      sourceName: sourceInfo?.sourceName || null,
     });
 
     return await this.syncReportRepository.save(syncReport);
@@ -128,13 +140,16 @@ export class SyncHistoryService {
     userId: number,
     options: PaginationOptions,
   ): Promise<PaginatedSyncReports> {
-    const { page, limit, status } = options;
+    const { page, limit, status, source } = options;
     const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = { user: { id: userId } };
     if (status) {
       where.status = status;
+    }
+    if (source) {
+      where.source = source;
     }
 
     // Find sync reports with pagination
@@ -159,17 +174,24 @@ export class SyncHistoryService {
   async getSyncStatistics(
     userId: number,
     days: number,
+    source?: SyncSource,
   ): Promise<SyncStatistics> {
     // Calculate date range
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
+    // Build where clause
+    const where: any = {
+      user: { id: userId },
+      syncStartedAt: MoreThanOrEqual(startDate),
+    };
+    if (source) {
+      where.source = source;
+    }
+
     // Find all sync reports in date range
     const syncReports = await this.syncReportRepository.find({
-      where: {
-        user: { id: userId },
-        syncStartedAt: MoreThanOrEqual(startDate),
-      },
+      where,
     });
 
     // Calculate statistics
