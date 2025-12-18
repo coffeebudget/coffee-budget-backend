@@ -100,13 +100,19 @@ export class PaymentActivity {
    * - reconciled: Successfully matched with bank transaction
    * - failed: Automatic matching failed, needs manual review
    * - manual: Manually reconciled by user
+   * - not_applicable: Activity doesn't require reconciliation (loans, fees, internal transfers)
    */
   @Column({
     type: 'enum',
-    enum: ['pending', 'reconciled', 'failed', 'manual'],
+    enum: ['pending', 'reconciled', 'failed', 'manual', 'not_applicable'],
     default: 'pending',
   })
-  reconciliationStatus: 'pending' | 'reconciled' | 'failed' | 'manual';
+  reconciliationStatus:
+    | 'pending'
+    | 'reconciled'
+    | 'failed'
+    | 'manual'
+    | 'not_applicable';
 
   /**
    * Confidence score for automatic reconciliation (0-100)
