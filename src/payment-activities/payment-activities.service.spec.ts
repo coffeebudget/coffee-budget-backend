@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PaymentActivitiesService } from './payment-activities.service';
 import { PaymentActivity } from './payment-activity.entity';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
+import { Transaction } from '../transactions/transaction.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -74,6 +75,7 @@ describe('PaymentActivitiesService', () => {
         PaymentActivitiesService,
         RepositoryMockFactory.createRepositoryProvider(PaymentActivity),
         RepositoryMockFactory.createRepositoryProvider(PaymentAccount),
+        RepositoryMockFactory.createRepositoryProvider(Transaction),
         {
           provide: EventPublisherService,
           useValue: {

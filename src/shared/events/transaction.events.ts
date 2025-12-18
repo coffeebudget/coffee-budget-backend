@@ -80,3 +80,20 @@ export class TransactionTaggedEvent extends BaseEventClass {
     super(userId);
   }
 }
+
+/**
+ * Transaction Enriched Event
+ * Published when a transaction is enriched with payment activity data
+ * Triggers re-categorization using enhanced merchant information
+ */
+export class TransactionEnrichedEvent extends BaseEventClass {
+  constructor(
+    public readonly transaction: Transaction,
+    public readonly paymentActivityId: number,
+    public readonly enhancedMerchantName: string | null,
+    public readonly originalMerchantName: string | null,
+    userId: number,
+  ) {
+    super(userId);
+  }
+}
