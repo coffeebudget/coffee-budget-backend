@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Repository, In } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SyncHistoryService } from './sync-history.service';
-import { SyncReport, SyncStatus } from './entities/sync-report.entity';
+import { SyncReport, SyncStatus, SyncSource, SyncSourceType } from './entities/sync-report.entity';
 import { User } from '../users/user.entity';
 import { ImportLog, ImportStatus } from '../transactions/entities/import-log.entity';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
@@ -178,6 +178,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: importResult.importResults,
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date('2025-11-11T09:15:00Z'),
         updatedAt: new Date('2025-11-11T09:15:00Z'),
       };
@@ -278,6 +282,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: importResult.importResults,
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date('2025-11-11T09:15:00Z'),
         updatedAt: new Date('2025-11-11T09:15:00Z'),
       };
@@ -370,6 +378,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: importResult.importResults,
         errorMessage: 'All accounts failed to sync',
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date('2025-11-11T09:15:00Z'),
         updatedAt: new Date('2025-11-11T09:15:00Z'),
       };
@@ -474,6 +486,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: importResult.importResults,
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date('2025-11-11T09:15:00Z'),
         updatedAt: new Date('2025-11-11T09:15:00Z'),
       };
@@ -547,6 +563,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: importResult.importResults,
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date('2025-11-11T09:15:00Z'),
         updatedAt: new Date('2025-11-11T09:15:00Z'),
       };
@@ -596,6 +616,10 @@ describe('SyncHistoryService', () => {
           syncType: 'automatic',
           accountResults: [],
           errorMessage: null,
+          source: SyncSource.GOCARDLESS,
+          sourceType: SyncSourceType.BANK_ACCOUNT,
+          sourceId: null,
+          sourceName: null,
           createdAt: new Date('2025-11-11T09:15:00Z'),
           updatedAt: new Date('2025-11-11T09:15:00Z'),
         },
@@ -615,6 +639,10 @@ describe('SyncHistoryService', () => {
           syncType: 'automatic',
           accountResults: [],
           errorMessage: null,
+          source: SyncSource.GOCARDLESS,
+          sourceType: SyncSourceType.BANK_ACCOUNT,
+          sourceId: null,
+          sourceName: null,
           createdAt: new Date('2025-11-10T09:15:00Z'),
           updatedAt: new Date('2025-11-10T09:15:00Z'),
         },
@@ -739,6 +767,10 @@ describe('SyncHistoryService', () => {
           syncType: 'automatic',
           accountResults: [],
           errorMessage: null,
+          source: SyncSource.GOCARDLESS,
+          sourceType: SyncSourceType.BANK_ACCOUNT,
+          sourceId: null,
+          sourceName: null,
           createdAt: new Date('2025-11-11T09:15:00Z'),
           updatedAt: new Date('2025-11-11T09:15:00Z'),
         },
@@ -758,6 +790,10 @@ describe('SyncHistoryService', () => {
           syncType: 'automatic',
           accountResults: [],
           errorMessage: null,
+          source: SyncSource.GOCARDLESS,
+          sourceType: SyncSourceType.BANK_ACCOUNT,
+          sourceId: null,
+          sourceName: null,
           createdAt: new Date('2025-11-10T09:15:00Z'),
           updatedAt: new Date('2025-11-10T09:15:00Z'),
         },
@@ -777,6 +813,10 @@ describe('SyncHistoryService', () => {
           syncType: 'automatic',
           accountResults: [],
           errorMessage: 'All accounts failed',
+          source: SyncSource.GOCARDLESS,
+          sourceType: SyncSourceType.BANK_ACCOUNT,
+          sourceId: null,
+          sourceName: null,
           createdAt: new Date('2025-11-09T09:15:00Z'),
           updatedAt: new Date('2025-11-09T09:15:00Z'),
         },
@@ -862,6 +902,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: [],
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -914,6 +958,10 @@ describe('SyncHistoryService', () => {
         syncType: 'automatic',
         accountResults: [],
         errorMessage: null,
+        source: SyncSource.GOCARDLESS,
+        sourceType: SyncSourceType.BANK_ACCOUNT,
+        sourceId: null,
+        sourceName: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

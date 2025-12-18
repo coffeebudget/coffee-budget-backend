@@ -18,7 +18,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/user.decorator';
 import { SyncHistoryService } from './sync-history.service';
-import { SyncStatus } from './entities/sync-report.entity';
+import { SyncStatus, SyncSource } from './entities/sync-report.entity';
 
 @ApiTags('sync-history')
 @Controller('sync-history')
@@ -32,6 +32,7 @@ export class SyncHistoryController {
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
   @ApiQuery({ name: 'status', required: false, enum: SyncStatus, description: 'Filter by sync status' })
+  @ApiQuery({ name: 'source', required: false, enum: SyncSource, description: 'Filter by sync source (gocardless, paypal, stripe, etc.)' })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of sync reports',
@@ -42,10 +43,14 @@ export class SyncHistoryController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10,
     @Query('status') status?: SyncStatus,
+    @Query('source') source?: SyncSource,
   ) {
     const options: any = { page, limit };
     if (status) {
       options.status = status;
+    }
+    if (source) {
+      options.source = source;
     }
     return this.syncHistoryService.getUserSyncHistory(user.id, options);
   }
@@ -53,6 +58,7 @@ export class SyncHistoryController {
   @Get('statistics')
   @ApiOperation({ summary: 'Get sync statistics for authenticated user' })
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days to analyze (default: 30)' })
+  @ApiQuery({ name: 'source', required: false, enum: SyncSource, description: 'Filter statistics by source (gocardless, paypal, stripe, etc.)' })
   @ApiResponse({
     status: 200,
     description: 'Sync statistics for the specified period',
@@ -61,8 +67,9 @@ export class SyncHistoryController {
   async getSyncStatistics(
     @CurrentUser() user: any,
     @Query('days', new DefaultValuePipe(30), ParseIntPipe) days: number = 30,
+    @Query('source') source?: SyncSource,
   ) {
-    return this.syncHistoryService.getSyncStatistics(user.id, days);
+    return this.syncHistoryService.getSyncStatistics(user.id, days, source);
   }
 
   @Get(':id')
