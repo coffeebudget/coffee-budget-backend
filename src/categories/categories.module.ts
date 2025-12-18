@@ -13,6 +13,7 @@ import { KeywordStatsService } from './keyword-stats.service';
 import { ExpenseAnalysisService } from './expense-analysis.service';
 import { BudgetManagementService } from './budget-management.service';
 import { TransactionEventHandler } from './event-handlers/transaction.event-handler';
+import { TransactionEnrichedEventHandler } from './event-handlers/transaction-enriched.event-handler';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { TransactionEventHandler } from './event-handlers/transaction.event-hand
     ExpenseAnalysisService,
     BudgetManagementService,
     TransactionEventHandler,
+    TransactionEnrichedEventHandler,
   ],
   exports: [
     CategoriesService,

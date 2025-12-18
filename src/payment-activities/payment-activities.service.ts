@@ -1,19 +1,25 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { PaymentActivity } from './payment-activity.entity';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
+import { Transaction } from '../transactions/transaction.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { PaymentActivityCreatedEvent } from '../shared/events/payment-activity-created.event';
+import { TransactionEnrichedEvent } from '../shared/events/transaction.events';
 import { PaymentActivityBusinessRulesService } from './payment-activity-business-rules.service';
 
 @Injectable()
 export class PaymentActivitiesService {
+  private readonly logger = new Logger(PaymentActivitiesService.name);
+
   constructor(
     @InjectRepository(PaymentActivity)
     private readonly paymentActivityRepository: Repository<PaymentActivity>,
     @InjectRepository(PaymentAccount)
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
     private readonly eventPublisher: EventPublisherService,
     private readonly businessRulesService: PaymentActivityBusinessRulesService,
   ) {}
@@ -153,6 +159,7 @@ export class PaymentActivitiesService {
 
   /**
    * Update reconciliation status and link to transaction
+   * @param publishEvent Whether to publish TransactionEnrichedEvent (default true for manual, false when called from automatic flow)
    */
   async updateReconciliation(
     id: number,
@@ -162,6 +169,7 @@ export class PaymentActivitiesService {
       reconciliationStatus: 'reconciled' | 'failed' | 'manual';
       reconciliationConfidence?: number;
     },
+    publishEvent: boolean = true,
   ): Promise<PaymentActivity> {
     const activity = await this.findOne(id, userId);
 
@@ -170,7 +178,49 @@ export class PaymentActivitiesService {
       reconciledAt: new Date(),
     });
 
-    return this.paymentActivityRepository.save(activity);
+    const savedActivity = await this.paymentActivityRepository.save(activity);
+
+    // Publish TransactionEnrichedEvent if reconciliation successful and event publishing enabled
+    if (
+      publishEvent &&
+      (data.reconciliationStatus === 'reconciled' ||
+        data.reconciliationStatus === 'manual')
+    ) {
+      try {
+        // Load the enriched transaction to get all enrichment fields
+        const transaction = await this.transactionRepository.findOne({
+          where: { id: data.reconciledTransactionId },
+          relations: ['user'],
+        });
+
+        if (
+          transaction &&
+          transaction.enrichedFromPaymentActivityId === activity.id
+        ) {
+          this.eventPublisher.publish(
+            new TransactionEnrichedEvent(
+              transaction,
+              activity.id,
+              transaction.enhancedMerchantName,
+              transaction.originalMerchantName,
+              userId,
+            ),
+          );
+
+          this.logger.debug(
+            `Published TransactionEnrichedEvent for transaction ${transaction.id} after manual reconciliation`,
+          );
+        }
+      } catch (error) {
+        // Log but don't break reconciliation flow
+        this.logger.error(
+          `Failed to publish TransactionEnrichedEvent: ${error.message}`,
+          error.stack,
+        );
+      }
+    }
+
+    return savedActivity;
   }
 
   /**

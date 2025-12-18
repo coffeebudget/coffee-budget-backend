@@ -6,6 +6,8 @@ import { Transaction } from '../transaction.entity';
 import { PaymentActivityCreatedEvent } from '../../shared/events/payment-activity-created.event';
 import { PaymentActivitiesService } from '../../payment-activities/payment-activities.service';
 import { PaymentAccount } from '../../payment-accounts/payment-account.entity';
+import { EventPublisherService } from '../../shared/services/event-publisher.service';
+import { TransactionEnrichedEvent } from '../../shared/events/transaction.events';
 
 /**
  * Event handler for automatic reconciliation of payment activities with bank transactions
@@ -25,6 +27,7 @@ export class PaymentActivityEventHandler {
     @InjectRepository(PaymentAccount)
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
     private readonly paymentActivitiesService: PaymentActivitiesService,
+    private readonly eventPublisher: EventPublisherService,
   ) {}
 
   @OnEvent('PaymentActivityCreatedEvent')
@@ -183,9 +186,10 @@ export class PaymentActivityEventHandler {
     }
 
     // Save enriched transaction
-    await this.transactionRepository.save(transaction);
+    const savedTransaction = await this.transactionRepository.save(transaction);
 
     // Update payment activity reconciliation status
+    // Pass publishEvent: false to prevent duplicate event publishing (we publish manually below)
     await this.paymentActivitiesService.updateReconciliation(
       paymentActivity.id,
       paymentActivity.paymentAccount.userId,
@@ -194,7 +198,31 @@ export class PaymentActivityEventHandler {
         reconciliationStatus: 'reconciled',
         reconciliationConfidence: confidence,
       },
+      false, // publishEvent = false for automatic flow
     );
+
+    // Publish TransactionEnrichedEvent for re-categorization
+    try {
+      this.eventPublisher.publish(
+        new TransactionEnrichedEvent(
+          savedTransaction,
+          paymentActivity.id,
+          savedTransaction.enhancedMerchantName,
+          savedTransaction.originalMerchantName,
+          paymentActivity.paymentAccount.userId,
+        ),
+      );
+
+      this.logger.debug(
+        `Published TransactionEnrichedEvent for transaction ${savedTransaction.id} after automatic reconciliation`,
+      );
+    } catch (error) {
+      // Log but don't break reconciliation flow
+      this.logger.error(
+        `Failed to publish TransactionEnrichedEvent: ${error.message}`,
+        error.stack,
+      );
+    }
 
     this.logger.debug(
       `Enriched transaction ${transaction.id} with payment activity ${paymentActivity.id} (confidence: ${confidence}%)`,
