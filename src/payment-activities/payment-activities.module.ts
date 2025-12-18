@@ -8,12 +8,14 @@ import { PaymentActivityBusinessRulesService } from './payment-activity-business
 import { SharedModule } from '../shared/shared.module';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { GocardlessModule } from '../gocardless/gocardless.module';
+import { SyncHistoryModule } from '../sync-history/sync-history.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([PaymentActivity, PaymentAccount]),
     SharedModule,
     GocardlessModule,
+    SyncHistoryModule,
   ],
   controllers: [PaymentActivitiesController],
   providers: [

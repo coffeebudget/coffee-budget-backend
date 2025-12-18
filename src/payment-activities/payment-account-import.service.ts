@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { PaymentActivitiesService } from './payment-activities.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
+import { SyncHistoryService } from '../sync-history/sync-history.service';
+import { SyncSource, SyncSourceType } from '../sync-history/entities/sync-report.entity';
 
 export interface ImportResult {
   imported: number;
@@ -24,6 +26,7 @@ export class PaymentAccountImportService {
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
     private readonly paymentActivitiesService: PaymentActivitiesService,
     private readonly gocardlessService: GocardlessService,
+    private readonly syncHistoryService: SyncHistoryService,
   ) {}
 
   /**
@@ -39,7 +42,10 @@ export class PaymentAccountImportService {
     userId: number,
     dateFrom?: Date,
     dateTo?: Date,
+    createSyncReport: boolean = true,
   ): Promise<ImportResult> {
+    const syncStartTime = new Date();
+
     this.logger.log(
       `Starting import for payment account ${paymentAccountId}, user ${userId}`,
     );
@@ -165,6 +171,55 @@ export class PaymentAccountImportService {
         `Import completed: ${result.imported} imported, ${result.skipped} skipped, ${result.errors.length} errors`,
       );
 
+      // Create sync report if requested
+      if (createSyncReport) {
+        try {
+          await this.syncHistoryService.createSyncReport(
+            userId,
+            {
+              summary: {
+                totalAccounts: 1,
+                successfulImports: result.errors.length === 0 ? 1 : 0,
+                failedImports: result.errors.length > 0 ? 1 : 0,
+                totalNewTransactions: result.imported,
+                totalDuplicates: result.skipped,
+                totalPendingDuplicates: 0, // Payment activities don't have pending duplicates
+              },
+              importResults: [
+                {
+                  accountId: paymentAccount.providerConfig?.gocardlessAccountId || paymentAccountId.toString(),
+                  accountName: paymentAccount.displayName || 'PayPal',
+                  accountType: 'payment_account',
+                  success: result.errors.length === 0,
+                  newTransactions: result.imported,
+                  duplicates: result.skipped,
+                  pendingDuplicates: 0,
+                  importLogId: 0, // Payment activities don't have import logs (yet)
+                  error: result.errors.length > 0 ? result.errors.join('; ') : undefined,
+                },
+              ],
+            },
+            syncStartTime,
+            {
+              source: SyncSource.PAYPAL,
+              sourceType: SyncSourceType.PAYMENT_ACCOUNT,
+              sourceId: paymentAccountId,
+              sourceName: paymentAccount.displayName || 'PayPal',
+            },
+          );
+
+          this.logger.log(
+            `Sync report created for payment account ${paymentAccountId}`,
+          );
+        } catch (syncError) {
+          // Log but don't break the import flow
+          this.logger.error(
+            `Failed to create sync report: ${syncError.message}`,
+            syncError.stack,
+          );
+        }
+      }
+
       return result;
     } catch (error) {
       this.logger.error(
@@ -195,6 +250,8 @@ export class PaymentAccountImportService {
       result: ImportResult;
     }>;
   }> {
+    const syncStartTime = new Date();
+
     this.logger.log(
       `Starting PayPal import for all accounts of user ${userId}`,
     );
@@ -236,11 +293,13 @@ export class PaymentAccountImportService {
       );
 
       try {
+        // Don't create individual sync reports - we'll create one consolidated report at the end
         const result = await this.importFromGoCardless(
           account.id,
           userId,
           dateFrom,
           dateTo,
+          false, // createSyncReport = false
         );
 
         accountResults.push({
@@ -270,6 +329,53 @@ export class PaymentAccountImportService {
     this.logger.log(
       `PayPal import completed: ${totalImported} total imported, ${totalSkipped} total skipped across ${paypalAccounts.length} account(s)`,
     );
+
+    // Create consolidated sync report for all PayPal accounts
+    if (paypalAccounts.length > 0) {
+      try {
+        await this.syncHistoryService.createSyncReport(
+          userId,
+          {
+            summary: {
+              totalAccounts: paypalAccounts.length,
+              successfulImports: accountResults.filter((r) => r.result.errors.length === 0).length,
+              failedImports: accountResults.filter((r) => r.result.errors.length > 0).length,
+              totalNewTransactions: totalImported,
+              totalDuplicates: totalSkipped,
+              totalPendingDuplicates: 0,
+            },
+            importResults: accountResults.map((ar) => ({
+              accountId: ar.paymentAccountId.toString(),
+              accountName: ar.accountName,
+              accountType: 'payment_account',
+              success: ar.result.errors.length === 0,
+              newTransactions: ar.result.imported,
+              duplicates: ar.result.skipped,
+              pendingDuplicates: 0,
+              importLogId: 0,
+              error: ar.result.errors.length > 0 ? ar.result.errors.join('; ') : undefined,
+            })),
+          },
+          syncStartTime,
+          {
+            source: SyncSource.PAYPAL,
+            sourceType: SyncSourceType.PAYMENT_ACCOUNT,
+            sourceId: undefined, // Multiple accounts - no single source ID
+            sourceName: `PayPal (${paypalAccounts.length} account${paypalAccounts.length > 1 ? 's' : ''})`,
+          },
+        );
+
+        this.logger.log(
+          `Consolidated sync report created for ${paypalAccounts.length} PayPal account(s)`,
+        );
+      } catch (syncError) {
+        // Log but don't break the import flow
+        this.logger.error(
+          `Failed to create consolidated sync report: ${syncError.message}`,
+          syncError.stack,
+        );
+      }
+    }
 
     return {
       totalImported,
