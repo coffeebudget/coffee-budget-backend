@@ -5,6 +5,7 @@ import { PaymentActivity } from './payment-activity.entity';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { PaymentActivityCreatedEvent } from '../shared/events/payment-activity-created.event';
+import { PaymentActivityBusinessRulesService } from './payment-activity-business-rules.service';
 
 @Injectable()
 export class PaymentActivitiesService {
@@ -14,6 +15,7 @@ export class PaymentActivitiesService {
     @InjectRepository(PaymentAccount)
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
     private readonly eventPublisher: EventPublisherService,
+    private readonly businessRulesService: PaymentActivityBusinessRulesService,
   ) {}
 
   /**
@@ -86,17 +88,31 @@ export class PaymentActivitiesService {
       throw new NotFoundException('Payment account not found for user');
     }
 
-    const activity = this.paymentActivityRepository.create({
+    // Create temporary activity object for business rules evaluation
+    const tempActivity = {
       ...data,
       reconciliationStatus: 'pending',
+    } as PaymentActivity;
+
+    // Determine initial reconciliation status using business rules
+    const initialStatus =
+      this.businessRulesService.determineInitialReconciliationStatus(
+        tempActivity,
+      );
+
+    const activity = this.paymentActivityRepository.create({
+      ...data,
+      reconciliationStatus: initialStatus,
     });
 
     const savedActivity = await this.paymentActivityRepository.save(activity);
 
-    // Publish event for automatic reconciliation trigger
-    this.eventPublisher.publish(
-      new PaymentActivityCreatedEvent(savedActivity, userId),
-    );
+    // Only publish event for activities that need reconciliation
+    if (initialStatus === 'pending') {
+      this.eventPublisher.publish(
+        new PaymentActivityCreatedEvent(savedActivity, userId),
+      );
+    }
 
     return savedActivity;
   }
@@ -196,25 +212,39 @@ export class PaymentActivitiesService {
     reconciled: number;
     failed: number;
     manual: number;
+    notApplicable: number;
   }> {
-    const [total, pending, reconciled, failed, manual] = await Promise.all([
-      this.paymentActivityRepository.count({
-        where: { paymentAccount: { userId } },
-      }),
-      this.paymentActivityRepository.count({
-        where: { paymentAccount: { userId }, reconciliationStatus: 'pending' },
-      }),
-      this.paymentActivityRepository.count({
-        where: { paymentAccount: { userId }, reconciliationStatus: 'reconciled' },
-      }),
-      this.paymentActivityRepository.count({
-        where: { paymentAccount: { userId }, reconciliationStatus: 'failed' },
-      }),
-      this.paymentActivityRepository.count({
-        where: { paymentAccount: { userId }, reconciliationStatus: 'manual' },
-      }),
-    ]);
+    const [total, pending, reconciled, failed, manual, notApplicable] =
+      await Promise.all([
+        this.paymentActivityRepository.count({
+          where: { paymentAccount: { userId } },
+        }),
+        this.paymentActivityRepository.count({
+          where: {
+            paymentAccount: { userId },
+            reconciliationStatus: 'pending',
+          },
+        }),
+        this.paymentActivityRepository.count({
+          where: {
+            paymentAccount: { userId },
+            reconciliationStatus: 'reconciled',
+          },
+        }),
+        this.paymentActivityRepository.count({
+          where: { paymentAccount: { userId }, reconciliationStatus: 'failed' },
+        }),
+        this.paymentActivityRepository.count({
+          where: { paymentAccount: { userId }, reconciliationStatus: 'manual' },
+        }),
+        this.paymentActivityRepository.count({
+          where: {
+            paymentAccount: { userId },
+            reconciliationStatus: 'not_applicable',
+          },
+        }),
+      ]);
 
-    return { total, pending, reconciled, failed, manual };
+    return { total, pending, reconciled, failed, manual, notApplicable };
   }
 }

@@ -7,11 +7,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { PaymentActivityBusinessRulesService } from './payment-activity-business-rules.service';
 
 describe('PaymentActivitiesService', () => {
   let service: PaymentActivitiesService;
   let repository: Repository<PaymentActivity>;
   let paymentAccountRepository: Repository<PaymentAccount>;
+  let businessRulesService: PaymentActivityBusinessRulesService;
   let module: TestingModule;
 
   const mockUser = {
@@ -78,12 +80,21 @@ describe('PaymentActivitiesService', () => {
             publish: jest.fn(),
           },
         },
+        {
+          provide: PaymentActivityBusinessRulesService,
+          useValue: {
+            determineInitialReconciliationStatus: jest
+              .fn()
+              .mockReturnValue('pending'),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<PaymentActivitiesService>(PaymentActivitiesService);
     repository = module.get(getRepositoryToken(PaymentActivity));
     paymentAccountRepository = module.get(getRepositoryToken(PaymentAccount));
+    businessRulesService = module.get(PaymentActivityBusinessRulesService);
   });
 
   afterEach(async () => {
@@ -597,26 +608,28 @@ describe('PaymentActivitiesService', () => {
   });
 
   describe('getReconciliationStats', () => {
-    it('should return reconciliation statistics', async () => {
+    it('should return reconciliation statistics including notApplicable', async () => {
       // Arrange
       const userId = 1;
       (repository.count as jest.Mock)
-        .mockResolvedValueOnce(10) // total
-        .mockResolvedValueOnce(3)  // pending
-        .mockResolvedValueOnce(5)  // reconciled
-        .mockResolvedValueOnce(1)  // failed
-        .mockResolvedValueOnce(1); // manual
+        .mockResolvedValueOnce(12) // total
+        .mockResolvedValueOnce(3) // pending
+        .mockResolvedValueOnce(5) // reconciled
+        .mockResolvedValueOnce(1) // failed
+        .mockResolvedValueOnce(1) // manual
+        .mockResolvedValueOnce(2); // notApplicable
 
       // Act
       const result = await service.getReconciliationStats(userId);
 
       // Assert
       expect(result).toEqual({
-        total: 10,
+        total: 12,
         pending: 3,
         reconciled: 5,
         failed: 1,
         manual: 1,
+        notApplicable: 2,
       });
     });
 
@@ -635,6 +648,7 @@ describe('PaymentActivitiesService', () => {
         reconciled: 0,
         failed: 0,
         manual: 0,
+        notApplicable: 0,
       });
     });
 
@@ -656,7 +670,7 @@ describe('PaymentActivitiesService', () => {
       );
     });
 
-    it('should call count 5 times for each status', async () => {
+    it('should call count 6 times for each status including notApplicable', async () => {
       // Arrange
       const userId = 1;
       (repository.count as jest.Mock).mockResolvedValue(0);
@@ -665,7 +679,7 @@ describe('PaymentActivitiesService', () => {
       await service.getReconciliationStats(userId);
 
       // Assert
-      expect(repository.count).toHaveBeenCalledTimes(5);
+      expect(repository.count).toHaveBeenCalledTimes(6);
     });
   });
 });
