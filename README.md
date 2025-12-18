@@ -2,6 +2,8 @@
 
 A NestJS backend for a personal finance management application.
 
+> **📚 Development Documentation**: Development docs, feature plans, and architecture documentation are maintained in the [main repository](https://github.com/coffeebudget/coffeebudget-main). This README focuses on setup and usage of the backend service.
+
 ## Project Structure
 
 This is a multi-repository project with the following structure:
