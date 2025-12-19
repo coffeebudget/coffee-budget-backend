@@ -1,0 +1,170 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Index,
+} from 'typeorm';
+import { User } from '../../users/user.entity';
+import { Category } from '../../categories/entities/category.entity';
+import { ExpensePlanTransaction } from './expense-plan-transaction.entity';
+
+export type ExpensePlanType =
+  | 'fixed_monthly'
+  | 'yearly_fixed'
+  | 'yearly_variable'
+  | 'multi_year'
+  | 'seasonal'
+  | 'emergency_fund'
+  | 'goal';
+
+export type ExpensePlanPriority = 'essential' | 'important' | 'discretionary';
+
+export type ExpensePlanFrequency =
+  | 'monthly'
+  | 'quarterly'
+  | 'yearly'
+  | 'multi_year'
+  | 'seasonal'
+  | 'one_time';
+
+export type ExpensePlanStatus = 'active' | 'paused' | 'completed';
+
+export type ContributionSource = 'calculated' | 'manual' | 'historical';
+
+export type InitialBalanceSource = 'zero' | 'historical' | 'custom';
+
+@Entity('expense_plans')
+@Index(['userId', 'status'])
+export class ExpensePlan {
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  userId: number;
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'userId' })
+  user: User;
+
+  // ─────────────────────────────────────────────────────────────
+  // IDENTITY
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 100 })
+  name: string;
+
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  icon: string | null;
+
+  // ─────────────────────────────────────────────────────────────
+  // CLASSIFICATION
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 20 })
+  planType: ExpensePlanType;
+
+  @Column({ type: 'varchar', length: 20, default: 'important' })
+  priority: ExpensePlanPriority;
+
+  @Column({ nullable: true })
+  categoryId: number | null;
+
+  @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'categoryId' })
+  category: Category | null;
+
+  @Column({ default: false })
+  autoTrackCategory: boolean;
+
+  // ─────────────────────────────────────────────────────────────
+  // FINANCIAL
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  targetAmount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  currentBalance: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  monthlyContribution: number;
+
+  @Column({ type: 'varchar', length: 20, default: 'calculated' })
+  contributionSource: ContributionSource;
+
+  // ─────────────────────────────────────────────────────────────
+  // TIMING
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 20 })
+  frequency: ExpensePlanFrequency;
+
+  @Column({ type: 'int', nullable: true })
+  frequencyYears: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  dueMonth: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  dueDay: number | null;
+
+  @Column({ type: 'date', nullable: true })
+  targetDate: Date | null;
+
+  @Column({ type: 'simple-array', nullable: true })
+  seasonalMonths: number[] | null;
+
+  @Column({ type: 'date', nullable: true })
+  lastFundedDate: Date | null;
+
+  @Column({ type: 'date', nullable: true })
+  nextDueDate: Date | null;
+
+  // ─────────────────────────────────────────────────────────────
+  // TRACKING
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status: ExpensePlanStatus;
+
+  @Column({ default: true })
+  autoCalculate: boolean;
+
+  @Column({ default: true })
+  rolloverSurplus: boolean;
+
+  // ─────────────────────────────────────────────────────────────
+  // INITIALIZATION
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 20, default: 'zero' })
+  initialBalanceSource: InitialBalanceSource;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  initialBalanceCustom: number | null;
+
+  // ─────────────────────────────────────────────────────────────
+  // METADATA
+  // ─────────────────────────────────────────────────────────────
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+
+  // ─────────────────────────────────────────────────────────────
+  // RELATIONS
+  // ─────────────────────────────────────────────────────────────
+
+  @OneToMany(() => ExpensePlanTransaction, (transaction) => transaction.expensePlan)
+  transactions: ExpensePlanTransaction[];
+}
