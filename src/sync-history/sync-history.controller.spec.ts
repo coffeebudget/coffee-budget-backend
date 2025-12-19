@@ -203,7 +203,7 @@ describe('SyncHistoryController', () => {
 
       // Assert
       expect(result).toEqual(mockStatistics);
-      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 30);
+      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 30, undefined);
     });
 
     it('should use custom days parameter when provided', async () => {
@@ -217,7 +217,7 @@ describe('SyncHistoryController', () => {
 
       // Assert
       expect(result).toEqual(mockStatistics);
-      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 7);
+      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 7, undefined);
     });
 
     it('should use default 30 days when not provided', async () => {
@@ -231,7 +231,7 @@ describe('SyncHistoryController', () => {
 
       // Assert
       expect(result).toEqual(mockStatistics);
-      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 30);
+      expect(service.getSyncStatistics).toHaveBeenCalledWith(1, 30, undefined);
     });
   });
 

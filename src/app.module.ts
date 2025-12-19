@@ -24,6 +24,7 @@ import { MerchantCategorizationModule } from './merchant-categorization/merchant
 import { SyncHistoryModule } from './sync-history/sync-history.module';
 import { PaymentAccountsModule } from './payment-accounts/payment-accounts.module';
 import { PaymentActivitiesModule } from './payment-activities/payment-activities.module';
+import { ExpensePlansModule } from './expense-plans/expense-plans.module';
 
 import databaseConfig from './config/database.config';
 
@@ -85,6 +86,7 @@ import databaseConfig from './config/database.config';
     SyncHistoryModule,
     PaymentAccountsModule,
     PaymentActivitiesModule,
+    ExpensePlansModule,
   ],
   controllers: [AppController],
   providers: [
