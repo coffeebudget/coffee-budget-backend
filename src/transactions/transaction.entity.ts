@@ -96,10 +96,36 @@ export class Transaction {
   @Column({ nullable: true, type: 'varchar' })
   creditorName: string | null;
 
-  // PayPal reconciliation fields (DEPRECATED - use enrichedFromPaymentActivityId instead)
+  /**
+   * @deprecated This field will be removed in v2.0
+   * Use PaymentActivity-based reconciliation instead.
+   *
+   * MIGRATION:
+   * - Old: Transaction links to another Transaction via reconciledWithTransaction
+   * - New: PaymentActivity links to Transaction via reconciledTransactionId
+   *
+   * For new implementations, use enrichedFromPaymentActivityId field below.
+   *
+   * @see docs/tasks/active/REFACTOR-20251217-cleanup-old-reconciliation.md
+   */
   @ManyToOne(() => Transaction, { nullable: true })
   reconciledWithTransaction: Transaction | null;
 
+  /**
+   * @deprecated This field will be removed in v2.0
+   * Use PaymentActivity-based reconciliation instead.
+   *
+   * VALID VALUES (for reference during migration):
+   * - 'not_reconciled': Transaction not matched with any other
+   * - 'reconciled_as_primary': Bank transaction matched with PayPal
+   * - 'reconciled_as_secondary': PayPal transaction matched with bank
+   *
+   * NEW APPROACH:
+   * - PaymentActivity.reconciliationStatus tracks PaymentActivity ↔ Transaction matches
+   * - Transaction.enrichedFromPaymentActivityId links to the enriching PaymentActivity
+   *
+   * @see docs/tasks/active/REFACTOR-20251217-cleanup-old-reconciliation.md
+   */
   @Column({
     type: 'enum',
     enum: ['not_reconciled', 'reconciled_as_primary', 'reconciled_as_secondary'],
