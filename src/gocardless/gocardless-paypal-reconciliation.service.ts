@@ -14,6 +14,24 @@ export interface ReconciliationPair {
   paypalTransaction: Transaction;
 }
 
+/**
+ * @deprecated This service is deprecated and will be removed in v2.0
+ *
+ * MIGRATION PATH:
+ * - Old: Transaction-to-Transaction reconciliation (this service)
+ * - New: PaymentActivity-based reconciliation (PaymentActivityService)
+ *
+ * The new system uses PaymentActivity entities to track payment provider
+ * activities (PayPal, etc.) separately from bank transactions, with a
+ * cleaner reconciliation model.
+ *
+ * TIMELINE:
+ * - Phase 1 (Current): Deprecation warnings added
+ * - Phase 2: Data migration to PaymentActivity system
+ * - Phase 3: Schema cleanup and removal
+ *
+ * @see docs/tasks/active/REFACTOR-20251217-cleanup-old-reconciliation.md
+ */
 @Injectable()
 export class GocardlessPaypalReconciliationService {
   private readonly logger = new Logger(GocardlessPaypalReconciliationService.name);
@@ -21,7 +39,14 @@ export class GocardlessPaypalReconciliationService {
   constructor(
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
-  ) {}
+  ) {
+    // Log deprecation warning on service initialization
+    this.logger.warn(
+      'DEPRECATED: GocardlessPaypalReconciliationService is deprecated. ' +
+      'Migrate to PaymentActivity-based reconciliation. ' +
+      'See: docs/tasks/active/REFACTOR-20251217-cleanup-old-reconciliation.md'
+    );
+  }
 
   /**
    * Find potential bank transaction that matches a PayPal transaction
@@ -30,11 +55,23 @@ export class GocardlessPaypalReconciliationService {
    * - Date within ±3 days
    * - Description contains "paypal"
    * - Same transaction type (expense/income)
+   *
+   * @deprecated Use PaymentActivityService.findMatchingBankTransaction() instead
+   * This method will be removed in v2.0
    */
   async findPotentialPayPalMatch(
     paypalTransaction: Transaction,
     userId: number,
   ): Promise<Transaction | null> {
+    this.logger.warn({
+      message: 'DEPRECATED: findPotentialPayPalMatch() called',
+      deprecatedMethod: 'findPotentialPayPalMatch',
+      replacementMethod: 'PaymentActivityService.findMatchingBankTransaction',
+      scheduledRemoval: 'v2.0',
+      userId,
+      transactionId: paypalTransaction.id,
+    });
+
     // Return null if executionDate is not set
     if (!paypalTransaction.executionDate) {
       return null;
@@ -86,11 +123,23 @@ export class GocardlessPaypalReconciliationService {
    * - Mark PayPal transaction as secondary
    * - Link PayPal transaction to bank transaction
    * - Enrich bank transaction description with PayPal merchant info
+   *
+   * @deprecated Use PaymentActivityService.reconcile() instead
+   * This method will be removed in v2.0
    */
   async reconcileTransactions(
     bankTransaction: Transaction,
     paypalTransaction: Transaction,
   ): Promise<ReconciliationPair> {
+    this.logger.warn({
+      message: 'DEPRECATED: reconcileTransactions() called',
+      deprecatedMethod: 'reconcileTransactions',
+      replacementMethod: 'PaymentActivityService.reconcile',
+      scheduledRemoval: 'v2.0',
+      bankTransactionId: bankTransaction.id,
+      paypalTransactionId: paypalTransaction.id,
+    });
+
     // Enrich bank transaction description with PayPal merchant info
     if (paypalTransaction.merchantName) {
       const enrichedDescription = this.enrichDescription(
@@ -123,8 +172,24 @@ export class GocardlessPaypalReconciliationService {
   /**
    * Process PayPal reconciliation for a user
    * Finds all unreconciled PayPal transactions and attempts to match them with bank transactions
+   *
+   * @deprecated Use PaymentActivityService for reconciliation instead
+   * This method will be removed in v2.0
+   *
+   * The new architecture:
+   * 1. Import PayPal activities as PaymentActivity entities
+   * 2. Match PaymentActivities with bank Transactions
+   * 3. Enrich transactions with merchant data from PaymentActivities
    */
   async processPayPalReconciliation(userId: number): Promise<ReconciliationResult> {
+    this.logger.warn({
+      message: 'DEPRECATED: processPayPalReconciliation() called',
+      deprecatedMethod: 'processPayPalReconciliation',
+      replacementMethod: 'PaymentActivityService (import + reconcile)',
+      scheduledRemoval: 'v2.0',
+      userId,
+    });
+
     // Find all unreconciled PayPal transactions for the user
     const paypalTransactions = await this.transactionRepository.find({
       where: {
@@ -192,6 +257,7 @@ export class GocardlessPaypalReconciliationService {
 
   /**
    * Enrich description by appending merchant name if not already present
+   * @private
    */
   private enrichDescription(description: string, merchantName: string): string {
     // Check if merchant name is already in description
