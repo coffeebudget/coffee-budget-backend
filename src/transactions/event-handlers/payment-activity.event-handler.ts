@@ -180,6 +180,12 @@ export class PaymentActivityEventHandler {
       paymentActivity.merchantName || paymentActivity.description;
     transaction.enhancedCategoryConfidence = confidence;
 
+    // Update description with enhanced merchant name for better UX
+    // Original is preserved in originalMerchantName for audit trail
+    if (transaction.enhancedMerchantName) {
+      transaction.description = transaction.enhancedMerchantName;
+    }
+
     // Update merchant info if available
     if (paymentActivity.merchantCategoryCode) {
       transaction.merchantCategoryCode = paymentActivity.merchantCategoryCode;

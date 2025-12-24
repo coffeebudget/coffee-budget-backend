@@ -14,6 +14,8 @@ describe('PaymentActivitiesService', () => {
   let service: PaymentActivitiesService;
   let repository: Repository<PaymentActivity>;
   let paymentAccountRepository: Repository<PaymentAccount>;
+  let transactionRepository: Repository<Transaction>;
+  let eventPublisher: EventPublisherService;
   let businessRulesService: PaymentActivityBusinessRulesService;
   let module: TestingModule;
 
@@ -96,6 +98,8 @@ describe('PaymentActivitiesService', () => {
     service = module.get<PaymentActivitiesService>(PaymentActivitiesService);
     repository = module.get(getRepositoryToken(PaymentActivity));
     paymentAccountRepository = module.get(getRepositoryToken(PaymentAccount));
+    transactionRepository = module.get(getRepositoryToken(Transaction));
+    eventPublisher = module.get<EventPublisherService>(EventPublisherService);
     businessRulesService = module.get(PaymentActivityBusinessRulesService);
   });
 
@@ -519,6 +523,81 @@ describe('PaymentActivitiesService', () => {
       await expect(service.updateReconciliation(id, userId, updateData)).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('should enrich transaction and update description with enhanced merchant name', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      const updateData = {
+        reconciledTransactionId: 123,
+        reconciliationStatus: 'reconciled' as const,
+        reconciliationConfidence: 85,
+      };
+      const transactionToEnrich = {
+        id: 123,
+        description: 'PayPal Transfer - SDD CORE',
+        merchantName: null,
+        enrichedFromPaymentActivityId: null,
+        originalMerchantName: null,
+        enhancedMerchantName: null,
+        enhancedCategoryConfidence: null,
+        merchantCategoryCode: null,
+        category: null,
+        user: { id: 1 },
+      };
+
+      (repository.findOne as jest.Mock).mockResolvedValue(mockPaymentActivity);
+      (repository.save as jest.Mock).mockImplementation((activity) => Promise.resolve(activity));
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionToEnrich);
+      (transactionRepository.save as jest.Mock).mockImplementation((tx) => Promise.resolve(tx));
+
+      // Act
+      await service.updateReconciliation(id, userId, updateData, true);
+
+      // Assert - verify transaction description is updated
+      expect(transactionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Starbucks', // Updated from 'PayPal Transfer - SDD CORE'
+          originalMerchantName: 'PayPal Transfer - SDD CORE', // Original preserved
+          enhancedMerchantName: 'Starbucks',
+          enrichedFromPaymentActivityId: 1,
+        }),
+      );
+    });
+
+    it('should publish TransactionEnrichedEvent after manual reconciliation', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      const updateData = {
+        reconciledTransactionId: 123,
+        reconciliationStatus: 'manual' as const,
+        reconciliationConfidence: 100,
+      };
+      const transactionToEnrich = {
+        id: 123,
+        description: 'PayPal Transfer',
+        merchantName: null,
+        enrichedFromPaymentActivityId: null,
+        originalMerchantName: null,
+        enhancedMerchantName: null,
+        enhancedCategoryConfidence: null,
+        merchantCategoryCode: null,
+        category: null,
+        user: { id: 1 },
+      };
+
+      (repository.findOne as jest.Mock).mockResolvedValue(mockPaymentActivity);
+      (repository.save as jest.Mock).mockImplementation((activity) => Promise.resolve(activity));
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionToEnrich);
+      (transactionRepository.save as jest.Mock).mockImplementation((tx) => Promise.resolve(tx));
+
+      // Act
+      await service.updateReconciliation(id, userId, updateData, true);
+
+      // Assert - verify event is published
+      expect(eventPublisher.publish).toHaveBeenCalled();
     });
   });
 
