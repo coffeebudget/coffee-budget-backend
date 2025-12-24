@@ -184,12 +184,13 @@ describe('TransactionEnrichedEventHandler', () => {
     });
 
     it('should skip re-categorization when merchant names are similar - >80% overlap', async () => {
-      // Arrange
+      // Arrange - "Starbucks" vs "Starbucks Inc" has >80% overlap (9/13 = 69%)
+      // Use a case where shorter is >80% of longer
       const event = new TransactionEnrichedEvent(
         mockTransaction,
         123,
-        'PayPal Inc',
-        'PayPal',
+        'Starbucks',
+        'Starbucks!',  // 9/10 = 90% overlap
         1,
       );
 
@@ -199,6 +200,26 @@ describe('TransactionEnrichedEventHandler', () => {
       // Assert
       expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should allow re-categorization for provider company names like "PayPal Inc"', async () => {
+      // Arrange - "PayPal Inc" is a company name, not just a generic provider
+      const event = new TransactionEnrichedEvent(
+        mockTransaction,
+        123,
+        'PayPal Inc',
+        'PayPal Transfer',
+        1,
+      );
+
+      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(null);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(mockTransaction);
+
+      // Act
+      await handler.handleTransactionEnriched(event);
+
+      // Assert - should attempt re-categorization because "Inc" indicates a real company
+      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('PayPal Inc', 1);
     });
 
     it('should skip re-categorization when both names reference same generic provider', async () => {
