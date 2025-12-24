@@ -180,23 +180,43 @@ export class PaymentActivitiesService {
 
     const savedActivity = await this.paymentActivityRepository.save(activity);
 
-    // Publish TransactionEnrichedEvent if reconciliation successful and event publishing enabled
+    // Enrich transaction and publish event if reconciliation successful and event publishing enabled
     if (
       publishEvent &&
       (data.reconciliationStatus === 'reconciled' ||
         data.reconciliationStatus === 'manual')
     ) {
       try {
-        // Load the enriched transaction to get all enrichment fields
+        // Load the transaction to enrich
         const transaction = await this.transactionRepository.findOne({
           where: { id: data.reconciledTransactionId },
-          relations: ['user'],
+          relations: ['user', 'category'],
         });
 
-        if (
-          transaction &&
-          transaction.enrichedFromPaymentActivityId === activity.id
-        ) {
+        if (transaction) {
+          // Enrich transaction with payment activity data if not already enriched
+          if (!transaction.enrichedFromPaymentActivityId) {
+            transaction.enrichedFromPaymentActivityId = activity.id;
+            transaction.originalMerchantName =
+              transaction.merchantName || transaction.description;
+            transaction.enhancedMerchantName =
+              activity.merchantName || activity.description;
+            transaction.enhancedCategoryConfidence =
+              data.reconciliationConfidence || 85;
+
+            // Update merchant category code if available
+            if (activity.merchantCategoryCode) {
+              transaction.merchantCategoryCode = activity.merchantCategoryCode;
+            }
+
+            await this.transactionRepository.save(transaction);
+
+            this.logger.debug(
+              `Enriched transaction ${transaction.id} with payment activity ${activity.id} data`,
+            );
+          }
+
+          // Publish event for re-categorization
           this.eventPublisher.publish(
             new TransactionEnrichedEvent(
               transaction,
@@ -214,7 +234,7 @@ export class PaymentActivitiesService {
       } catch (error) {
         // Log but don't break reconciliation flow
         this.logger.error(
-          `Failed to publish TransactionEnrichedEvent: ${error.message}`,
+          `Failed to enrich transaction or publish event: ${error.message}`,
           error.stack,
         );
       }

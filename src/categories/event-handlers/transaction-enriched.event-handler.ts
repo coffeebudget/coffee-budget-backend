@@ -237,20 +237,37 @@ export class TransactionEnrichedEventHandler {
       }
     }
 
-    // Check for common generic provider names
+    // Check if enhanced name is PRIMARILY a payment provider (not just contains it)
+    // We should re-categorize if enhanced is "Starbucks" even if original is "PAYPAL *STARBUCKS"
+    // We should SKIP only if enhanced is essentially just the provider name
     const genericProviders = [
       'paypal',
       'stripe',
       'square',
       'venmo',
       'zelle',
+      'klarna',
+      'apple pay',
+      'google pay',
+      'amazon pay',
     ];
-    const bothGeneric = genericProviders.some(
-      (provider) =>
-        normalizedEnhanced.includes(provider) &&
-        normalizedOriginal.includes(provider),
-    );
 
-    return bothGeneric;
+    // Check if enhanced name is primarily a payment provider
+    const enhancedIsGeneric = genericProviders.some((provider) => {
+      // Enhanced is considered generic if it's just the provider name
+      // or provider name with common suffixes like "payment", "transfer", etc.
+      const enhancedWithoutProvider = normalizedEnhanced
+        .replace(new RegExp(provider, 'gi'), '')
+        .replace(/\s*(payment|transfer|transaction|charge|debit|credit)\s*/gi, '')
+        .trim();
+      return (
+        normalizedEnhanced.includes(provider) &&
+        enhancedWithoutProvider.length < 3
+      );
+    });
+
+    // Only skip if the enhanced name is essentially just a payment provider
+    // This allows "Starbucks" to re-categorize even when original is "PAYPAL *STARBUCKS"
+    return enhancedIsGeneric;
   }
 }
