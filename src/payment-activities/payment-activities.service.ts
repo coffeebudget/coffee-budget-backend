@@ -204,6 +204,12 @@ export class PaymentActivitiesService {
             transaction.enhancedCategoryConfidence =
               data.reconciliationConfidence || 85;
 
+            // Update description with enhanced merchant name for better UX
+            // Original is preserved in originalMerchantName for audit trail
+            if (transaction.enhancedMerchantName) {
+              transaction.description = transaction.enhancedMerchantName;
+            }
+
             // Update merchant category code if available
             if (activity.merchantCategoryCode) {
               transaction.merchantCategoryCode = activity.merchantCategoryCode;

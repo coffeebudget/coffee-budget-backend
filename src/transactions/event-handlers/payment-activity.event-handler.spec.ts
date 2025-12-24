@@ -342,6 +342,50 @@ describe('PaymentActivityEventHandler', () => {
       );
     });
 
+    it('should update transaction description with enhanced merchant name', async () => {
+      // Arrange
+      const event = new PaymentActivityCreatedEvent(
+        mockPaymentActivity,
+        1,
+      );
+
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockPaymentAccount,
+      );
+
+      const mockQueryBuilder = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        setParameter: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockTransaction]),
+      };
+      (transactionRepository.createQueryBuilder as jest.Mock).mockReturnValue(
+        mockQueryBuilder,
+      );
+
+      (transactionRepository.save as jest.Mock).mockImplementation((tx) =>
+        Promise.resolve(tx),
+      );
+
+      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
+        mockPaymentActivity,
+      );
+
+      // Act
+      await handler.handlePaymentActivityCreated(event);
+
+      // Assert - verify description is updated to enhanced merchant name
+      expect(transactionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Starbucks Seattle', // Should be updated from 'PayPal Transfer'
+          originalMerchantName: 'PayPal', // Original preserved
+          enhancedMerchantName: 'Starbucks Seattle',
+        }),
+      );
+    });
+
     it('should extract userId from paymentActivity.paymentAccount.userId', async () => {
       // Arrange
       const activityWithNestedUser = {
