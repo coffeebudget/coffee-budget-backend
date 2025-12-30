@@ -141,28 +141,33 @@ describe('TransactionEnrichedEventHandler', () => {
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
-    it('should skip re-categorization when transaction has manual category (confidence null)', async () => {
-      // Arrange
-      const manualTransaction = {
+    it('should allow re-categorization when transaction has category but NULL confidence (auto-categorized without tracking)', async () => {
+      // Arrange - NULL confidence means auto-categorized without confidence tracking
+      // This should allow re-categorization when enriched merchant name is available
+      const autoCategorizedTransaction = {
         ...mockTransaction,
         category: mockCategory,
-        categorizationConfidence: null, // Manual assignment
+        categorizationConfidence: null, // Auto-categorized without confidence tracking
       } as unknown as Transaction;
 
       const event = new TransactionEnrichedEvent(
-        manualTransaction,
+        autoCategorizedTransaction,
         123,
         'Starbucks Seattle',
         'PayPal',
         1,
       );
 
+      const newCategory = { id: 2, name: 'Coffee Shops' };
+      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(newCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(autoCategorizedTransaction);
+
       // Act
       await handler.handleTransactionEnriched(event);
 
-      // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
-      expect(transactionRepository.save).not.toHaveBeenCalled();
+      // Assert - should attempt re-categorization since NULL confidence doesn't indicate manual
+      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('Starbucks Seattle', 1);
+      expect(transactionRepository.save).toHaveBeenCalled();
     });
 
     it('should skip re-categorization when merchant names are similar - exact match', async () => {

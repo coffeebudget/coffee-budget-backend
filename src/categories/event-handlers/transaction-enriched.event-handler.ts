@@ -70,18 +70,21 @@ export class TransactionEnrichedEventHandler {
       }
 
       // Skip if transaction already has a manually assigned category
-      // (Check categorizationConfidence - null or very high suggests manual)
+      // Only skip if categorizationConfidence is very high (>=95), indicating manual assignment
+      // NULL confidence means auto-categorized without confidence tracking - should allow re-categorization
       if (
         transaction.category &&
-        (!transaction.categorizationConfidence ||
-          transaction.categorizationConfidence >=
-            TransactionEnrichedEventHandler.MANUAL_CATEGORY_CONFIDENCE_THRESHOLD)
+        transaction.categorizationConfidence !== null &&
+        transaction.categorizationConfidence !== undefined &&
+        transaction.categorizationConfidence >=
+          TransactionEnrichedEventHandler.MANUAL_CATEGORY_CONFIDENCE_THRESHOLD
       ) {
         this.logger.debug(
           'Skipping re-categorization: transaction has manual category',
           {
             transactionId: transaction.id,
             categoryId: transaction.category.id,
+            categorizationConfidence: transaction.categorizationConfidence,
           },
         );
         return;
