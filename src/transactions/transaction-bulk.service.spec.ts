@@ -68,8 +68,6 @@ describe('TransactionBulkService', () => {
     merchantCategoryCode: null,
     debtorName: null,
     creditorName: null,
-    reconciledWithTransaction: null,
-    reconciliationStatus: 'not_reconciled' as const,
     enrichedFromPaymentActivityId: null,
     originalMerchantName: null,
     enhancedMerchantName: null,

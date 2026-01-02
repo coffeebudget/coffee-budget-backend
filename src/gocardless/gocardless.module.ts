@@ -5,7 +5,6 @@ import { GocardlessController } from './gocardless.controller';
 import { GocardlessCronController } from './gocardless-cron.controller';
 import { GocardlessService } from './gocardless.service';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
-import { GocardlessPaypalReconciliationService } from './gocardless-paypal-reconciliation.service';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { User } from '../users/user.entity';
@@ -22,7 +21,6 @@ import { SyncHistoryModule } from '../sync-history/sync-history.module';
   providers: [
     GocardlessService,
     GocardlessSchedulerService,
-    GocardlessPaypalReconciliationService,
   ],
   exports: [GocardlessService],
 })
