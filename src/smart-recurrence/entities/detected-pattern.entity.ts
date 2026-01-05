@@ -8,7 +8,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/user.entity';
-import { Category } from '../../categories/category.entity';
+import { Category } from '../../categories/entities/category.entity';
 import { FrequencyType } from '../interfaces/frequency.interface';
 
 @Entity('detected_patterns')

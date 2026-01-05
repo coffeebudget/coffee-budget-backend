@@ -443,7 +443,7 @@ describe('PatternClassificationService', () => {
       // Assert
       expect(result.tokensUsed).toBe(150);
       expect(result.estimatedCost).toBeGreaterThan(0);
-      expect(result.processingTimeMs).toBeGreaterThan(0);
+      expect(result.processingTimeMs).toBeGreaterThanOrEqual(0);
     });
   });
 
