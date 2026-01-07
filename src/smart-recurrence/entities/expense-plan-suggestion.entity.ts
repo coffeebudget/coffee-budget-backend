@@ -22,7 +22,7 @@ export class ExpensePlanSuggestion {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'user_id' })
+  @Column({ type: 'int', name: 'user_id' })
   userId: number;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
@@ -49,7 +49,7 @@ export class ExpensePlanSuggestion {
   @Column({ type: 'varchar', length: 255, name: 'representative_description' })
   representativeDescription: string;
 
-  @Column({ nullable: true, name: 'category_id' })
+  @Column({ type: 'int', nullable: true, name: 'category_id' })
   categoryId: number | null;
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
@@ -83,7 +83,7 @@ export class ExpensePlanSuggestion {
   })
   expenseType: ExpenseType;
 
-  @Column({ name: 'is_essential' })
+  @Column({ type: 'boolean', name: 'is_essential' })
   isEssential: boolean;
 
   @Column({
@@ -93,20 +93,20 @@ export class ExpensePlanSuggestion {
   })
   frequencyType: FrequencyType;
 
-  @Column({ name: 'interval_days' })
+  @Column({ type: 'int', name: 'interval_days' })
   intervalDays: number;
 
   // ─────────────────────────────────────────────────────────────
   // CONFIDENCE METRICS
   // ─────────────────────────────────────────────────────────────
 
-  @Column({ name: 'pattern_confidence' })
+  @Column({ type: 'int', name: 'pattern_confidence' })
   patternConfidence: number; // 0-100 from pattern detection
 
-  @Column({ name: 'classification_confidence' })
+  @Column({ type: 'int', name: 'classification_confidence' })
   classificationConfidence: number; // 0-100 from AI classification
 
-  @Column({ name: 'overall_confidence' })
+  @Column({ type: 'int', name: 'overall_confidence' })
   overallConfidence: number; // Combined confidence score
 
   @Column({ type: 'text', nullable: true, name: 'classification_reasoning' })
@@ -116,7 +116,7 @@ export class ExpensePlanSuggestion {
   // OCCURRENCE DATA
   // ─────────────────────────────────────────────────────────────
 
-  @Column({ name: 'occurrence_count' })
+  @Column({ type: 'int', name: 'occurrence_count' })
   occurrenceCount: number;
 
   @Column({ type: 'timestamp', name: 'first_occurrence' })
@@ -147,7 +147,7 @@ export class ExpensePlanSuggestion {
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   status: SuggestionStatus;
 
-  @Column({ nullable: true, name: 'approved_expense_plan_id' })
+  @Column({ type: 'int', nullable: true, name: 'approved_expense_plan_id' })
   approvedExpensePlanId: number | null;
 
   @Column({ type: 'text', nullable: true, name: 'rejection_reason' })

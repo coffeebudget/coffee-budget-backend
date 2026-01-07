@@ -128,21 +128,110 @@ export class PatternDetectionService {
 
   /**
    * Group transactions by similarity using multi-criteria scoring
+   * OPTIMIZED: Pre-groups by category/merchant to reduce O(n²) comparisons
    */
   private async groupBySimilarity(
     transactions: Transaction[],
     threshold: number,
   ): Promise<TransactionGroup[]> {
+    const startTime = Date.now();
+
+    // OPTIMIZATION: Pre-group transactions by category and merchant
+    // This reduces the search space significantly
+    const preGroups = this.preGroupTransactions(transactions);
+    this.logger.log(
+      `Pre-grouped ${transactions.length} transactions into ${preGroups.length} buckets (${Date.now() - startTime}ms)`,
+    );
+
+    const allGroups: TransactionGroup[] = [];
+    let processedBuckets = 0;
+
+    for (const preGroup of preGroups) {
+      // Process each pre-group with refined similarity matching
+      const refinedGroups = this.refineGroupBySimilarity(
+        preGroup.transactions,
+        threshold,
+      );
+      allGroups.push(...refinedGroups);
+      processedBuckets++;
+
+      // Log progress for large datasets
+      if (processedBuckets % 50 === 0) {
+        this.logger.log(
+          `Processed ${processedBuckets}/${preGroups.length} buckets (${Date.now() - startTime}ms)`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Similarity grouping complete: ${allGroups.length} groups from ${transactions.length} transactions (${Date.now() - startTime}ms)`,
+    );
+
+    return allGroups;
+  }
+
+  /**
+   * Pre-group transactions by category and merchant name for O(n) initial grouping
+   * This dramatically reduces the number of similarity calculations needed
+   */
+  private preGroupTransactions(
+    transactions: Transaction[],
+  ): { key: string; transactions: Transaction[] }[] {
+    const preGroupMap = new Map<string, Transaction[]>();
+
+    for (const transaction of transactions) {
+      // Create composite key from category + normalized merchant
+      const categoryKey = transaction.category?.id?.toString() || 'no-category';
+      const merchantKey = this.normalizeForGrouping(transaction.merchantName);
+      const compositeKey = `${categoryKey}:${merchantKey}`;
+
+      const existing = preGroupMap.get(compositeKey);
+      if (existing) {
+        existing.push(transaction);
+      } else {
+        preGroupMap.set(compositeKey, [transaction]);
+      }
+    }
+
+    return Array.from(preGroupMap.entries()).map(([key, txns]) => ({
+      key,
+      transactions: txns,
+    }));
+  }
+
+  /**
+   * Normalize string for pre-grouping (less strict than similarity scoring)
+   */
+  private normalizeForGrouping(value: string | null): string {
+    if (!value) return 'unknown';
+    return value.toLowerCase().trim().replace(/[^a-z0-9]/g, '').slice(0, 20);
+  }
+
+  /**
+   * Refine pre-groups with full similarity scoring
+   * Works on smaller subsets, making O(n²) manageable
+   */
+  private refineGroupBySimilarity(
+    transactions: Transaction[],
+    threshold: number,
+  ): TransactionGroup[] {
     const groups: TransactionGroup[] = [];
+
+    // OPTIMIZATION: Limit comparisons per group
+    const MAX_GROUP_COMPARISONS = 5;
 
     for (const transaction of transactions) {
       let matched = false;
 
       // Try to find existing group with high similarity
       for (const group of groups) {
+        // OPTIMIZATION: Only compare against a sample of the group
+        const sampleSize = Math.min(group.transactions.length, MAX_GROUP_COMPARISONS);
+        const sampleTransactions = group.transactions.slice(-sampleSize);
+
         const avgSimilarity = this.similarityScorer.calculateGroupSimilarity(
           transaction,
-          group.transactions,
+          sampleTransactions,
           DEFAULT_SIMILARITY_WEIGHTS,
         );
 
@@ -247,29 +336,83 @@ export class PatternDetectionService {
 
   /**
    * Calculate group cohesion (how similar transactions are to each other)
+   * OPTIMIZED: Uses sampling for large groups to avoid O(n²)
    */
   private calculateGroupCohesion(group: TransactionGroup): number {
     if (group.transactions.length < 2) return 100;
 
     const similarities: number[] = [];
+    const transactions = group.transactions;
 
-    // Calculate pairwise similarities
-    for (let i = 0; i < group.transactions.length; i++) {
-      for (let j = i + 1; j < group.transactions.length; j++) {
+    // OPTIMIZATION: For large groups, sample instead of full pairwise comparison
+    const MAX_COMPARISONS = 15; // Cap total comparisons
+    const n = transactions.length;
+    const totalPairs = (n * (n - 1)) / 2;
+
+    if (totalPairs <= MAX_COMPARISONS) {
+      // Small group: do full pairwise comparison
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const score = this.similarityScorer.calculateSimilarity(
+            transactions[i],
+            transactions[j],
+            DEFAULT_SIMILARITY_WEIGHTS,
+          );
+          similarities.push(score.total);
+        }
+      }
+    } else {
+      // Large group: sample pairs strategically
+      // Compare first with last few, and some random pairs
+      const sampleIndices = this.getSampleIndices(n, MAX_COMPARISONS);
+      for (const [i, j] of sampleIndices) {
         const score = this.similarityScorer.calculateSimilarity(
-          group.transactions[i],
-          group.transactions[j],
+          transactions[i],
+          transactions[j],
           DEFAULT_SIMILARITY_WEIGHTS,
         );
         similarities.push(score.total);
       }
     }
 
-    // Average of all pairwise similarities
+    // Average of sampled similarities
     const avgCohesion =
       similarities.reduce((sum, s) => sum + s, 0) / similarities.length;
 
     return avgCohesion;
+  }
+
+  /**
+   * Get strategic sample of index pairs for cohesion calculation
+   */
+  private getSampleIndices(n: number, maxPairs: number): [number, number][] {
+    const pairs: [number, number][] = [];
+
+    // Always include first-last comparison
+    pairs.push([0, n - 1]);
+
+    // Include first with several others
+    for (let j = 1; j < Math.min(n, 4); j++) {
+      pairs.push([0, j]);
+    }
+
+    // Include last with several others
+    for (let i = Math.max(0, n - 4); i < n - 1; i++) {
+      pairs.push([i, n - 1]);
+    }
+
+    // Add evenly distributed pairs if we have room
+    const step = Math.max(1, Math.floor(n / 4));
+    for (let i = 0; i < n && pairs.length < maxPairs; i += step) {
+      for (let j = i + step; j < n && pairs.length < maxPairs; j += step) {
+        const pair: [number, number] = [i, j];
+        if (!pairs.some(([a, b]) => a === i && b === j)) {
+          pairs.push(pair);
+        }
+      }
+    }
+
+    return pairs.slice(0, maxPairs);
   }
 
   private getFirstOccurrence(transactions: Transaction[]): Date {

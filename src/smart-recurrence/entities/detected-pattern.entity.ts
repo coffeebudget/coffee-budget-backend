@@ -16,24 +16,24 @@ export class DetectedPattern {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ name: 'user_id' })
+  @Column({ type: 'int', name: 'user_id' })
   userId: number;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'category_id', nullable: true })
+  @Column({ type: 'int', name: 'category_id', nullable: true })
   categoryId: number | null;
 
   @ManyToOne(() => Category, { nullable: true })
   @JoinColumn({ name: 'category_id' })
   category: Category | null;
 
-  @Column({ name: 'merchant_name', nullable: true })
+  @Column({ type: 'varchar', name: 'merchant_name', nullable: true })
   merchantName: string | null;
 
-  @Column({ name: 'representative_description' })
+  @Column({ type: 'varchar', name: 'representative_description' })
   representativeDescription: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, name: 'average_amount' })
@@ -46,19 +46,19 @@ export class DetectedPattern {
   })
   frequencyType: FrequencyType;
 
-  @Column({ name: 'interval_days' })
+  @Column({ type: 'int', name: 'interval_days' })
   intervalDays: number;
 
-  @Column({ name: 'frequency_confidence' })
+  @Column({ type: 'int', name: 'frequency_confidence' })
   frequencyConfidence: number; // 0-100
 
-  @Column({ name: 'similarity_confidence' })
+  @Column({ type: 'int', name: 'similarity_confidence' })
   similarityConfidence: number; // 0-100
 
-  @Column({ name: 'overall_confidence' })
+  @Column({ type: 'int', name: 'overall_confidence' })
   overallConfidence: number; // 0-100
 
-  @Column({ name: 'occurrence_count' })
+  @Column({ type: 'int', name: 'occurrence_count' })
   occurrenceCount: number;
 
   @Column({ type: 'timestamp', name: 'first_occurrence' })
@@ -77,7 +77,7 @@ export class DetectedPattern {
     amountRange?: { min: number; max: number };
   };
 
-  @Column({ default: true, name: 'is_active' })
+  @Column({ type: 'boolean', default: true, name: 'is_active' })
   isActive: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
