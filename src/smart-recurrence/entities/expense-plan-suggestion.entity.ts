@@ -46,7 +46,7 @@ export class ExpensePlanSuggestion {
   @Column({ type: 'varchar', length: 255, nullable: true, name: 'merchant_name' })
   merchantName: string | null;
 
-  @Column({ type: 'varchar', length: 255, name: 'representative_description' })
+  @Column({ type: 'text', name: 'representative_description' })
   representativeDescription: string;
 
   @Column({ type: 'int', nullable: true, name: 'category_id' })

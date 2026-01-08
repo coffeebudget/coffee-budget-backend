@@ -411,15 +411,17 @@ export class SuggestionGeneratorService {
 
       const suggestion = new ExpensePlanSuggestion();
       suggestion.userId = userId;
-      suggestion.suggestedName =
+      // Truncate to fit database column limits
+      const rawSuggestedName =
         classification?.suggestedPlanName ||
         pattern.group.merchantName ||
         pattern.group.representativeDescription.substring(0, 50);
+      suggestion.suggestedName = rawSuggestedName?.substring(0, 100) || 'Unnamed Expense';
       suggestion.description = `Detected recurring ${pattern.frequency.type} expense`;
-      suggestion.merchantName = pattern.group.merchantName;
+      suggestion.merchantName = pattern.group.merchantName?.substring(0, 255) || null;
       suggestion.representativeDescription = pattern.group.representativeDescription;
       suggestion.categoryId = pattern.group.categoryId;
-      suggestion.categoryName = pattern.group.categoryName;
+      suggestion.categoryName = pattern.group.categoryName?.substring(0, 100) || null;
       suggestion.averageAmount = pattern.group.averageAmount;
       suggestion.monthlyContribution =
         classification?.monthlyContribution || pattern.group.averageAmount;
