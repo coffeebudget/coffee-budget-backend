@@ -7,6 +7,7 @@ import { IncomeDistributionController } from './income-distribution.controller';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { SharedModule } from '../shared/shared.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { SharedModule } from '../shared/shared.module';
       ExpensePlan,
       ExpensePlanTransaction,
       IncomeDistributionRule,
+      BankAccount,
     ]),
     SharedModule,
   ],

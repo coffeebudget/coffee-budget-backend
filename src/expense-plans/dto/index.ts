@@ -4,3 +4,4 @@ export * from './contribute.dto';
 export * from './adjust-balance.dto';
 export * from './income-distribution-rule.dto';
 export * from './bulk-fund.dto';
+export * from './coverage-summary.dto';

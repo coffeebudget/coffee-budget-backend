@@ -37,6 +37,7 @@ import {
   AdjustBalanceDto,
   BulkFundDto,
   LinkTransactionDto,
+  CoverageSummaryResponse,
 } from './dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
@@ -55,7 +56,8 @@ export class ExpensePlansController {
   @Post()
   @ApiOperation({
     summary: 'Create a new expense plan',
-    description: 'Create a virtual envelope/sinking fund for tracking future expenses',
+    description:
+      'Create a virtual envelope/sinking fund for tracking future expenses',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -110,7 +112,8 @@ export class ExpensePlansController {
   @Get('summary/monthly-deposit')
   @ApiOperation({
     summary: 'Get monthly deposit summary',
-    description: 'Get the total monthly amount needed for all expense plans with breakdown by type',
+    description:
+      'Get the total monthly amount needed for all expense plans with breakdown by type',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -129,7 +132,8 @@ export class ExpensePlansController {
   @Get('summary/timeline')
   @ApiOperation({
     summary: 'Get upcoming expense timeline',
-    description: 'Get a chronological view of upcoming expense plan due dates within the specified time period',
+    description:
+      'Get a chronological view of upcoming expense plan due dates within the specified time period',
   })
   @ApiQuery({
     name: 'months',
@@ -151,6 +155,27 @@ export class ExpensePlansController {
     @Query('months') months?: number,
   ): Promise<TimelineEntry[]> {
     return this.expensePlansService.getTimelineView(user.id, months || 12);
+  }
+
+  @Get('summary/coverage')
+  @ApiOperation({
+    summary: 'Get coverage summary',
+    description:
+      'Get a summary of expense plan coverage status for the next 30 days, showing which bank accounts have sufficient funds',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Coverage summary retrieved successfully',
+    type: CoverageSummaryResponse,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getCoverageSummary(
+    @CurrentUser() user: any,
+  ): Promise<CoverageSummaryResponse> {
+    return this.expensePlansService.getCoverageSummary(user.id);
   }
 
   @Get(':id')
@@ -255,7 +280,8 @@ export class ExpensePlansController {
   @Get(':id/transactions')
   @ApiOperation({
     summary: 'Get expense plan transactions',
-    description: 'Retrieve all contribution and withdrawal transactions for an expense plan',
+    description:
+      'Retrieve all contribution and withdrawal transactions for an expense plan',
   })
   @ApiParam({
     name: 'id',
@@ -314,13 +340,19 @@ export class ExpensePlansController {
     @Body() dto: ContributeDto,
     @CurrentUser() user: any,
   ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.contribute(id, user.id, dto.amount, dto.note);
+    return this.expensePlansService.contribute(
+      id,
+      user.id,
+      dto.amount,
+      dto.note,
+    );
   }
 
   @Post(':id/withdraw')
   @ApiOperation({
     summary: 'Withdraw from expense plan',
-    description: 'Manually withdraw money from the expense plan when the expense occurs',
+    description:
+      'Manually withdraw money from the expense plan when the expense occurs',
   })
   @ApiParam({
     name: 'id',
@@ -355,7 +387,8 @@ export class ExpensePlansController {
   @Post(':id/adjust')
   @ApiOperation({
     summary: 'Adjust expense plan balance',
-    description: 'Manually adjust the balance of an expense plan to a specific amount (for corrections)',
+    description:
+      'Manually adjust the balance of an expense plan to a specific amount (for corrections)',
   })
   @ApiParam({
     name: 'id',
@@ -384,7 +417,12 @@ export class ExpensePlansController {
     @Body() dto: AdjustBalanceDto,
     @CurrentUser() user: any,
   ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.adjustBalance(id, user.id, dto.newBalance, dto.note);
+    return this.expensePlansService.adjustBalance(
+      id,
+      user.id,
+      dto.newBalance,
+      dto.note,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -394,7 +432,8 @@ export class ExpensePlansController {
   @Post(':id/quick-fund')
   @ApiOperation({
     summary: 'Quick fund expense plan',
-    description: 'Add the monthly contribution amount to the expense plan in one click',
+    description:
+      'Add the monthly contribution amount to the expense plan in one click',
   })
   @ApiParam({
     name: 'id',
@@ -424,7 +463,8 @@ export class ExpensePlansController {
   @Post(':id/fund-to-target')
   @ApiOperation({
     summary: 'Fund expense plan to target',
-    description: 'Add enough funds to reach the target amount. Returns null if already fully funded.',
+    description:
+      'Add enough funds to reach the target amount. Returns null if already fully funded.',
   })
   @ApiParam({
     name: 'id',
@@ -482,7 +522,8 @@ export class ExpensePlansController {
   @Post('bulk-quick-fund')
   @ApiOperation({
     summary: 'Quick fund all active expense plans',
-    description: 'Add monthly contribution to all active expense plans. Skips fully funded plans.',
+    description:
+      'Add monthly contribution to all active expense plans. Skips fully funded plans.',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -492,16 +533,15 @@ export class ExpensePlansController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Authentication required',
   })
-  async bulkQuickFund(
-    @CurrentUser() user: any,
-  ): Promise<BulkQuickFundResult> {
+  async bulkQuickFund(@CurrentUser() user: any): Promise<BulkQuickFundResult> {
     return this.expensePlansService.bulkQuickFund(user.id);
   }
 
   @Post('transactions/:transactionId/link')
   @ApiOperation({
     summary: 'Link transaction to plan transaction',
-    description: 'Link an existing transaction to a plan contribution or withdrawal',
+    description:
+      'Link an existing transaction to a plan contribution or withdrawal',
   })
   @ApiParam({
     name: 'transactionId',
@@ -536,7 +576,8 @@ export class ExpensePlansController {
   @Delete('transactions/:transactionId/link')
   @ApiOperation({
     summary: 'Unlink transaction from plan transaction',
-    description: 'Remove the link between a transaction and a plan contribution or withdrawal',
+    description:
+      'Remove the link between a transaction and a plan contribution or withdrawal',
   })
   @ApiParam({
     name: 'transactionId',
@@ -560,6 +601,9 @@ export class ExpensePlansController {
     @Param('transactionId', ParseIntPipe) planTransactionId: number,
     @CurrentUser() user: any,
   ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.unlinkTransaction(planTransactionId, user.id);
+    return this.expensePlansService.unlinkTransaction(
+      planTransactionId,
+      user.id,
+    );
   }
 }

@@ -1,9 +1,20 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, LessThanOrEqual } from 'typeorm';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import {
+  CoverageSummaryResponse,
+  AccountCoverage,
+  UnassignedPlanSummary,
+  PlanAtRisk,
+} from './dto/coverage-summary.dto';
 
 export interface CreateExpensePlanDto {
   name: string;
@@ -26,6 +37,9 @@ export interface CreateExpensePlanDto {
   rolloverSurplus?: boolean;
   initialBalanceSource?: ExpensePlan['initialBalanceSource'];
   initialBalanceCustom?: number;
+  // Payment source (optional - for coverage tracking)
+  paymentAccountType?: ExpensePlan['paymentAccountType'];
+  paymentAccountId?: number;
 }
 
 export interface UpdateExpensePlanDto {
@@ -48,6 +62,9 @@ export interface UpdateExpensePlanDto {
   status?: ExpensePlan['status'];
   autoCalculate?: boolean;
   rolloverSurplus?: boolean;
+  // Payment source (optional - for coverage tracking)
+  paymentAccountType?: ExpensePlan['paymentAccountType'];
+  paymentAccountId?: number;
 }
 
 export interface MonthlyDepositSummary {
@@ -82,6 +99,8 @@ export class ExpensePlansService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     @InjectRepository(ExpensePlanTransaction)
     private readonly expensePlanTransactionRepository: Repository<ExpensePlanTransaction>,
+    @InjectRepository(BankAccount)
+    private readonly bankAccountRepository: Repository<BankAccount>,
     private readonly eventPublisher: EventPublisherService,
   ) {}
 
@@ -92,7 +111,7 @@ export class ExpensePlansService {
   async findAllByUser(userId: number): Promise<ExpensePlan[]> {
     return this.expensePlanRepository.find({
       where: { userId },
-      relations: ['category'],
+      relations: ['category', 'paymentAccount'],
       order: { priority: 'ASC', name: 'ASC' },
     });
   }
@@ -100,7 +119,7 @@ export class ExpensePlansService {
   async findActiveByUser(userId: number): Promise<ExpensePlan[]> {
     return this.expensePlanRepository.find({
       where: { userId, status: 'active' },
-      relations: ['category'],
+      relations: ['category', 'paymentAccount'],
       order: { priority: 'ASC', name: 'ASC' },
     });
   }
@@ -112,7 +131,7 @@ export class ExpensePlansService {
   async findOne(id: number, userId: number): Promise<ExpensePlan> {
     const plan = await this.expensePlanRepository.findOne({
       where: { id, userId },
-      relations: ['category'],
+      relations: ['category', 'paymentAccount'],
     });
 
     if (!plan) {
@@ -126,7 +145,10 @@ export class ExpensePlansService {
   // CREATE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async create(userId: number, dto: CreateExpensePlanDto): Promise<ExpensePlan> {
+  async create(
+    userId: number,
+    dto: CreateExpensePlanDto,
+  ): Promise<ExpensePlan> {
     const plan = this.expensePlanRepository.create({
       ...dto,
       userId,
@@ -141,7 +163,11 @@ export class ExpensePlansService {
   // UPDATE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async update(id: number, userId: number, dto: UpdateExpensePlanDto): Promise<ExpensePlan> {
+  async update(
+    id: number,
+    userId: number,
+    dto: UpdateExpensePlanDto,
+  ): Promise<ExpensePlan> {
     const plan = await this.findOne(id, userId);
 
     Object.assign(plan, dto);
@@ -233,7 +259,10 @@ export class ExpensePlansService {
   // GET TRANSACTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async getTransactions(id: number, userId: number): Promise<ExpensePlanTransaction[]> {
+  async getTransactions(
+    id: number,
+    userId: number,
+  ): Promise<ExpensePlanTransaction[]> {
     // Verify ownership
     await this.findOne(id, userId);
 
@@ -248,10 +277,12 @@ export class ExpensePlansService {
   // SUMMARY
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async getMonthlyDepositSummary(userId: number): Promise<MonthlyDepositSummary> {
+  async getMonthlyDepositSummary(
+    userId: number,
+  ): Promise<MonthlyDepositSummary> {
     const plans = await this.expensePlanRepository.find({
       where: { userId, status: 'active' },
-      relations: ['category'],
+      relations: ['category', 'paymentAccount'],
     });
 
     const byType: MonthlyDepositSummary['byType'] = {
@@ -264,7 +295,7 @@ export class ExpensePlansService {
 
     let totalMonthlyDeposit = 0;
     let fullyFundedCount = 0;
-    let behindScheduleCount = 0;
+    const behindScheduleCount = 0;
 
     for (const plan of plans) {
       const contribution = Number(plan.monthlyContribution);
@@ -277,7 +308,8 @@ export class ExpensePlansService {
         monthlyContribution: contribution,
         targetAmount: Number(plan.targetAmount),
         currentBalance: Number(plan.currentBalance),
-        progress: (Number(plan.currentBalance) / Number(plan.targetAmount)) * 100,
+        progress:
+          (Number(plan.currentBalance) / Number(plan.targetAmount)) * 100,
         nextDueDate: plan.nextDueDate,
       };
 
@@ -356,7 +388,9 @@ export class ExpensePlansService {
         // Spread over non-seasonal months
         const seasonalMonthCount = plan.seasonalMonths?.length || 0;
         const savingMonths = 12 - seasonalMonthCount;
-        return savingMonths > 0 ? targetAmount / savingMonths : targetAmount / 12;
+        return savingMonths > 0
+          ? targetAmount / savingMonths
+          : targetAmount / 12;
 
       case 'one_time':
         // Calculate based on remaining time and amount needed
@@ -366,7 +400,9 @@ export class ExpensePlansService {
         }
         const monthsRemaining = this.monthsBetween(new Date(), dueDate);
         const amountNeeded = targetAmount - currentBalance;
-        return monthsRemaining > 0 ? Math.max(0, amountNeeded / monthsRemaining) : amountNeeded;
+        return monthsRemaining > 0
+          ? Math.max(0, amountNeeded / monthsRemaining)
+          : amountNeeded;
 
       default:
         return targetAmount / 12;
@@ -376,7 +412,9 @@ export class ExpensePlansService {
   /**
    * Calculate the status of a plan based on funding progress
    */
-  calculateStatus(plan: ExpensePlan): 'funded' | 'almost_ready' | 'on_track' | 'behind' {
+  calculateStatus(
+    plan: ExpensePlan,
+  ): 'funded' | 'almost_ready' | 'on_track' | 'behind' {
     const currentBalance = Number(plan.currentBalance);
     const targetAmount = Number(plan.targetAmount);
     const progress = currentBalance / targetAmount;
@@ -400,7 +438,8 @@ export class ExpensePlansService {
    * Check if a plan is on track to meet its target by the due date
    */
   isOnTrack(plan: ExpensePlan, targetDate?: Date): boolean {
-    const dueDate = targetDate || plan.nextDueDate || this.calculateNextDueDate(plan);
+    const dueDate =
+      targetDate || plan.nextDueDate || this.calculateNextDueDate(plan);
     if (!dueDate) {
       return true; // No due date means we consider it on track
     }
@@ -410,7 +449,8 @@ export class ExpensePlansService {
       return Number(plan.currentBalance) >= Number(plan.targetAmount);
     }
 
-    const amountNeeded = Number(plan.targetAmount) - Number(plan.currentBalance);
+    const amountNeeded =
+      Number(plan.targetAmount) - Number(plan.currentBalance);
     const requiredMonthly = amountNeeded / monthsRemaining;
 
     // 10% tolerance
@@ -429,7 +469,11 @@ export class ExpensePlansService {
 
       case 'monthly':
         if (plan.dueDay) {
-          const nextDate = new Date(today.getFullYear(), today.getMonth(), plan.dueDay);
+          const nextDate = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            plan.dueDay,
+          );
           if (nextDate <= today) {
             nextDate.setMonth(nextDate.getMonth() + 1);
           }
@@ -445,7 +489,9 @@ export class ExpensePlansService {
             nextQuarterMonth = 0;
           }
           const nextDate = new Date(
-            nextQuarterMonth === 0 ? today.getFullYear() + 1 : today.getFullYear(),
+            nextQuarterMonth === 0
+              ? today.getFullYear() + 1
+              : today.getFullYear(),
             nextQuarterMonth,
             plan.dueDay,
           );
@@ -497,7 +543,10 @@ export class ExpensePlansService {
   /**
    * Get a timeline view of upcoming expenses
    */
-  async getTimelineView(userId: number, months: number = 12): Promise<TimelineEntry[]> {
+  async getTimelineView(
+    userId: number,
+    months: number = 12,
+  ): Promise<TimelineEntry[]> {
     const plans = await this.expensePlanRepository.find({
       where: { userId, status: 'active' },
     });
@@ -581,7 +630,12 @@ export class ExpensePlansService {
     const plan = await this.findOne(id, userId);
     const amount = Number(plan.monthlyContribution);
 
-    return this.contribute(id, userId, amount, 'Quick fund - monthly contribution');
+    return this.contribute(
+      id,
+      userId,
+      amount,
+      'Quick fund - monthly contribution',
+    );
   }
 
   /**
@@ -713,12 +767,16 @@ export class ExpensePlansService {
     transactionId: number,
     userId: number,
   ): Promise<ExpensePlanTransaction> {
-    const planTransaction = await this.expensePlanTransactionRepository.findOne({
-      where: { id: planTransactionId },
-    });
+    const planTransaction = await this.expensePlanTransactionRepository.findOne(
+      {
+        where: { id: planTransactionId },
+      },
+    );
 
     if (!planTransaction) {
-      throw new NotFoundException(`Plan transaction ${planTransactionId} not found`);
+      throw new NotFoundException(
+        `Plan transaction ${planTransactionId} not found`,
+      );
     }
 
     // Verify ownership through the expense plan
@@ -727,7 +785,9 @@ export class ExpensePlansService {
     });
 
     if (!plan) {
-      throw new NotFoundException(`Plan transaction ${planTransactionId} not found`);
+      throw new NotFoundException(
+        `Plan transaction ${planTransactionId} not found`,
+      );
     }
 
     planTransaction.transactionId = transactionId;
@@ -741,12 +801,16 @@ export class ExpensePlansService {
     planTransactionId: number,
     userId: number,
   ): Promise<ExpensePlanTransaction> {
-    const planTransaction = await this.expensePlanTransactionRepository.findOne({
-      where: { id: planTransactionId },
-    });
+    const planTransaction = await this.expensePlanTransactionRepository.findOne(
+      {
+        where: { id: planTransactionId },
+      },
+    );
 
     if (!planTransaction) {
-      throw new NotFoundException(`Plan transaction ${planTransactionId} not found`);
+      throw new NotFoundException(
+        `Plan transaction ${planTransactionId} not found`,
+      );
     }
 
     // Verify ownership through the expense plan
@@ -755,7 +819,9 @@ export class ExpensePlansService {
     });
 
     if (!plan) {
-      throw new NotFoundException(`Plan transaction ${planTransactionId} not found`);
+      throw new NotFoundException(
+        `Plan transaction ${planTransactionId} not found`,
+      );
     }
 
     planTransaction.transactionId = null;
@@ -763,8 +829,170 @@ export class ExpensePlansService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // COVERAGE SUMMARY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get coverage summary for expense plans over the next 30 days.
+   * Shows which bank accounts have sufficient funds to cover upcoming expenses.
+   */
+  async getCoverageSummary(userId: number): Promise<CoverageSummaryResponse> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const thirtyDaysFromNow = new Date(today);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+    // Get all active expense plans with next due date in next 30 days
+    const plans = await this.expensePlanRepository.find({
+      where: {
+        userId,
+        status: 'active',
+        nextDueDate: LessThanOrEqual(thirtyDaysFromNow),
+      },
+      relations: ['paymentAccount'],
+    });
+
+    // Filter only plans with due dates today or in the future
+    const upcomingPlans = plans.filter((plan) => {
+      if (!plan.nextDueDate) return false;
+      const dueDate = new Date(plan.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate >= today;
+    });
+
+    // Get all user's bank accounts
+    const bankAccounts = await this.bankAccountRepository.find({
+      where: { user: { id: userId } },
+    });
+
+    // Group plans by account
+    const plansByAccountId = new Map<number | 'unassigned', ExpensePlan[]>();
+
+    for (const plan of upcomingPlans) {
+      const key = plan.paymentAccountId ?? 'unassigned';
+      if (!plansByAccountId.has(key)) {
+        plansByAccountId.set(key, []);
+      }
+      plansByAccountId.get(key)!.push(plan);
+    }
+
+    // Calculate coverage for each account that has plans linked
+    const accountCoverages: AccountCoverage[] = [];
+
+    for (const account of bankAccounts) {
+      const accountPlans = plansByAccountId.get(account.id) || [];
+
+      // Only include accounts that have upcoming plans
+      if (accountPlans.length === 0) continue;
+
+      const upcomingTotal = accountPlans.reduce(
+        (sum, p) => sum + Number(p.targetAmount),
+        0,
+      );
+      const currentBalance = Number(account.balance);
+      const projectedBalance = currentBalance - upcomingTotal;
+      const hasShortfall = projectedBalance < 0;
+      const shortfallAmount = hasShortfall ? Math.abs(projectedBalance) : 0;
+
+      // Sort plans by due date (soonest first)
+      const sortedPlans = [...accountPlans].sort((a, b) => {
+        const dateA = a.nextDueDate ? new Date(a.nextDueDate).getTime() : 0;
+        const dateB = b.nextDueDate ? new Date(b.nextDueDate).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      // Calculate plans at risk
+      const plansAtRisk: PlanAtRisk[] = hasShortfall
+        ? sortedPlans.map((p) => ({
+            id: p.id,
+            name: p.name,
+            amount: Number(p.targetAmount),
+            nextDueDate: p.nextDueDate
+              ? new Date(p.nextDueDate).toISOString().split('T')[0]
+              : null,
+            daysUntilDue: p.nextDueDate
+              ? this.daysBetween(today, new Date(p.nextDueDate))
+              : 0,
+            icon: p.icon,
+          }))
+        : [];
+
+      accountCoverages.push({
+        accountId: account.id,
+        accountName: account.name,
+        institution: null, // BankAccount doesn't have institution field
+        currentBalance,
+        upcomingPlansTotal: upcomingTotal,
+        planCount: accountPlans.length,
+        projectedBalance,
+        hasShortfall,
+        shortfallAmount,
+        plansAtRisk,
+      });
+    }
+
+    // Build unassigned plans summary
+    const unassignedPlans = plansByAccountId.get('unassigned') || [];
+    const unassignedSummary: UnassignedPlanSummary = {
+      count: unassignedPlans.length,
+      totalAmount: unassignedPlans.reduce(
+        (sum, p) => sum + Number(p.targetAmount),
+        0,
+      ),
+      plans: unassignedPlans.map((p) => ({
+        id: p.id,
+        name: p.name,
+        amount: Number(p.targetAmount),
+        nextDueDate: p.nextDueDate
+          ? new Date(p.nextDueDate).toISOString().split('T')[0]
+          : null,
+        daysUntilDue: p.nextDueDate
+          ? this.daysBetween(today, new Date(p.nextDueDate))
+          : 0,
+        icon: p.icon,
+      })),
+    };
+
+    // Calculate overall status
+    const totalShortfall = accountCoverages.reduce(
+      (sum, a) => sum + a.shortfallAmount,
+      0,
+    );
+    const accountsWithShortfall = accountCoverages.filter(
+      (a) => a.hasShortfall,
+    ).length;
+
+    let overallStatus: 'all_covered' | 'has_shortfall' | 'no_data';
+    if (accountCoverages.length === 0 && unassignedPlans.length === 0) {
+      overallStatus = 'no_data';
+    } else if (accountsWithShortfall > 0) {
+      overallStatus = 'has_shortfall';
+    } else {
+      overallStatus = 'all_covered';
+    }
+
+    return {
+      accounts: accountCoverages,
+      unassignedPlans: unassignedSummary,
+      overallStatus,
+      totalShortfall,
+      accountsWithShortfall,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  private daysBetween(start: Date, end: Date): number {
+    const startDate = new Date(start);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(end);
+    endDate.setHours(0, 0, 0, 0);
+    const diffTime = endDate.getTime() - startDate.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
 
   private monthsBetween(start: Date, end: Date): number {
     const months =
