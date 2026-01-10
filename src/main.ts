@@ -17,33 +17,41 @@ async function bootstrap() {
   });
 
   // 🔒 SECURITY: Global ValidationPipe with strict validation
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-    transformOptions: {
-      enableImplicitConversion: true,
-    },
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
   // 🔒 SECURITY: Helmet.js for security headers
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        scriptSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        connectSrc: ["'self'"],
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com',
+          ],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          connectSrc: ["'self'"],
+        },
       },
-    },
-    hsts: {
-      maxAge: 31536000,
-      includeSubDomains: true,
-      preload: true,
-    },
-  }));
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
+    }),
+  );
 
   const authService = app.get(AuthService);
   app.use((req, res, next) => {
@@ -54,18 +62,24 @@ async function bootstrap() {
 
   // 🔒 SECURITY: Enhanced CORS configuration
   let allowedOrigins: string[];
-  
+
   if (isDevelopment) {
     allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
   } else {
     // Production: Use CORS_ORIGIN environment variable (comma-separated)
     const corsOrigin = process.env.CORS_ORIGIN || process.env.FRONTEND_URL;
     if (corsOrigin) {
-      allowedOrigins = corsOrigin.split(',').map(origin => origin.trim()).filter(Boolean);
+      allowedOrigins = corsOrigin
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
     } else {
       // Fallback for production if not set
       allowedOrigins = ['http://localhost:3000'];
-      Logger.warn('⚠️  CORS_ORIGIN not set in production! Using localhost fallback. This may cause CORS errors.', 'Bootstrap');
+      Logger.warn(
+        '⚠️  CORS_ORIGIN not set in production! Using localhost fallback. This may cause CORS errors.',
+        'Bootstrap',
+      );
     }
   }
 

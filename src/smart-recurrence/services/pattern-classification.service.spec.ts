@@ -38,14 +38,16 @@ describe('PatternClassificationService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
-              const config: Record<string, any> = {
-                OPENAI_API_KEY: 'test-api-key',
-                OPENAI_MODEL: 'gpt-3.5-turbo',
-                OPENAI_BASE_URL: 'https://api.openai.com/v1',
-              };
-              return config[key] ?? defaultValue;
-            }),
+            get: jest
+              .fn()
+              .mockImplementation((key: string, defaultValue?: any) => {
+                const config: Record<string, any> = {
+                  OPENAI_API_KEY: 'test-api-key',
+                  OPENAI_MODEL: 'gpt-3.5-turbo',
+                  OPENAI_BASE_URL: 'https://api.openai.com/v1',
+                };
+                return config[key] ?? defaultValue;
+              }),
           },
         },
       ],
@@ -343,8 +345,12 @@ describe('PatternClassificationService', () => {
 
       // Assert
       expect(mockFetch).toHaveBeenCalledTimes(1); // Only one API call
-      expect(result1.classifications[0].expenseType).toBe(ExpenseType.SUBSCRIPTION);
-      expect(result2.classifications[0].expenseType).toBe(ExpenseType.SUBSCRIPTION);
+      expect(result1.classifications[0].expenseType).toBe(
+        ExpenseType.SUBSCRIPTION,
+      );
+      expect(result2.classifications[0].expenseType).toBe(
+        ExpenseType.SUBSCRIPTION,
+      );
     });
 
     it('should batch multiple patterns in single API call', async () => {
@@ -403,8 +409,12 @@ describe('PatternClassificationService', () => {
 
       // Assert
       expect(result.classifications).toHaveLength(1);
-      expect(result.classifications[0].expenseType).toBe(ExpenseType.SUBSCRIPTION);
-      expect(result.classifications[0].reasoning).toBe('Rule-based classification');
+      expect(result.classifications[0].expenseType).toBe(
+        ExpenseType.SUBSCRIPTION,
+      );
+      expect(result.classifications[0].reasoning).toBe(
+        'Rule-based classification',
+      );
     });
 
     it('should return cost metrics', async () => {
@@ -589,13 +599,15 @@ describe('PatternClassificationService (no API key)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string, defaultValue?: any) => {
-              const config: Record<string, any> = {
-                OPENAI_API_KEY: '', // No API key
-                OPENAI_MODEL: 'gpt-3.5-turbo',
-              };
-              return config[key] ?? defaultValue;
-            }),
+            get: jest
+              .fn()
+              .mockImplementation((key: string, defaultValue?: any) => {
+                const config: Record<string, any> = {
+                  OPENAI_API_KEY: '', // No API key
+                  OPENAI_MODEL: 'gpt-3.5-turbo',
+                };
+                return config[key] ?? defaultValue;
+              }),
           },
         },
       ],
@@ -630,8 +642,12 @@ describe('PatternClassificationService (no API key)', () => {
 
     // Assert
     expect(result.classifications).toHaveLength(1);
-    expect(result.classifications[0].expenseType).toBe(ExpenseType.SUBSCRIPTION);
-    expect(result.classifications[0].reasoning).toBe('Rule-based classification');
+    expect(result.classifications[0].expenseType).toBe(
+      ExpenseType.SUBSCRIPTION,
+    );
+    expect(result.classifications[0].reasoning).toBe(
+      'Rule-based classification',
+    );
     expect(result.tokensUsed).toBe(0);
   });
 });

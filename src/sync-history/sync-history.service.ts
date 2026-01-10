@@ -1,7 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In, MoreThanOrEqual } from 'typeorm';
-import { SyncReport, SyncStatus, SyncSource, SyncSourceType } from './entities/sync-report.entity';
+import {
+  SyncReport,
+  SyncStatus,
+  SyncSource,
+  SyncSourceType,
+} from './entities/sync-report.entity';
 import { User } from '../users/user.entity';
 import { ImportLog } from '../transactions/entities/import-log.entity';
 

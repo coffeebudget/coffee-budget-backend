@@ -28,11 +28,33 @@ export class SyncHistoryController {
   constructor(private readonly syncHistoryService: SyncHistoryService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get paginated sync history for authenticated user' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 10)' })
-  @ApiQuery({ name: 'status', required: false, enum: SyncStatus, description: 'Filter by sync status' })
-  @ApiQuery({ name: 'source', required: false, enum: SyncSource, description: 'Filter by sync source (gocardless, paypal, stripe, etc.)' })
+  @ApiOperation({
+    summary: 'Get paginated sync history for authenticated user',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (default: 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page (default: 10)',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: SyncStatus,
+    description: 'Filter by sync status',
+  })
+  @ApiQuery({
+    name: 'source',
+    required: false,
+    enum: SyncSource,
+    description: 'Filter by sync source (gocardless, paypal, stripe, etc.)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Paginated list of sync reports',
@@ -57,8 +79,19 @@ export class SyncHistoryController {
 
   @Get('statistics')
   @ApiOperation({ summary: 'Get sync statistics for authenticated user' })
-  @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days to analyze (default: 30)' })
-  @ApiQuery({ name: 'source', required: false, enum: SyncSource, description: 'Filter statistics by source (gocardless, paypal, stripe, etc.)' })
+  @ApiQuery({
+    name: 'days',
+    required: false,
+    type: Number,
+    description: 'Number of days to analyze (default: 30)',
+  })
+  @ApiQuery({
+    name: 'source',
+    required: false,
+    enum: SyncSource,
+    description:
+      'Filter statistics by source (gocardless, paypal, stripe, etc.)',
+  })
   @ApiResponse({
     status: 200,
     description: 'Sync statistics for the specified period',
@@ -73,14 +106,19 @@ export class SyncHistoryController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get specific sync report with detailed information' })
+  @ApiOperation({
+    summary: 'Get specific sync report with detailed information',
+  })
   @ApiParam({ name: 'id', type: Number, description: 'Sync report ID' })
   @ApiResponse({
     status: 200,
     description: 'Detailed sync report with relations',
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Access denied - user does not own this sync report' })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied - user does not own this sync report',
+  })
   @ApiResponse({ status: 404, description: 'Sync report not found' })
   async getSyncReportById(
     @CurrentUser() user: any,

@@ -186,6 +186,4 @@ export class PendingDuplicatesController {
   async cleanupActualDuplicates(@CurrentUser() user: User) {
     return this.pendingDuplicatesService.cleanupActualDuplicates(user.id);
   }
-
-
 }

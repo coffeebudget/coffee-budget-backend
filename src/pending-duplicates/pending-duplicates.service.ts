@@ -186,12 +186,17 @@ export class PendingDuplicatesService {
         const { TransactionOperationsService } = await import(
           '../transactions/transaction-operations.service'
         );
-        const transactionOperationsService = this.moduleRef.get(TransactionOperationsService, {
-          strict: false,
-        });
-        
+        const transactionOperationsService = this.moduleRef.get(
+          TransactionOperationsService,
+          {
+            strict: false,
+          },
+        );
+
         if (!transactionOperationsService) {
-          throw new Error('TransactionOperationsService not available in current context');
+          throw new Error(
+            'TransactionOperationsService not available in current context',
+          );
         }
 
         // Use the TransactionOperationsService to handle the resolution
@@ -226,12 +231,17 @@ export class PendingDuplicatesService {
     const { TransactionOperationsService } = await import(
       '../transactions/transaction-operations.service'
     );
-    const transactionOperationsService = this.moduleRef.get(TransactionOperationsService, {
-      strict: false,
-    });
-    
+    const transactionOperationsService = this.moduleRef.get(
+      TransactionOperationsService,
+      {
+        strict: false,
+      },
+    );
+
     if (!transactionOperationsService) {
-      throw new Error('TransactionOperationsService not available in current context');
+      throw new Error(
+        'TransactionOperationsService not available in current context',
+      );
     }
 
     return transactionOperationsService.findMatchingTransactions(
@@ -373,7 +383,9 @@ export class PendingDuplicatesService {
       order: { createdAt: 'ASC' }, // Preserve oldest transaction
     });
 
-    console.log(`Scanning ${transactions.length} transactions for user ${userId}`);
+    console.log(
+      `Scanning ${transactions.length} transactions for user ${userId}`,
+    );
 
     const processed = new Set<number>();
     let duplicateGroupsFound = 0;
@@ -384,53 +396,57 @@ export class PendingDuplicatesService {
       if (processed.has(transaction.id)) continue;
 
       // Find exact duplicates (100% matches)
-      const exactDuplicates = transactions.filter(t => 
-        t.id !== transaction.id &&
-        !processed.has(t.id) &&
-        this.isExactDuplicate(transaction, t)
+      const exactDuplicates = transactions.filter(
+        (t) =>
+          t.id !== transaction.id &&
+          !processed.has(t.id) &&
+          this.isExactDuplicate(transaction, t),
       );
 
       if (exactDuplicates.length > 0) {
         duplicateGroupsFound++;
-        
+
         // Sort by creation date to preserve the oldest
         const allTransactions = [transaction, ...exactDuplicates].sort(
-          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
         );
-        
+
         const toPreserve = allTransactions[0];
         const toRemove = allTransactions.slice(1);
 
         console.log(
-          `Found duplicate group for user ${userId}: ${toPreserve.description} (${toPreserve.amount}) - preserving oldest (${toPreserve.id}), removing ${toRemove.length} duplicates`
+          `Found duplicate group for user ${userId}: ${toPreserve.description} (${toPreserve.amount}) - preserving oldest (${toPreserve.id}), removing ${toRemove.length} duplicates`,
         );
 
         // Mark all as processed
-        allTransactions.forEach(t => processed.add(t.id));
+        allTransactions.forEach((t) => processed.add(t.id));
 
         // Remove duplicates
         for (const duplicate of toRemove) {
           try {
             // Check if this transaction is referenced by pending duplicates
             const pendingRefs = await this.pendingDuplicatesRepository.find({
-              where: [
-                { existingTransaction: { id: duplicate.id } },
-              ]
+              where: [{ existingTransaction: { id: duplicate.id } }],
             });
 
             if (pendingRefs.length > 0) {
               console.log(
-                `Transaction ${duplicate.id} is referenced by ${pendingRefs.length} pending duplicates. Updating references to point to preserved transaction ${toPreserve.id}.`
+                `Transaction ${duplicate.id} is referenced by ${pendingRefs.length} pending duplicates. Updating references to point to preserved transaction ${toPreserve.id}.`,
               );
-              
+
               // Update pending duplicates to reference the transaction we want to preserve
               for (const pendingDup of pendingRefs) {
                 try {
                   pendingDup.existingTransaction = toPreserve;
                   await this.pendingDuplicatesRepository.save(pendingDup);
-                  console.log(`Updated pending duplicate ${pendingDup.id} to reference preserved transaction ${toPreserve.id} instead of ${duplicate.id}`);
+                  console.log(
+                    `Updated pending duplicate ${pendingDup.id} to reference preserved transaction ${toPreserve.id} instead of ${duplicate.id}`,
+                  );
                 } catch (error) {
-                  console.error(`Error updating pending duplicate ${pendingDup.id}: ${error.message}`);
+                  console.error(
+                    `Error updating pending duplicate ${pendingDup.id}: ${error.message}`,
+                  );
                   // If we can't update the reference, skip removing this duplicate
                   continue;
                 }
@@ -439,13 +455,13 @@ export class PendingDuplicatesService {
 
             await this.transactionRepository.remove(duplicate);
             transactionsRemoved++;
-            
+
             console.log(
-              `Removed duplicate transaction ${duplicate.id}: ${duplicate.description} (${duplicate.amount})`
+              `Removed duplicate transaction ${duplicate.id}: ${duplicate.description} (${duplicate.amount})`,
             );
           } catch (error) {
             console.error(
-              `Error removing duplicate transaction ${duplicate.id}: ${error.message}`
+              `Error removing duplicate transaction ${duplicate.id}: ${error.message}`,
             );
           }
         }
@@ -459,7 +475,7 @@ export class PendingDuplicatesService {
     const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
 
     console.log(
-      `Cleanup completed: ${duplicateGroupsFound} duplicate groups found, ${transactionsRemoved} transactions removed, ${duplicatesPreserved} preserved`
+      `Cleanup completed: ${duplicateGroupsFound} duplicate groups found, ${transactionsRemoved} transactions removed, ${duplicatesPreserved} preserved`,
     );
 
     return {

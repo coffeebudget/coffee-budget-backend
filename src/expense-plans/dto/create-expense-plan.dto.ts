@@ -17,6 +17,7 @@ import {
   ExpensePlanFrequency,
   ContributionSource,
   InitialBalanceSource,
+  PaymentAccountType,
 } from '../entities/expense-plan.entity';
 
 export class CreateExpensePlanDto {
@@ -49,10 +50,26 @@ export class CreateExpensePlanDto {
 
   @ApiProperty({
     description: 'Type of expense plan',
-    enum: ['fixed_monthly', 'yearly_fixed', 'yearly_variable', 'multi_year', 'seasonal', 'emergency_fund', 'goal'],
+    enum: [
+      'fixed_monthly',
+      'yearly_fixed',
+      'yearly_variable',
+      'multi_year',
+      'seasonal',
+      'emergency_fund',
+      'goal',
+    ],
     example: 'yearly_fixed',
   })
-  @IsEnum(['fixed_monthly', 'yearly_fixed', 'yearly_variable', 'multi_year', 'seasonal', 'emergency_fund', 'goal'])
+  @IsEnum([
+    'fixed_monthly',
+    'yearly_fixed',
+    'yearly_variable',
+    'multi_year',
+    'seasonal',
+    'emergency_fund',
+    'goal',
+  ])
   planType: ExpensePlanType;
 
   @ApiPropertyOptional({
@@ -107,10 +124,24 @@ export class CreateExpensePlanDto {
 
   @ApiProperty({
     description: 'How often the expense occurs',
-    enum: ['monthly', 'quarterly', 'yearly', 'multi_year', 'seasonal', 'one_time'],
+    enum: [
+      'monthly',
+      'quarterly',
+      'yearly',
+      'multi_year',
+      'seasonal',
+      'one_time',
+    ],
     example: 'yearly',
   })
-  @IsEnum(['monthly', 'quarterly', 'yearly', 'multi_year', 'seasonal', 'one_time'])
+  @IsEnum([
+    'monthly',
+    'quarterly',
+    'yearly',
+    'multi_year',
+    'seasonal',
+    'one_time',
+  ])
   frequency: ExpensePlanFrequency;
 
   @ApiPropertyOptional({
@@ -193,4 +224,25 @@ export class CreateExpensePlanDto {
   @IsNumber()
   @Min(0)
   initialBalanceCustom?: number;
+
+  // ─────────────────────────────────────────────────────────────
+  // PAYMENT SOURCE (Optional - for coverage tracking)
+  // ─────────────────────────────────────────────────────────────
+
+  @ApiPropertyOptional({
+    description: 'Type of payment account (for future credit card support)',
+    enum: ['bank_account'],
+    example: 'bank_account',
+  })
+  @IsOptional()
+  @IsEnum(['bank_account'])
+  paymentAccountType?: PaymentAccountType;
+
+  @ApiPropertyOptional({
+    description: 'ID of the bank account used for payment',
+    example: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  paymentAccountId?: number;
 }

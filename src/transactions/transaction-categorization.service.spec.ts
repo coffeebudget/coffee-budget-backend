@@ -52,7 +52,7 @@ describe('TransactionCategorizationService', () => {
   const mockTransaction = {
     id: 1,
     description: 'Grocery store purchase',
-    amount: -50.00,
+    amount: -50.0,
     type: 'expense' as const,
     user: mockUser,
     category: null,
@@ -101,7 +101,9 @@ describe('TransactionCategorizationService', () => {
       ],
     }).compile();
 
-    service = module.get<TransactionCategorizationService>(TransactionCategorizationService);
+    service = module.get<TransactionCategorizationService>(
+      TransactionCategorizationService,
+    );
     transactionRepository = module.get(getRepositoryToken(Transaction));
     categoryRepository = module.get(getRepositoryToken(Category));
     categoriesService = module.get(CategoriesService);
@@ -110,18 +112,25 @@ describe('TransactionCategorizationService', () => {
 
   describe('categorizeTransactionByDescription', () => {
     it('should categorize transaction based on description', async () => {
-      const transaction = { ...mockTransaction, description: 'Grocery store purchase' };
+      const transaction = {
+        ...mockTransaction,
+        description: 'Grocery store purchase',
+      };
       const suggestedCategory = { ...mockCategory, name: 'Groceries' };
 
-      categoriesService.suggestCategoryForDescription.mockResolvedValue(suggestedCategory);
+      categoriesService.suggestCategoryForDescription.mockResolvedValue(
+        suggestedCategory,
+      );
       transactionRepository.save.mockResolvedValue(transaction);
 
-      const result = await service.categorizeTransactionByDescription(transaction, mockUser.id);
-
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith(
-        'Grocery store purchase',
+      const result = await service.categorizeTransactionByDescription(
+        transaction,
         mockUser.id,
       );
+
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Grocery store purchase', mockUser.id);
       expect(transactionRepository.save).toHaveBeenCalledWith(transaction);
       expect(result).toEqual(transaction);
     });
@@ -129,30 +138,43 @@ describe('TransactionCategorizationService', () => {
     it('should return transaction unchanged if no description', async () => {
       const transaction = { ...mockTransaction, description: '' };
 
-      const result = await service.categorizeTransactionByDescription(transaction, mockUser.id);
+      const result = await service.categorizeTransactionByDescription(
+        transaction,
+        mockUser.id,
+      );
 
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
       expect(result).toEqual(transaction);
     });
 
     it('should return transaction unchanged if no suggested category', async () => {
-      const transaction = { ...mockTransaction, description: 'Unknown purchase' };
+      const transaction = {
+        ...mockTransaction,
+        description: 'Unknown purchase',
+      };
 
       categoriesService.suggestCategoryForDescription.mockResolvedValue(null);
 
-      const result = await service.categorizeTransactionByDescription(transaction, mockUser.id);
-
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith(
-        'Unknown purchase',
+      const result = await service.categorizeTransactionByDescription(
+        transaction,
         mockUser.id,
       );
+
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Unknown purchase', mockUser.id);
       expect(transactionRepository.save).not.toHaveBeenCalled();
       expect(result).toEqual(transaction);
     });
 
     it('should handle errors during categorization', async () => {
-      const transaction = { ...mockTransaction, description: 'Grocery store purchase' };
+      const transaction = {
+        ...mockTransaction,
+        description: 'Grocery store purchase',
+      };
 
       categoriesService.suggestCategoryForDescription.mockRejectedValue(
         new Error('Categorization failed'),
@@ -178,7 +200,11 @@ describe('TransactionCategorizationService', () => {
       transactionRepository.find.mockResolvedValue(transactions);
       transactionRepository.save.mockResolvedValue(transactions as any);
 
-      const result = await service.bulkCategorizeByIds(transactionIds, categoryId, mockUser.id);
+      const result = await service.bulkCategorizeByIds(
+        transactionIds,
+        categoryId,
+        mockUser.id,
+      );
 
       expect(categoryRepository.findOne).toHaveBeenCalledWith({
         where: { id: categoryId, user: { id: mockUser.id } },
@@ -191,7 +217,7 @@ describe('TransactionCategorizationService', () => {
         relations: ['category'],
       });
       expect(transactionRepository.save).toHaveBeenCalledWith(
-        transactions.map(t => ({ ...t, category: mockCategory })),
+        transactions.map((t) => ({ ...t, category: mockCategory })),
       );
       expect(result).toBe(3);
     });
@@ -220,7 +246,11 @@ describe('TransactionCategorizationService', () => {
       categoryRepository.findOne.mockResolvedValue(mockCategory);
       transactionRepository.find.mockResolvedValue([]);
 
-      const result = await service.bulkCategorizeByIds(transactionIds, categoryId, mockUser.id);
+      const result = await service.bulkCategorizeByIds(
+        transactionIds,
+        categoryId,
+        mockUser.id,
+      );
 
       expect(result).toBe(0);
     });
@@ -237,7 +267,11 @@ describe('TransactionCategorizationService', () => {
       transactionRepository.find.mockResolvedValue(transactions);
       transactionRepository.save.mockResolvedValue(transactions as any);
 
-      const result = await service.bulkCategorizeByIds(transactionIds, categoryId, mockUser.id);
+      const result = await service.bulkCategorizeByIds(
+        transactionIds,
+        categoryId,
+        mockUser.id,
+      );
 
       expect(result).toBe(2);
     });
@@ -249,7 +283,10 @@ describe('TransactionCategorizationService', () => {
 
       transactionRepository.query.mockResolvedValue({ affected: 3 });
 
-      const result = await service.bulkUncategorizeByIds(transactionIds, mockUser.id);
+      const result = await service.bulkUncategorizeByIds(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(transactionRepository.query).toHaveBeenCalledWith(
         `UPDATE "transaction" 
@@ -272,7 +309,10 @@ describe('TransactionCategorizationService', () => {
 
       transactionRepository.query.mockResolvedValue({ affected: 0 });
 
-      const result = await service.bulkUncategorizeByIds(transactionIds, mockUser.id);
+      const result = await service.bulkUncategorizeByIds(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result).toBe(0);
     });
@@ -280,7 +320,9 @@ describe('TransactionCategorizationService', () => {
     it('should handle database errors', async () => {
       const transactionIds = [1, 2, 3];
 
-      transactionRepository.query.mockRejectedValue(new Error('Database error'));
+      transactionRepository.query.mockRejectedValue(
+        new Error('Database error'),
+      );
 
       await expect(
         service.bulkUncategorizeByIds(transactionIds, mockUser.id),
@@ -306,7 +348,10 @@ describe('TransactionCategorizationService', () => {
         suggestedCategoryName: null,
       });
 
-      const result = await service.acceptSuggestedCategory(transactionId, mockUser.id);
+      const result = await service.acceptSuggestedCategory(
+        transactionId,
+        mockUser.id,
+      );
 
       expect(transactionRepository.findOne).toHaveBeenCalledWith({
         where: { id: transactionId, user: { id: mockUser.id } },
@@ -382,7 +427,10 @@ describe('TransactionCategorizationService', () => {
         suggestedCategoryName: null,
       });
 
-      const result = await service.rejectSuggestedCategory(transactionId, mockUser.id);
+      const result = await service.rejectSuggestedCategory(
+        transactionId,
+        mockUser.id,
+      );
 
       expect(transactionRepository.findOne).toHaveBeenCalledWith({
         where: { id: transactionId, user: { id: mockUser.id } },
@@ -430,7 +478,10 @@ describe('TransactionCategorizationService', () => {
 
       categoryRepository.findOne.mockResolvedValue(mockCategory);
 
-      const result = await service.validateCategoryForUser(categoryId, mockUser.id);
+      const result = await service.validateCategoryForUser(
+        categoryId,
+        mockUser.id,
+      );
 
       expect(categoryRepository.findOne).toHaveBeenCalledWith({
         where: { id: categoryId, user: { id: mockUser.id } },
@@ -464,14 +515,18 @@ describe('TransactionCategorizationService', () => {
       const description = 'Grocery store purchase';
       const suggestedCategory = { ...mockCategory, name: 'Groceries' };
 
-      categoriesService.suggestCategoryForDescription.mockResolvedValue(suggestedCategory);
+      categoriesService.suggestCategoryForDescription.mockResolvedValue(
+        suggestedCategory,
+      );
 
-      const result = await service.suggestCategoryForTransaction(description, mockUser.id);
-
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith(
+      const result = await service.suggestCategoryForTransaction(
         description,
         mockUser.id,
       );
+
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith(description, mockUser.id);
       expect(result).toEqual(suggestedCategory);
     });
 
@@ -480,7 +535,10 @@ describe('TransactionCategorizationService', () => {
 
       categoriesService.suggestCategoryForDescription.mockResolvedValue(null);
 
-      const result = await service.suggestCategoryForTransaction(description, mockUser.id);
+      const result = await service.suggestCategoryForTransaction(
+        description,
+        mockUser.id,
+      );
 
       expect(result).toBeNull();
     });
@@ -488,9 +546,14 @@ describe('TransactionCategorizationService', () => {
     it('should return null for empty description', async () => {
       const description = '';
 
-      const result = await service.suggestCategoryForTransaction(description, mockUser.id);
+      const result = await service.suggestCategoryForTransaction(
+        description,
+        mockUser.id,
+      );
 
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
@@ -534,7 +597,7 @@ describe('TransactionCategorizationService', () => {
 
     it('should handle very large transaction ID arrays', async () => {
       const largeArray = Array.from({ length: 1000 }, (_, i) => i + 1);
-      
+
       // This test will fail with category not found since we don't mock the category
       await expect(
         service.bulkCategorizeByIds(largeArray, 1, mockUser.id),

@@ -35,12 +35,24 @@ describe('OpenAIService', () => {
       merchantName: 'ESSELUNGA SPA',
       merchantCategoryCode: '5411',
       description: 'Grocery store purchase',
-      amount: -50.00,
+      amount: -50.0,
       transactionType: 'expense',
       availableCategories: [
-        { id: 1, name: 'Groceries', keywords: ['grocery', 'supermarket', 'food'] },
-        { id: 2, name: 'Restaurant', keywords: ['restaurant', 'dining', 'food'] },
-        { id: 3, name: 'Transportation', keywords: ['gas', 'fuel', 'transport'] },
+        {
+          id: 1,
+          name: 'Groceries',
+          keywords: ['grocery', 'supermarket', 'food'],
+        },
+        {
+          id: 2,
+          name: 'Restaurant',
+          keywords: ['restaurant', 'dining', 'food'],
+        },
+        {
+          id: 3,
+          name: 'Transportation',
+          keywords: ['gas', 'fuel', 'transport'],
+        },
       ],
     };
 
@@ -59,7 +71,8 @@ describe('OpenAIService', () => {
     it('should categorize transaction successfully', async () => {
       // Create a new service instance with proper config
       const mockConfigService = {
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockReturnValueOnce('test-api-key') // OPENAI_API_KEY
           .mockReturnValueOnce('gpt-3.5-turbo') // OPENAI_MODEL
           .mockReturnValueOnce(150) // OPENAI_MAX_TOKENS
@@ -69,16 +82,18 @@ describe('OpenAIService', () => {
       const testService = new OpenAIService(mockConfigService as any);
 
       const mockResponse = {
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              categoryId: 1,
-              categoryName: 'Groceries',
-              confidence: 95,
-              reasoning: 'ESSELUNGA is a grocery store chain'
-            })
-          }
-        }]
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                categoryId: 1,
+                categoryName: 'Groceries',
+                confidence: 95,
+                reasoning: 'ESSELUNGA is a grocery store chain',
+              }),
+            },
+          },
+        ],
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -92,7 +107,7 @@ describe('OpenAIService', () => {
         categoryId: 1,
         categoryName: 'Groceries',
         confidence: 95,
-        reasoning: 'ESSELUNGA is a grocery store chain'
+        reasoning: 'ESSELUNGA is a grocery store chain',
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -100,16 +115,17 @@ describe('OpenAIService', () => {
         expect.objectContaining({
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer test-api-key',
+            Authorization: 'Bearer test-api-key',
             'Content-Type': 'application/json',
           },
-        })
+        }),
       );
     });
 
     it('should handle API errors gracefully', async () => {
       const mockConfigService = {
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockReturnValueOnce('test-api-key')
           .mockReturnValueOnce('gpt-3.5-turbo')
           .mockReturnValueOnce(150)
@@ -130,7 +146,8 @@ describe('OpenAIService', () => {
 
     it('should handle invalid JSON response', async () => {
       const mockConfigService = {
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockReturnValueOnce('test-api-key')
           .mockReturnValueOnce('gpt-3.5-turbo')
           .mockReturnValueOnce(150)
@@ -140,11 +157,13 @@ describe('OpenAIService', () => {
       const testService = new OpenAIService(mockConfigService as any);
 
       const mockResponse = {
-        choices: [{
-          message: {
-            content: 'Invalid JSON response'
-          }
-        }]
+        choices: [
+          {
+            message: {
+              content: 'Invalid JSON response',
+            },
+          },
+        ],
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -158,7 +177,8 @@ describe('OpenAIService', () => {
 
     it('should handle invalid category ID', async () => {
       const mockConfigService = {
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockReturnValueOnce('test-api-key')
           .mockReturnValueOnce('gpt-3.5-turbo')
           .mockReturnValueOnce(150)
@@ -168,16 +188,18 @@ describe('OpenAIService', () => {
       const testService = new OpenAIService(mockConfigService as any);
 
       const mockResponse = {
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              categoryId: 999, // Invalid category ID
-              categoryName: 'Invalid Category',
-              confidence: 95,
-              reasoning: 'Test reasoning'
-            })
-          }
-        }]
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                categoryId: 999, // Invalid category ID
+                categoryName: 'Invalid Category',
+                confidence: 95,
+                reasoning: 'Test reasoning',
+              }),
+            },
+          },
+        ],
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -191,7 +213,8 @@ describe('OpenAIService', () => {
 
     it('should clamp confidence to 0-100 range', async () => {
       const mockConfigService = {
-        get: jest.fn()
+        get: jest
+          .fn()
           .mockReturnValueOnce('test-api-key')
           .mockReturnValueOnce('gpt-3.5-turbo')
           .mockReturnValueOnce(150)
@@ -201,16 +224,18 @@ describe('OpenAIService', () => {
       const testService = new OpenAIService(mockConfigService as any);
 
       const mockResponse = {
-        choices: [{
-          message: {
-            content: JSON.stringify({
-              categoryId: 1,
-              categoryName: 'Groceries',
-              confidence: 150, // Out of range
-              reasoning: 'Test reasoning'
-            })
-          }
-        }]
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                categoryId: 1,
+                categoryName: 'Groceries',
+                confidence: 150, // Out of range
+                reasoning: 'Test reasoning',
+              }),
+            },
+          },
+        ],
       };
 
       (global.fetch as jest.Mock).mockResolvedValueOnce({

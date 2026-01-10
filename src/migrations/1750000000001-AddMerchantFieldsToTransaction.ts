@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddMerchantFieldsToTransaction1750000000001 implements MigrationInterface {
+export class AddMerchantFieldsToTransaction1750000000001
+  implements MigrationInterface
+{
   name = 'AddMerchantFieldsToTransaction1750000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

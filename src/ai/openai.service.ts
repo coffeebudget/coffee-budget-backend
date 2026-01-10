@@ -31,33 +31,48 @@ export class OpenAIService {
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('OPENAI_API_KEY') || '';
-    this.model = this.configService.get<string>('OPENAI_MODEL', 'gpt-3.5-turbo');
+    this.model = this.configService.get<string>(
+      'OPENAI_MODEL',
+      'gpt-3.5-turbo',
+    );
     this.maxTokens = this.configService.get<number>('OPENAI_MAX_TOKENS', 150);
-    this.baseUrl = this.configService.get<string>('OPENAI_BASE_URL', 'https://api.openai.com/v1');
+    this.baseUrl = this.configService.get<string>(
+      'OPENAI_BASE_URL',
+      'https://api.openai.com/v1',
+    );
 
     if (!this.apiKey) {
-      this.logger.warn('OpenAI API key not configured. AI categorization will be disabled.');
+      this.logger.warn(
+        'OpenAI API key not configured. AI categorization will be disabled.',
+      );
     }
   }
 
   /**
    * Categorize a transaction using OpenAI
    */
-  async categorizeTransaction(request: OpenAICategorizationRequest): Promise<OpenAICategorizationResponse | null> {
+  async categorizeTransaction(
+    request: OpenAICategorizationRequest,
+  ): Promise<OpenAICategorizationResponse | null> {
     if (!this.apiKey) {
-      this.logger.debug('OpenAI API key not configured, skipping AI categorization');
+      this.logger.debug(
+        'OpenAI API key not configured, skipping AI categorization',
+      );
       return null;
     }
 
     try {
       const prompt = this.buildCategorizationPrompt(request);
       const response = await this.callOpenAI(prompt);
-      
+
       if (!response) {
         return null;
       }
 
-      return this.parseCategorizationResponse(response, request.availableCategories);
+      return this.parseCategorizationResponse(
+        response,
+        request.availableCategories,
+      );
     } catch (error) {
       this.logger.error('Error calling OpenAI API:', error);
       return null;
@@ -67,15 +82,29 @@ export class OpenAIService {
   /**
    * Build the prompt for OpenAI categorization
    */
-  private buildCategorizationPrompt(request: OpenAICategorizationRequest): string {
-    const { merchantName, merchantCategoryCode, description, amount, transactionType, availableCategories } = request;
-    
+  private buildCategorizationPrompt(
+    request: OpenAICategorizationRequest,
+  ): string {
+    const {
+      merchantName,
+      merchantCategoryCode,
+      description,
+      amount,
+      transactionType,
+      availableCategories,
+    } = request;
+
     const categoriesList = availableCategories
-      .map(cat => `- ${cat.id}: ${cat.name} (keywords: ${cat.keywords.join(', ')})`)
+      .map(
+        (cat) =>
+          `- ${cat.id}: ${cat.name} (keywords: ${cat.keywords.join(', ')})`,
+      )
       .join('\n');
 
-    const mccInfo = merchantCategoryCode ? `\nMerchant Category Code (MCC): ${merchantCategoryCode}` : '';
-    
+    const mccInfo = merchantCategoryCode
+      ? `\nMerchant Category Code (MCC): ${merchantCategoryCode}`
+      : '';
+
     return `You are a financial categorization expert. Categorize this transaction based on the merchant and description.
 
 Transaction Details:
@@ -112,7 +141,7 @@ Respond in this exact JSON format:
       const response = await fetch(`${this.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -120,12 +149,13 @@ Respond in this exact JSON format:
           messages: [
             {
               role: 'system',
-              content: 'You are a financial categorization expert. Always respond with valid JSON in the exact format requested.'
+              content:
+                'You are a financial categorization expert. Always respond with valid JSON in the exact format requested.',
             },
             {
               role: 'user',
-              content: prompt
-            }
+              content: prompt,
+            },
           ],
           max_tokens: this.maxTokens,
           temperature: 0.1, // Low temperature for consistent categorization
@@ -133,7 +163,9 @@ Respond in this exact JSON format:
       });
 
       if (!response.ok) {
-        this.logger.error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        this.logger.error(
+          `OpenAI API error: ${response.status} ${response.statusText}`,
+        );
         return null;
       }
 
@@ -149,25 +181,36 @@ Respond in this exact JSON format:
    * Parse OpenAI response into categorization result
    */
   private parseCategorizationResponse(
-    response: string, 
-    availableCategories: Array<{ id: number; name: string }>
+    response: string,
+    availableCategories: Array<{ id: number; name: string }>,
   ): OpenAICategorizationResponse | null {
     try {
       // Clean the response - remove any markdown formatting
-      const cleanResponse = response.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
+      const cleanResponse = response
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim();
+
       const parsed = JSON.parse(cleanResponse);
-      
+
       // Validate the response structure
-      if (!parsed.categoryId || !parsed.categoryName || typeof parsed.confidence !== 'number') {
+      if (
+        !parsed.categoryId ||
+        !parsed.categoryName ||
+        typeof parsed.confidence !== 'number'
+      ) {
         this.logger.warn('Invalid OpenAI response structure:', parsed);
         return null;
       }
 
       // Validate that the category exists
-      const categoryExists = availableCategories.some(cat => cat.id === parsed.categoryId);
+      const categoryExists = availableCategories.some(
+        (cat) => cat.id === parsed.categoryId,
+      );
       if (!categoryExists) {
-        this.logger.warn(`OpenAI returned invalid category ID: ${parsed.categoryId}`);
+        this.logger.warn(
+          `OpenAI returned invalid category ID: ${parsed.categoryId}`,
+        );
         return null;
       }
 
@@ -178,7 +221,7 @@ Respond in this exact JSON format:
         categoryId: parsed.categoryId,
         categoryName: parsed.categoryName,
         confidence,
-        reasoning: parsed.reasoning || 'AI categorization'
+        reasoning: parsed.reasoning || 'AI categorization',
       };
     } catch (error) {
       this.logger.error('Failed to parse OpenAI response:', error);
@@ -198,7 +241,7 @@ Respond in this exact JSON format:
     try {
       const response = await fetch(`${this.baseUrl}/models`, {
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${this.apiKey}`,
         },
       });
 

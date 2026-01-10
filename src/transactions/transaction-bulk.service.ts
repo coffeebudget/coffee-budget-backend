@@ -151,14 +151,15 @@ export class TransactionBulkService {
     // Process transactions in batches
     for (let i = 0; i < uncategorizedTransactions.length; i += batchSize) {
       const batch = uncategorizedTransactions.slice(i, i + batchSize);
-      
+
       for (const transaction of batch) {
         try {
           if (transaction.description) {
-            const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-              transaction.description,
-              userId,
-            );
+            const suggestedCategory =
+              await this.categoriesService.suggestCategoryForDescription(
+                transaction.description,
+                userId,
+              );
 
             if (suggestedCategory) {
               transaction.category = suggestedCategory;
@@ -304,8 +305,10 @@ export class TransactionBulkService {
       },
     });
 
-    const foundTransactionIds = transactions.map(t => t.id);
-    const missingTransactions = transactionIds.filter(id => !foundTransactionIds.includes(id));
+    const foundTransactionIds = transactions.map((t) => t.id);
+    const missingTransactions = transactionIds.filter(
+      (id) => !foundTransactionIds.includes(id),
+    );
 
     // Check for conflicts
     const conflicts: Array<{
@@ -370,7 +373,7 @@ export class TransactionBulkService {
     });
 
     const totalTransactions = transactions.length;
-    const categorizedCount = transactions.filter(t => t.category).length;
+    const categorizedCount = transactions.filter((t) => t.category).length;
     const uncategorizedCount = totalTransactions - categorizedCount;
 
     // Count statuses
@@ -385,7 +388,8 @@ export class TransactionBulkService {
     for (const transaction of transactions) {
       if (transaction.category) {
         const categoryName = transaction.category.name;
-        categoryDistribution[categoryName] = (categoryDistribution[categoryName] || 0) + 1;
+        categoryDistribution[categoryName] =
+          (categoryDistribution[categoryName] || 0) + 1;
       }
     }
 

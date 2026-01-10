@@ -35,7 +35,9 @@ describe('MerchantCategorizationService', () => {
       ],
     }).compile();
 
-    service = module.get<MerchantCategorizationService>(MerchantCategorizationService);
+    service = module.get<MerchantCategorizationService>(
+      MerchantCategorizationService,
+    );
     merchantRepo = module.get(getRepositoryToken(MerchantCategorization));
     categoryRepo = module.get(getRepositoryToken(Category));
     openAIService = module.get(OpenAIService);
@@ -49,7 +51,7 @@ describe('MerchantCategorizationService', () => {
     it('should return null when no merchant name provided', async () => {
       const transaction = {
         transactionId: 'test-123',
-        amount: 10.50,
+        amount: 10.5,
         description: 'Test transaction',
         merchantName: undefined,
         merchantType: 'unknown' as const,
@@ -61,21 +63,23 @@ describe('MerchantCategorizationService', () => {
     });
 
     it('should normalize merchant names consistently', () => {
-      const normalized = (service as any).normalizeMerchantName('ESSELUNGA S.P.A.');
+      const normalized = (service as any).normalizeMerchantName(
+        'ESSELUNGA S.P.A.',
+      );
       expect(normalized).toBe('esselunga s p a');
     });
 
     it('should build cache keys correctly', () => {
       const transaction = {
         transactionId: 'test-123',
-        amount: 10.50,
+        amount: 10.5,
         description: 'Test transaction',
         merchantName: 'ESSELUNGA SPA',
         merchantCategoryCode: '5411',
         merchantType: 'debtor' as const,
         enhancedDescription: 'Test transaction',
       };
-      
+
       const cacheKey = (service as any).buildCacheKey(transaction, 1);
       expect(cacheKey).toBe('merchant:1:esselunga spa:5411');
     });
@@ -99,10 +103,10 @@ describe('MerchantCategorizationService', () => {
       await service.learnFromUserCorrection('ESSELUNGA SPA', 2, 1);
 
       expect(merchantRepo.findOne).toHaveBeenCalledWith({
-        where: { 
-          merchantName: 'esselunga spa', 
-          user: { id: 1 } 
-        }
+        where: {
+          merchantName: 'esselunga spa',
+          user: { id: 1 },
+        },
       });
       expect(merchantRepo.save).toHaveBeenCalled();
     });

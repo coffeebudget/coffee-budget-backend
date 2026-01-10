@@ -57,8 +57,12 @@ export class BudgetManagementService {
     });
 
     // Ottieni le spese del mese corrente per categoria
-    const currentMonthSpending = await this.getCurrentMonthSpending(userId, startDate, endDate);
-    
+    const currentMonthSpending = await this.getCurrentMonthSpending(
+      userId,
+      startDate,
+      endDate,
+    );
+
     // Calcola i flussi netti medi degli ultimi 12 mesi per ogni categoria
     // Riutilizziamo la logica del savings plan che già calcola correttamente i NET
     const categoryNets = await this.getCategoryNetFlows(userId, 12);
@@ -68,19 +72,29 @@ export class BudgetManagementService {
 
     for (const category of categories) {
       const currentSpent = currentMonthSpending[category.name] || 0;
-      const netData = categoryNets[category.name] || { income: 0, expense: 0, net: 0 };
+      const netData = categoryNets[category.name] || {
+        income: 0,
+        expense: 0,
+        net: 0,
+      };
       const avgSpending = netData.expense;
       const avgIncome = netData.income;
       const netFlow = netData.net;
-      
+
       const categorySpending: CategorySpending = {
         categoryId: category.id,
         categoryName: category.name,
         budgetLevel: category.budgetLevel || 'optional',
         currentMonthSpent: currentSpent,
-        monthlyBudget: category.monthlyBudget ? Number(category.monthlyBudget) : null,
-        maxThreshold: category.maxThreshold ? Number(category.maxThreshold) : null,
-        warningThreshold: category.warningThreshold ? Number(category.warningThreshold) : null,
+        monthlyBudget: category.monthlyBudget
+          ? Number(category.monthlyBudget)
+          : null,
+        maxThreshold: category.maxThreshold
+          ? Number(category.maxThreshold)
+          : null,
+        warningThreshold: category.warningThreshold
+          ? Number(category.warningThreshold)
+          : null,
         averageMonthlySpending: avgSpending,
         averageMonthlyIncome: avgIncome,
         averageMonthlyNetFlow: netFlow,
@@ -90,10 +104,13 @@ export class BudgetManagementService {
 
       // Calcola lo status del budget
       this.calculateBudgetStatus(categorySpending);
-      
+
       // Per categorie primary, calcola budget configurato
       if (category.budgetLevel === 'primary') {
-        if (category.monthlyBudget !== null && category.monthlyBudget !== undefined) {
+        if (
+          category.monthlyBudget !== null &&
+          category.monthlyBudget !== undefined
+        ) {
           primaryBudgetConfigured += Number(category.monthlyBudget);
         }
       }
@@ -102,34 +119,43 @@ export class BudgetManagementService {
     }
 
     // Separa per tipo
-    const primaryCategories = categoryData.filter(c => c.budgetLevel === 'primary');
-    
-    // 🔧 FIX: Restituiamo TUTTE le categorie secondary, non solo quelle con warnings
-    const allSecondaryCategories = categoryData.filter(c => c.budgetLevel === 'secondary');
-    const secondaryWarnings = allSecondaryCategories.filter(c => 
-      c.budgetStatus === 'warning' || c.budgetStatus === 'over'
+    const primaryCategories = categoryData.filter(
+      (c) => c.budgetLevel === 'primary',
     );
-    
+
+    // 🔧 FIX: Restituiamo TUTTE le categorie secondary, non solo quelle con warnings
+    const allSecondaryCategories = categoryData.filter(
+      (c) => c.budgetLevel === 'secondary',
+    );
+    const secondaryWarnings = allSecondaryCategories.filter(
+      (c) => c.budgetStatus === 'warning' || c.budgetStatus === 'over',
+    );
+
     // 🔧 FIX: Restituiamo TUTTE le categorie optional, non solo le prime 5
-    const allOptionalCategories = categoryData.filter(c => c.budgetLevel === 'optional');
-    
+    const allOptionalCategories = categoryData.filter(
+      (c) => c.budgetLevel === 'optional',
+    );
 
-
-          // Calcola utilizzo budget mensile
+    // Calcola utilizzo budget mensile
     const totalBudgeted = categoryData.reduce((sum, c) => {
       // Per le categorie secondary, usa maxThreshold se disponibile, altrimenti monthlyBudget
-      const budget = c.budgetLevel === 'secondary' ? (c.maxThreshold || c.monthlyBudget || 0) : (c.monthlyBudget || 0);
+      const budget =
+        c.budgetLevel === 'secondary'
+          ? c.maxThreshold || c.monthlyBudget || 0
+          : c.monthlyBudget || 0;
       return sum + budget;
     }, 0);
-    const totalSpent = categoryData.reduce((sum, c) => sum + c.currentMonthSpent, 0);
-    const budgetUtilization = totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
+    const totalSpent = categoryData.reduce(
+      (sum, c) => sum + c.currentMonthSpent,
+      0,
+    );
+    const budgetUtilization =
+      totalBudgeted > 0 ? (totalSpent / totalBudgeted) * 100 : 0;
 
     // Calcola le medie mensili totali degli ultimi 12 mesi direttamente dalle transazioni
     // per avere dati coerenti e non doppi conteggi
     const totalFinancials = await this.getTotalMonthlyAverages(userId, 12);
 
-
-    
     return {
       primaryBudgetConfigured,
       primaryCategoriesData: primaryCategories,
@@ -148,7 +174,9 @@ export class BudgetManagementService {
    * Ottieni tutte le categorie con i loro dati di spesa per il budget management
    * Riutilizza la stessa logica dell'Annual Savings Plan
    */
-  async getAllCategoriesWithSpendingData(userId: number): Promise<CategorySpending[]> {
+  async getAllCategoriesWithSpendingData(
+    userId: number,
+  ): Promise<CategorySpending[]> {
     // Ottieni tutte le categorie
     const categories = await this.categoriesRepository.find({
       where: { user: { id: userId } },
@@ -161,25 +189,39 @@ export class BudgetManagementService {
     const currentMonth = new Date();
     const startDate = startOfMonth(currentMonth);
     const endDate = endOfMonth(currentMonth);
-    const currentMonthSpending = await this.getCurrentMonthSpending(userId, startDate, endDate);
+    const currentMonthSpending = await this.getCurrentMonthSpending(
+      userId,
+      startDate,
+      endDate,
+    );
 
     const categoryData: CategorySpending[] = [];
 
     for (const category of categories) {
       const currentSpent = currentMonthSpending[category.name] || 0;
-      const netData = categoryNets[category.name] || { income: 0, expense: 0, net: 0 };
+      const netData = categoryNets[category.name] || {
+        income: 0,
+        expense: 0,
+        net: 0,
+      };
       const avgSpending = netData.expense;
       const avgIncome = netData.income;
       const netFlow = netData.net;
-      
+
       const categorySpending: CategorySpending = {
         categoryId: category.id,
         categoryName: category.name,
         budgetLevel: category.budgetLevel || 'optional',
         currentMonthSpent: currentSpent,
-        monthlyBudget: category.monthlyBudget ? Number(category.monthlyBudget) : null,
-        maxThreshold: category.maxThreshold ? Number(category.maxThreshold) : null,
-        warningThreshold: category.warningThreshold ? Number(category.warningThreshold) : null,
+        monthlyBudget: category.monthlyBudget
+          ? Number(category.monthlyBudget)
+          : null,
+        maxThreshold: category.maxThreshold
+          ? Number(category.maxThreshold)
+          : null,
+        warningThreshold: category.warningThreshold
+          ? Number(category.warningThreshold)
+          : null,
         averageMonthlySpending: avgSpending,
         averageMonthlyIncome: avgIncome,
         averageMonthlyNetFlow: netFlow,
@@ -195,15 +237,29 @@ export class BudgetManagementService {
 
     // Ordina per flusso netto (più negativo = maggiore priorità)
     // Stesso ordinamento dell'Annual Savings Plan
-    return categoryData.sort((a, b) => a.averageMonthlyNetFlow - b.averageMonthlyNetFlow);
+    return categoryData.sort(
+      (a, b) => a.averageMonthlyNetFlow - b.averageMonthlyNetFlow,
+    );
   }
 
   /**
    * Suggerisci budget automatici basati sulla spesa storica
    */
-  async suggestBudgets(userId: number): Promise<{ [categoryName: string]: { monthly: number; level: string; reasoning: string } }> {
+  async suggestBudgets(userId: number): Promise<{
+    [categoryName: string]: {
+      monthly: number;
+      level: string;
+      reasoning: string;
+    };
+  }> {
     const averageSpending = await this.getAverageMonthlySpending(userId, 12);
-    const suggestions: { [categoryName: string]: { monthly: number; level: string; reasoning: string } } = {};
+    const suggestions: {
+      [categoryName: string]: {
+        monthly: number;
+        level: string;
+        reasoning: string;
+      };
+    } = {};
 
     for (const [categoryName, avgSpending] of Object.entries(averageSpending)) {
       if (avgSpending < 50) {
@@ -211,27 +267,28 @@ export class BudgetManagementService {
         suggestions[categoryName] = {
           monthly: Math.ceil(avgSpending * 1.2), // 20% di margine
           level: 'optional',
-          reasoning: 'Spesa bassa e variabile - categoria opzionale'
+          reasoning: 'Spesa bassa e variabile - categoria opzionale',
         };
       } else if (this.isPrimaryCategory(categoryName)) {
         // Categorie essenziali - primary
         suggestions[categoryName] = {
           monthly: Math.ceil(avgSpending * 1.1), // 10% di margine
           level: 'primary',
-          reasoning: 'Spesa essenziale e regolare - categoria primaria'
+          reasoning: 'Spesa essenziale e regolare - categoria primaria',
         };
       } else if (avgSpending > 200) {
         // Spese significative ma controllabili - secondary
         suggestions[categoryName] = {
           monthly: Math.ceil(avgSpending * 1.15), // 15% di margine
           level: 'secondary',
-          reasoning: 'Spesa significativa ma controllabile - categoria secondaria'
+          reasoning:
+            'Spesa significativa ma controllabile - categoria secondaria',
         };
       } else {
         suggestions[categoryName] = {
           monthly: Math.ceil(avgSpending * 1.25), // 25% di margine
           level: 'optional',
-          reasoning: 'Spesa variabile - categoria opzionale'
+          reasoning: 'Spesa variabile - categoria opzionale',
         };
       }
     }
@@ -240,7 +297,13 @@ export class BudgetManagementService {
   }
 
   private calculateBudgetStatus(categorySpending: CategorySpending): void {
-    const { currentMonthSpent, monthlyBudget, maxThreshold, warningThreshold, budgetLevel } = categorySpending;
+    const {
+      currentMonthSpent,
+      monthlyBudget,
+      maxThreshold,
+      warningThreshold,
+      budgetLevel,
+    } = categorySpending;
 
     if (!monthlyBudget && !maxThreshold) {
       categorySpending.budgetStatus = 'no_budget';
@@ -267,7 +330,11 @@ export class BudgetManagementService {
     }
   }
 
-  private async getCurrentMonthSpending(userId: number, startDate: Date, endDate: Date): Promise<{ [categoryName: string]: number }> {
+  private async getCurrentMonthSpending(
+    userId: number,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<{ [categoryName: string]: number }> {
     const spending = await this.transactionsRepository
       .createQueryBuilder('transaction')
       .leftJoin('transaction.category', 'category')
@@ -286,14 +353,18 @@ export class BudgetManagementService {
       .getRawMany();
 
     const result: { [categoryName: string]: number } = {};
-    spending.forEach(item => {
-      result[item.categoryName || 'Uncategorized'] = Number(item.totalSpent) || 0;
+    spending.forEach((item) => {
+      result[item.categoryName || 'Uncategorized'] =
+        Number(item.totalSpent) || 0;
     });
 
     return result;
   }
 
-  private async getAverageMonthlySpending(userId: number, months: number): Promise<{ [categoryName: string]: number }> {
+  private async getAverageMonthlySpending(
+    userId: number,
+    months: number,
+  ): Promise<{ [categoryName: string]: number }> {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
@@ -315,7 +386,7 @@ export class BudgetManagementService {
       .getRawMany();
 
     const result: { [categoryName: string]: number } = {};
-    spending.forEach(item => {
+    spending.forEach((item) => {
       const totalSpent = Number(item.totalSpent) || 0;
       result[item.categoryName || 'Uncategorized'] = totalSpent / months;
     });
@@ -323,7 +394,12 @@ export class BudgetManagementService {
     return result;
   }
 
-  private async getCategoryNetFlows(userId: number, months: number): Promise<{ [categoryName: string]: { income: number; expense: number; net: number } }> {
+  private async getCategoryNetFlows(
+    userId: number,
+    months: number,
+  ): Promise<{
+    [categoryName: string]: { income: number; expense: number; net: number };
+  }> {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
@@ -363,17 +439,20 @@ export class BudgetManagementService {
       .getRawMany();
 
     // Calculate net per category
-    const categoryNets: Record<string, { income: number; expense: number; net: number }> = {};
-    
+    const categoryNets: Record<
+      string,
+      { income: number; expense: number; net: number }
+    > = {};
+
     // Process income transactions
     incomeTransactions.forEach((item) => {
       const categoryName = item.categoryName || 'Uncategorized';
       const amount = Number(item.amount) || 0;
-      
+
       if (!categoryNets[categoryName]) {
         categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
       }
-      
+
       categoryNets[categoryName].income += amount;
     });
 
@@ -381,30 +460,36 @@ export class BudgetManagementService {
     expenseTransactions.forEach((item) => {
       const categoryName = item.categoryName || 'Uncategorized';
       const amount = Number(item.amount) || 0;
-      
+
       if (!categoryNets[categoryName]) {
         categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
       }
-      
+
       categoryNets[categoryName].expense += amount;
     });
 
     // Calculate net flow for each category
-    Object.keys(categoryNets).forEach(categoryName => {
-      categoryNets[categoryName].net = categoryNets[categoryName].income - categoryNets[categoryName].expense;
+    Object.keys(categoryNets).forEach((categoryName) => {
+      categoryNets[categoryName].net =
+        categoryNets[categoryName].income - categoryNets[categoryName].expense;
     });
 
     // Convert to monthly averages
-    Object.keys(categoryNets).forEach(categoryName => {
-      categoryNets[categoryName].income = categoryNets[categoryName].income / months;
-      categoryNets[categoryName].expense = categoryNets[categoryName].expense / months;
+    Object.keys(categoryNets).forEach((categoryName) => {
+      categoryNets[categoryName].income =
+        categoryNets[categoryName].income / months;
+      categoryNets[categoryName].expense =
+        categoryNets[categoryName].expense / months;
       categoryNets[categoryName].net = categoryNets[categoryName].net / months;
     });
 
     return categoryNets;
   }
 
-  private async getTotalMonthlyAverages(userId: number, months: number): Promise<{ income: number; expenses: number; netFlow: number }> {
+  private async getTotalMonthlyAverages(
+    userId: number,
+    months: number,
+  ): Promise<{ income: number; expenses: number; netFlow: number }> {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
@@ -454,7 +539,11 @@ export class BudgetManagementService {
     };
   }
 
-  async getCategoryTransactions(userId: number, categoryId: number, months: number = 12): Promise<{
+  async getCategoryTransactions(
+    userId: number,
+    categoryId: number,
+    months: number = 12,
+  ): Promise<{
     transactions: any[];
     summary: {
       totalIncome: number;
@@ -497,12 +586,12 @@ export class BudgetManagementService {
     // Calculate summary statistics
     let totalIncome = 0;
     let totalExpenses = 0;
-    let transactionCount = transactions.length;
+    const transactionCount = transactions.length;
 
-    const processedTransactions = transactions.map(tx => {
+    const processedTransactions = transactions.map((tx) => {
       const amount = Math.abs(Number(tx.transaction_amount) || 0);
       const isIncome = tx.transaction_type === 'income';
-      
+
       if (isIncome) {
         totalIncome += amount;
       } else {
@@ -542,15 +631,25 @@ export class BudgetManagementService {
 
   private isPrimaryCategory(categoryName: string): boolean {
     const primaryKeywords = [
-      'mortgage', 'mutuo', 'rent', 'affitto',
-      'groceries', 'spesa', 'alimentari',
-      'electricity', 'gas', 'water', 'internet',
-      'insurance', 'assicurazione',
-      'utilities', 'utenze'
+      'mortgage',
+      'mutuo',
+      'rent',
+      'affitto',
+      'groceries',
+      'spesa',
+      'alimentari',
+      'electricity',
+      'gas',
+      'water',
+      'internet',
+      'insurance',
+      'assicurazione',
+      'utilities',
+      'utenze',
     ];
 
-    return primaryKeywords.some(keyword => 
-      categoryName.toLowerCase().includes(keyword.toLowerCase())
+    return primaryKeywords.some((keyword) =>
+      categoryName.toLowerCase().includes(keyword.toLowerCase()),
     );
   }
-} 
+}

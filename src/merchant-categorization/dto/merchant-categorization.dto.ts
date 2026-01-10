@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsEnum, IsArray, ValidateNested } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export enum CategorizationSource {
@@ -131,4 +138,3 @@ export class MerchantCategorizationResponse {
   @IsString()
   cacheStatus: 'hit' | 'miss' | 'bypass';
 }
-

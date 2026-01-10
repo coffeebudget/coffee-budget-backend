@@ -692,7 +692,11 @@ describe('TransactionsService', () => {
       };
 
       // Mock the TransactionDuplicateService
-      jest.spyOn((service as any).transactionDuplicateService, 'handleDuplicateResolution')
+      jest
+        .spyOn(
+          (service as any).transactionDuplicateService,
+          'handleDuplicateResolution',
+        )
         .mockResolvedValue(createdTransaction as any);
 
       const result = await service.handleDuplicateResolution(
@@ -703,7 +707,9 @@ describe('TransactionsService', () => {
       );
 
       expect(result).toEqual(createdTransaction);
-      expect((service as any).transactionDuplicateService.handleDuplicateResolution).toHaveBeenCalledWith(
+      expect(
+        (service as any).transactionDuplicateService.handleDuplicateResolution,
+      ).toHaveBeenCalledWith(
         existingTransaction,
         newTransactionData,
         mockUserId,
@@ -730,7 +736,11 @@ describe('TransactionsService', () => {
       };
 
       // Mock the TransactionDuplicateService
-      jest.spyOn((service as any).transactionDuplicateService, 'handleDuplicateResolution')
+      jest
+        .spyOn(
+          (service as any).transactionDuplicateService,
+          'handleDuplicateResolution',
+        )
         .mockResolvedValue(existingTransaction as any);
 
       const result = await service.handleDuplicateResolution(
@@ -741,7 +751,9 @@ describe('TransactionsService', () => {
       );
 
       expect(result).toEqual(existingTransaction);
-      expect((service as any).transactionDuplicateService.handleDuplicateResolution).toHaveBeenCalledWith(
+      expect(
+        (service as any).transactionDuplicateService.handleDuplicateResolution,
+      ).toHaveBeenCalledWith(
         existingTransaction,
         newTransactionData,
         mockUserId,
@@ -869,8 +881,12 @@ describe('TransactionsService', () => {
 
       const savedTransaction2 = savedCalls.find((call) => call[0].id === 2)[0];
 
-      expect(savedTransaction1.description).toBe('Payment to PayPal (PayPal: Netflix)');
-      expect(savedTransaction2.description).toBe('PayPal *Payment (PayPal: Amazon)');
+      expect(savedTransaction1.description).toBe(
+        'Payment to PayPal (PayPal: Netflix)',
+      );
+      expect(savedTransaction2.description).toBe(
+        'PayPal *Payment (PayPal: Amazon)',
+      );
     });
 
     it('should return 0 when no PayPal transactions are provided', async () => {

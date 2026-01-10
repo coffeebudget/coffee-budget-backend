@@ -204,7 +204,11 @@ export class PatternDetectionService {
    */
   private normalizeForGrouping(value: string | null): string {
     if (!value) return 'unknown';
-    return value.toLowerCase().trim().replace(/[^a-z0-9]/g, '').slice(0, 20);
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]/g, '')
+      .slice(0, 20);
   }
 
   /**
@@ -226,7 +230,10 @@ export class PatternDetectionService {
       // Try to find existing group with high similarity
       for (const group of groups) {
         // OPTIMIZATION: Only compare against a sample of the group
-        const sampleSize = Math.min(group.transactions.length, MAX_GROUP_COMPARISONS);
+        const sampleSize = Math.min(
+          group.transactions.length,
+          MAX_GROUP_COMPARISONS,
+        );
         const sampleTransactions = group.transactions.slice(-sampleSize);
 
         const avgSimilarity = this.similarityScorer.calculateGroupSimilarity(

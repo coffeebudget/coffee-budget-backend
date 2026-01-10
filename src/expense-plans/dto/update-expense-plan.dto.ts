@@ -1,8 +1,5 @@
 import { PartialType } from '@nestjs/swagger';
-import {
-  IsOptional,
-  IsEnum,
-} from 'class-validator';
+import { IsOptional, IsEnum } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CreateExpensePlanDto } from './create-expense-plan.dto';
 import { ExpensePlanStatus } from '../entities/expense-plan.entity';

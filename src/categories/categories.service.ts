@@ -14,7 +14,11 @@ import { RecurringTransaction } from '../recurring-transactions/entities/recurri
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
-import { CategoryCreatedEvent, CategoryUpdatedEvent, CategoryDeletedEvent } from '../shared/events/category.events';
+import {
+  CategoryCreatedEvent,
+  CategoryUpdatedEvent,
+  CategoryDeletedEvent,
+} from '../shared/events/category.events';
 
 @Injectable()
 export class CategoriesService {
@@ -57,13 +61,13 @@ export class CategoriesService {
       ...createCategoryDto,
       user,
     });
-    
+
     const savedCategory = await this.categoriesRepository.save(category);
 
     // Publish CategoryCreatedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new CategoryCreatedEvent(savedCategory, user.id)
+        new CategoryCreatedEvent(savedCategory, user.id),
       );
     } catch (error) {
       // Log error but don't break the category creation flow
@@ -130,7 +134,7 @@ export class CategoriesService {
     // Publish CategoryUpdatedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new CategoryUpdatedEvent(savedCategory, userId)
+        new CategoryUpdatedEvent(savedCategory, userId),
       );
     } catch (error) {
       // Log error but don't break the category update flow
@@ -196,9 +200,7 @@ export class CategoriesService {
 
       // Publish CategoryDeletedEvent for event-driven processing
       try {
-        await this.eventPublisher.publish(
-          new CategoryDeletedEvent(id, userId)
-        );
+        await this.eventPublisher.publish(new CategoryDeletedEvent(id, userId));
       } catch (error) {
         // Log error but don't break the category deletion flow
         console.error('Failed to publish CategoryDeletedEvent', error);
@@ -327,14 +329,14 @@ export class CategoriesService {
   ): Promise<Category | null> {
     // Get all categories for the user
     const categories = await this.findAll(userId);
-    
+
     // Normalize the description for matching
     const normalizedDescription = description
       .toLowerCase()
       .replace(/[^\w\s]/g, ' ')
       .trim()
       .replace(/\s+/g, ' ');
-    
+
     // Find categories that have keywords matching the description
     for (const category of categories) {
       if (category.keywords && category.keywords.length > 0) {
@@ -344,14 +346,14 @@ export class CategoriesService {
             .replace(/[^\w\s]/g, ' ')
             .trim()
             .replace(/\s+/g, ' ');
-          
+
           // Check if the keyword matches the description
           if (normalizedKeyword.includes(' ')) {
             // Multi-word keyword: check if all words appear in description
             const keywordWords = normalizedKeyword.split(' ');
             const descriptionWords = normalizedDescription.split(' ');
-            const allWordsMatch = keywordWords.every(word => 
-              descriptionWords.includes(word)
+            const allWordsMatch = keywordWords.every((word) =>
+              descriptionWords.includes(word),
             );
             if (allWordsMatch) {
               return category;
@@ -368,7 +370,7 @@ export class CategoriesService {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -467,7 +469,7 @@ export class CategoriesService {
           transaction.description,
           userId,
         );
-        
+
         if (suggestedCategory) {
           transaction.suggestedCategory = suggestedCategory;
           transaction.suggestedCategoryName = suggestedCategory.name;

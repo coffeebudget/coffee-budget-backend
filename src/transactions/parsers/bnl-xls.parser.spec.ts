@@ -72,9 +72,33 @@ describe('BnlXlsParser', () => {
 
       // Mock worksheet.eachRow to simulate rows
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
-        { values: ['05/02/2023', '07/02/2023', '456', 'Another description', '-50,25'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '01/02/2023',
+            '03/02/2023',
+            '123',
+            'Some description',
+            '+100,50',
+          ],
+        },
+        {
+          values: [
+            '05/02/2023',
+            '07/02/2023',
+            '456',
+            'Another description',
+            '-50,25',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -139,8 +163,24 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '01/02/2023',
+            '03/02/2023',
+            '123',
+            'Some description',
+            '+100,50',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -172,8 +212,24 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['01/02/2023', '03/02/2023', '123', 'Some description', '+100,50'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '01/02/2023',
+            '03/02/2023',
+            '123',
+            'Some description',
+            '+100,50',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -204,8 +260,24 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['01/02/2023', '03/02/2023', '123', 'Payment ref: #12345 - Multi-word description with special chars: €$%&', '-250,75'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '01/02/2023',
+            '03/02/2023',
+            '123',
+            'Payment ref: #12345 - Multi-word description with special chars: €$%&',
+            '-250,75',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -231,10 +303,42 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['01/02/2023', '03/02/2023', '123', 'Income transaction', '+1.500,00'] },
-        { values: ['05/02/2023', '07/02/2023', '456', 'Expense transaction', '-750,25'] },
-        { values: ['10/02/2023', '12/02/2023', '789', 'Zero amount transaction', '0,00'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '01/02/2023',
+            '03/02/2023',
+            '123',
+            'Income transaction',
+            '+1.500,00',
+          ],
+        },
+        {
+          values: [
+            '05/02/2023',
+            '07/02/2023',
+            '456',
+            'Expense transaction',
+            '-750,25',
+          ],
+        },
+        {
+          values: [
+            '10/02/2023',
+            '12/02/2023',
+            '789',
+            'Zero amount transaction',
+            '0,00',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -267,8 +371,24 @@ describe('BnlXlsParser', () => {
       mockWorkbook.worksheets = [mockWorksheet];
 
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Codice', 'Descrizione', 'Importo'] },
-        { values: ['31/12/2023', '01/01/2024', '123', 'Year-end transaction', '+1.000,00'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Codice',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '31/12/2023',
+            '01/01/2024',
+            '123',
+            'Year-end transaction',
+            '+1.000,00',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -308,12 +428,60 @@ describe('BnlXlsParser', () => {
         { values: ['C/C:', '01005 20600 00000000XXXX'] },
         { values: ['Divisa C/C:', 'EUR'] },
         { values: ['Saldo Contabile al:', '11/04/2025', '+1.333,45'] },
-        { values: ['Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Importo'] },
-        { values: ['04/04/2025', '04/04/2025', '50', 'PAGAMENTI DIVERSI', '-407,97'] },
-        { values: ['03/04/2025', '03/04/2025', '26', 'VOSTRO BONIFICO', '-225,00'] },
-        { values: ['03/04/2025', '03/04/2025', '48', 'BONIFICO DEL 03.04.25 DA NOME COGNOME', '+1.450,00'] },
-        { values: ['02/04/2025', '31/03/2025', '66', 'CANONE CONTO MARZO', '-8,40'] },
-        { values: ['31/03/2025', '31/03/2025', '15', 'RIMBORSO FINANZIAMENTO N. 1523129', '-809,76'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Causale ABI',
+            'Descrizione',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '04/04/2025',
+            '04/04/2025',
+            '50',
+            'PAGAMENTI DIVERSI',
+            '-407,97',
+          ],
+        },
+        {
+          values: [
+            '03/04/2025',
+            '03/04/2025',
+            '26',
+            'VOSTRO BONIFICO',
+            '-225,00',
+          ],
+        },
+        {
+          values: [
+            '03/04/2025',
+            '03/04/2025',
+            '48',
+            'BONIFICO DEL 03.04.25 DA NOME COGNOME',
+            '+1.450,00',
+          ],
+        },
+        {
+          values: [
+            '02/04/2025',
+            '31/03/2025',
+            '66',
+            'CANONE CONTO MARZO',
+            '-8,40',
+          ],
+        },
+        {
+          values: [
+            '31/03/2025',
+            '31/03/2025',
+            '15',
+            'RIMBORSO FINANZIAMENTO N. 1523129',
+            '-809,76',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {
@@ -470,8 +638,26 @@ describe('BnlXlsParser', () => {
       // Mock worksheet.eachRow to return a row with MOB reference number
       // Note: Column indices must match how the parser is accessing the data
       const mockRows = [
-        { values: ['Data contabile', 'Data valuta', 'Causale ABI', 'Descrizione', 'Descrizione_Completa', 'Importo'] },
-        { values: ['07/01/2025', '07/01/2025', '50', 'PAGAMENTI DIVERSI', 'MOB-6999764301 PAG. MAV 0 3065', '-168,12'] },
+        {
+          values: [
+            'Data contabile',
+            'Data valuta',
+            'Causale ABI',
+            'Descrizione',
+            'Descrizione_Completa',
+            'Importo',
+          ],
+        },
+        {
+          values: [
+            '07/01/2025',
+            '07/01/2025',
+            '50',
+            'PAGAMENTI DIVERSI',
+            'MOB-6999764301 PAG. MAV 0 3065',
+            '-168,12',
+          ],
+        },
       ];
 
       mockWorksheet.eachRow.mockImplementation((callback: any) => {

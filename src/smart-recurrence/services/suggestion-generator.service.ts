@@ -56,7 +56,9 @@ export class SuggestionGeneratorService {
     if (!options.forceRegenerate) {
       const recentSuggestions = await this.getRecentPendingSuggestions(userId);
       if (recentSuggestions.length > 0) {
-        this.logger.log(`Found ${recentSuggestions.length} recent pending suggestions`);
+        this.logger.log(
+          `Found ${recentSuggestions.length} recent pending suggestions`,
+        );
         return this.buildResponse(recentSuggestions, 0, startTime);
       }
     }
@@ -91,10 +93,11 @@ export class SuggestionGeneratorService {
       }),
     );
 
-    const classificationResult = await this.patternClassification.classifyPatterns({
-      patterns: classificationRequests,
-      userId,
-    });
+    const classificationResult =
+      await this.patternClassification.classifyPatterns({
+        patterns: classificationRequests,
+        userId,
+      });
 
     this.logger.log(
       `Classified ${classificationResult.classifications.length} patterns, ` +
@@ -120,18 +123,13 @@ export class SuggestionGeneratorService {
     );
 
     // Step 5: Save suggestions to database
-    const savedSuggestions = await this.suggestionRepository.save(
-      filteredSuggestions,
-    );
+    const savedSuggestions =
+      await this.suggestionRepository.save(filteredSuggestions);
 
     // Get all pending suggestions for response
     const allPending = await this.getPendingSuggestions(userId);
 
-    return this.buildResponse(
-      allPending,
-      savedSuggestions.length,
-      startTime,
-    );
+    return this.buildResponse(allPending, savedSuggestions.length, startTime);
   }
 
   /**
@@ -168,7 +166,10 @@ export class SuggestionGeneratorService {
         acc[status] = parseInt(count, 10);
         return acc;
       },
-      { pending: 0, approved: 0, rejected: 0, expired: 0 } as Record<string, number>,
+      { pending: 0, approved: 0, rejected: 0, expired: 0 } as Record<
+        string,
+        number
+      >,
     );
 
     return {
@@ -198,7 +199,9 @@ export class SuggestionGeneratorService {
   /**
    * Get pending suggestions for a user
    */
-  async getPendingSuggestions(userId: number): Promise<ExpensePlanSuggestion[]> {
+  async getPendingSuggestions(
+    userId: number,
+  ): Promise<ExpensePlanSuggestion[]> {
     return this.suggestionRepository.find({
       where: { userId, status: 'pending' },
       relations: ['category'],
@@ -239,7 +242,9 @@ export class SuggestionGeneratorService {
         monthlyContribution:
           options.customMonthlyContribution ?? suggestion.monthlyContribution,
         contributionSource: 'calculated',
-        frequency: this.mapFrequencyTypeToPlanFrequency(suggestion.frequencyType),
+        frequency: this.mapFrequencyTypeToPlanFrequency(
+          suggestion.frequencyType,
+        ),
         nextDueDate: suggestion.nextExpectedDate,
         status: 'active',
         autoCalculate: true,
@@ -397,7 +402,15 @@ export class SuggestionGeneratorService {
   private async createSuggestions(
     userId: number,
     patterns: DetectedPatternData[],
-    classifications: { patternId: string; expenseType: ExpenseType; isEssential: boolean; suggestedPlanName: string; monthlyContribution: number; confidence: number; reasoning: string }[],
+    classifications: {
+      patternId: string;
+      expenseType: ExpenseType;
+      isEssential: boolean;
+      suggestedPlanName: string;
+      monthlyContribution: number;
+      confidence: number;
+      reasoning: string;
+    }[],
   ): Promise<ExpensePlanSuggestion[]> {
     const classificationMap = new Map(
       classifications.map((c) => [c.patternId, c]),
@@ -416,24 +429,30 @@ export class SuggestionGeneratorService {
         classification?.suggestedPlanName ||
         pattern.group.merchantName ||
         pattern.group.representativeDescription.substring(0, 50);
-      suggestion.suggestedName = rawSuggestedName?.substring(0, 100) || 'Unnamed Expense';
+      suggestion.suggestedName =
+        rawSuggestedName?.substring(0, 100) || 'Unnamed Expense';
       suggestion.description = `Detected recurring ${pattern.frequency.type} expense`;
-      suggestion.merchantName = pattern.group.merchantName?.substring(0, 255) || null;
-      suggestion.representativeDescription = pattern.group.representativeDescription;
+      suggestion.merchantName =
+        pattern.group.merchantName?.substring(0, 255) || null;
+      suggestion.representativeDescription =
+        pattern.group.representativeDescription;
       suggestion.categoryId = pattern.group.categoryId;
-      suggestion.categoryName = pattern.group.categoryName?.substring(0, 100) || null;
+      suggestion.categoryName =
+        pattern.group.categoryName?.substring(0, 100) || null;
       suggestion.averageAmount = pattern.group.averageAmount;
       suggestion.monthlyContribution =
         classification?.monthlyContribution || pattern.group.averageAmount;
       suggestion.yearlyTotal = suggestion.monthlyContribution * 12;
-      suggestion.expenseType = classification?.expenseType || ExpenseType.OTHER_FIXED;
+      suggestion.expenseType =
+        classification?.expenseType || ExpenseType.OTHER_FIXED;
       suggestion.isEssential = classification?.isEssential || false;
       suggestion.frequencyType = pattern.frequency.type;
       suggestion.intervalDays = pattern.frequency.intervalDays;
       suggestion.patternConfidence = pattern.confidence.overall;
       suggestion.classificationConfidence = classification?.confidence || 50;
       suggestion.overallConfidence = Math.round(
-        (pattern.confidence.overall * 0.6 + (classification?.confidence || 50) * 0.4),
+        pattern.confidence.overall * 0.6 +
+          (classification?.confidence || 50) * 0.4,
       );
       suggestion.classificationReasoning = classification?.reasoning || null;
       suggestion.occurrenceCount = pattern.frequency.occurrenceCount;
@@ -446,8 +465,16 @@ export class SuggestionGeneratorService {
         patternId: pattern.group.id,
         transactionIds: pattern.group.transactions.map((t) => t.id),
         amountRange: {
-          min: Math.min(...pattern.group.transactions.map((t) => Math.abs(Number(t.amount)))),
-          max: Math.max(...pattern.group.transactions.map((t) => Math.abs(Number(t.amount)))),
+          min: Math.min(
+            ...pattern.group.transactions.map((t) =>
+              Math.abs(Number(t.amount)),
+            ),
+          ),
+          max: Math.max(
+            ...pattern.group.transactions.map((t) =>
+              Math.abs(Number(t.amount)),
+            ),
+          ),
         },
         sourceVersion: '1.0',
       };
@@ -477,8 +504,9 @@ export class SuggestionGeneratorService {
     );
 
     const existingSuggestionKeys = new Set(
-      existingSuggestions.map((s) =>
-        `${s.merchantName?.toLowerCase()}|${s.categoryId}|${s.frequencyType}`,
+      existingSuggestions.map(
+        (s) =>
+          `${s.merchantName?.toLowerCase()}|${s.categoryId}|${s.frequencyType}`,
       ),
     );
 
@@ -528,14 +556,17 @@ export class SuggestionGeneratorService {
       processingTimeMs: Date.now() - startTime,
       summary: {
         byExpenseType,
-        totalMonthlyContribution: Math.round(totalMonthlyContribution * 100) / 100,
+        totalMonthlyContribution:
+          Math.round(totalMonthlyContribution * 100) / 100,
         essentialCount,
         discretionaryCount,
       },
     };
   }
 
-  private toResponseDto(suggestion: ExpensePlanSuggestion): SuggestionResponseDto {
+  private toResponseDto(
+    suggestion: ExpensePlanSuggestion,
+  ): SuggestionResponseDto {
     return {
       id: suggestion.id,
       suggestedName: suggestion.suggestedName,

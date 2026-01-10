@@ -2,7 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OnEvent } from '@nestjs/event-emitter';
-import { IncomeDistributionRule, DistributionStrategy } from './entities/income-distribution-rule.entity';
+import {
+  IncomeDistributionRule,
+  DistributionStrategy,
+} from './entities/income-distribution-rule.entity';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { Transaction } from '../transactions/transaction.entity';
@@ -76,7 +79,10 @@ export class IncomeDistributionService {
     });
   }
 
-  async findOneRule(id: number, userId: number): Promise<IncomeDistributionRule> {
+  async findOneRule(
+    id: number,
+    userId: number,
+  ): Promise<IncomeDistributionRule> {
     const rule = await this.ruleRepository.findOne({
       where: { id, userId },
       relations: ['category', 'bankAccount'],
@@ -89,7 +95,10 @@ export class IncomeDistributionService {
     return rule;
   }
 
-  async createRule(userId: number, dto: CreateRuleDto): Promise<IncomeDistributionRule> {
+  async createRule(
+    userId: number,
+    dto: CreateRuleDto,
+  ): Promise<IncomeDistributionRule> {
     const rule = this.ruleRepository.create({
       ...dto,
       userId,
@@ -97,7 +106,11 @@ export class IncomeDistributionService {
     return this.ruleRepository.save(rule);
   }
 
-  async updateRule(id: number, userId: number, dto: UpdateRuleDto): Promise<IncomeDistributionRule> {
+  async updateRule(
+    id: number,
+    userId: number,
+    dto: UpdateRuleDto,
+  ): Promise<IncomeDistributionRule> {
     const rule = await this.findOneRule(id, userId);
     Object.assign(rule, dto);
     return this.ruleRepository.save(rule);
@@ -112,7 +125,9 @@ export class IncomeDistributionService {
   // RULE MATCHING
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async findMatchingRule(transaction: Transaction): Promise<IncomeDistributionRule | null> {
+  async findMatchingRule(
+    transaction: Transaction,
+  ): Promise<IncomeDistributionRule | null> {
     // Get userId from transaction's user relation
     const userId = transaction.user?.id;
     if (!userId) return null;
@@ -130,10 +145,14 @@ export class IncomeDistributionService {
     return null;
   }
 
-  private matchesRule(transaction: Transaction, rule: IncomeDistributionRule): boolean {
+  private matchesRule(
+    transaction: Transaction,
+    rule: IncomeDistributionRule,
+  ): boolean {
     // Check amount tolerance
     if (rule.expectedAmount !== null) {
-      const tolerance = (rule.amountTolerance / 100) * Number(rule.expectedAmount);
+      const tolerance =
+        (rule.amountTolerance / 100) * Number(rule.expectedAmount);
       const lowerBound = Number(rule.expectedAmount) - tolerance;
       const upperBound = Number(rule.expectedAmount) + tolerance;
       const amount = Math.abs(Number(transaction.amount));
@@ -199,7 +218,10 @@ export class IncomeDistributionService {
 
       case 'proportional':
         // Distribute proportionally based on monthly contribution
-        const totalNeeded = plans.reduce((sum, p) => sum + Number(p.monthlyContribution), 0);
+        const totalNeeded = plans.reduce(
+          (sum, p) => sum + Number(p.monthlyContribution),
+          0,
+        );
 
         if (totalNeeded === 0) break;
 
@@ -268,14 +290,21 @@ export class IncomeDistributionService {
     }
 
     const incomeAmount = Math.abs(transaction.amount);
-    const distributions = this.calculateDistribution(plans, incomeAmount, rule.distributionStrategy);
+    const distributions = this.calculateDistribution(
+      plans,
+      incomeAmount,
+      rule.distributionStrategy,
+    );
 
     // Create contribution transactions
     for (const dist of distributions) {
       await this.createContribution(dist.planId, dist.amount, transaction.id);
     }
 
-    const totalDistributed = distributions.reduce((sum, d) => sum + d.amount, 0);
+    const totalDistributed = distributions.reduce(
+      (sum, d) => sum + d.amount,
+      0,
+    );
 
     return {
       distributed: distributions,
@@ -335,7 +364,9 @@ export class IncomeDistributionService {
   }
 
   @OnEvent('TransactionCreatedEvent')
-  async handleExpenseTransaction(event: TransactionCreatedEvent): Promise<void> {
+  async handleExpenseTransaction(
+    event: TransactionCreatedEvent,
+  ): Promise<void> {
     const transaction = event.transaction;
 
     // Only process expense transactions
@@ -417,7 +448,10 @@ export class IncomeDistributionService {
       await this.createManualContribution(dist.planId, dist.amount, note);
     }
 
-    const totalDistributed = distributions.reduce((sum, d) => sum + d.amount, 0);
+    const totalDistributed = distributions.reduce(
+      (sum, d) => sum + d.amount,
+      0,
+    );
 
     return {
       distributed: distributions,
@@ -460,7 +494,9 @@ export class IncomeDistributionService {
   // PENDING DISTRIBUTIONS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async getPendingDistributions(userId: number): Promise<PendingDistribution[]> {
+  async getPendingDistributions(
+    userId: number,
+  ): Promise<PendingDistribution[]> {
     const plans = await this.planRepository.find({
       where: { userId, status: 'active' },
       order: { priority: 'ASC' },

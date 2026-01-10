@@ -9,7 +9,9 @@ export class AddSuggestedCategoryToTransaction1745434451000
     const table = await queryRunner.getTable('transaction');
 
     // Add suggestedCategoryName column if it doesn't exist
-    const hasNameColumn = table?.columns.some((c) => c.name === 'suggestedCategoryName');
+    const hasNameColumn = table?.columns.some(
+      (c) => c.name === 'suggestedCategoryName',
+    );
     if (!hasNameColumn) {
       await queryRunner.query(
         `ALTER TABLE "transaction" ADD "suggestedCategoryName" character varying`,
@@ -17,7 +19,9 @@ export class AddSuggestedCategoryToTransaction1745434451000
     }
 
     // Add suggestedCategoryId column if it doesn't exist
-    const hasIdColumn = table?.columns.some((c) => c.name === 'suggestedCategoryId');
+    const hasIdColumn = table?.columns.some(
+      (c) => c.name === 'suggestedCategoryId',
+    );
     if (!hasIdColumn) {
       await queryRunner.query(
         `ALTER TABLE "transaction" ADD "suggestedCategoryId" integer`,
@@ -26,7 +30,7 @@ export class AddSuggestedCategoryToTransaction1745434451000
 
     // Add foreign key constraint if it doesn't exist
     const hasForeignKey = table?.foreignKeys.some(
-      (fk) => fk.name === 'FK_transaction_suggested_category'
+      (fk) => fk.name === 'FK_transaction_suggested_category',
     );
     if (!hasForeignKey) {
       await queryRunner.query(
@@ -40,7 +44,7 @@ export class AddSuggestedCategoryToTransaction1745434451000
 
     // Drop the foreign key constraint if it exists
     const hasForeignKey = table?.foreignKeys.some(
-      (fk) => fk.name === 'FK_transaction_suggested_category'
+      (fk) => fk.name === 'FK_transaction_suggested_category',
     );
     if (hasForeignKey) {
       await queryRunner.query(
@@ -49,14 +53,18 @@ export class AddSuggestedCategoryToTransaction1745434451000
     }
 
     // Remove the columns if they exist
-    const hasIdColumn = table?.columns.some((c) => c.name === 'suggestedCategoryId');
+    const hasIdColumn = table?.columns.some(
+      (c) => c.name === 'suggestedCategoryId',
+    );
     if (hasIdColumn) {
       await queryRunner.query(
         `ALTER TABLE "transaction" DROP COLUMN "suggestedCategoryId"`,
       );
     }
 
-    const hasNameColumn = table?.columns.some((c) => c.name === 'suggestedCategoryName');
+    const hasNameColumn = table?.columns.some(
+      (c) => c.name === 'suggestedCategoryName',
+    );
     if (hasNameColumn) {
       await queryRunner.query(
         `ALTER TABLE "transaction" DROP COLUMN "suggestedCategoryName"`,

@@ -32,7 +32,9 @@ export class TransactionDuplicateService {
     userId: number,
   ): Promise<Transaction | null> {
     if (!executionDate) {
-      throw new BadRequestException('Execution date is required for duplicate detection.');
+      throw new BadRequestException(
+        'Execution date is required for duplicate detection.',
+      );
     }
 
     // Calculate date range for duplicate detection (±1 day)
@@ -72,20 +74,25 @@ export class TransactionDuplicateService {
   ): Promise<Transaction[]> {
     try {
       // Use the existing DuplicateDetectionService for comprehensive detection
-      const result = await this.duplicateDetectionService.detectDuplicates(userId);
-      
+      const result =
+        await this.duplicateDetectionService.detectDuplicates(userId);
+
       // Filter transactions that are similar to the given transaction
       const similarTransactions: Transaction[] = [];
-      
+
       for (const group of result.duplicateGroups) {
-        if (group.transactions.some(t => t.id === transaction.id)) {
-          similarTransactions.push(...group.transactions.filter(t => t.id !== transaction.id));
+        if (group.transactions.some((t) => t.id === transaction.id)) {
+          similarTransactions.push(
+            ...group.transactions.filter((t) => t.id !== transaction.id),
+          );
         }
       }
-      
+
       return similarTransactions;
     } catch (error) {
-      this.logger.error(`Error detecting similar transactions: ${error.message}`);
+      this.logger.error(
+        `Error detecting similar transactions: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -99,16 +106,17 @@ export class TransactionDuplicateService {
   ): Promise<number> {
     try {
       // Use the DuplicateDetectionService's internal calculation
-      const result = await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
-        {
-          description: transaction1.description,
-          amount: transaction1.amount,
-          type: transaction1.type,
-          executionDate: transaction1.executionDate!,
-          source: transaction1.source,
-        },
-        1, // userId - not used in this context
-      );
+      const result =
+        await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
+          {
+            description: transaction1.description,
+            amount: transaction1.amount,
+            type: transaction1.type,
+            executionDate: transaction1.executionDate!,
+            source: transaction1.source,
+          },
+          1, // userId - not used in this context
+        );
 
       // If the existing transaction matches transaction2, return the similarity score
       if (result.existingTransaction?.id === transaction2.id) {
@@ -205,21 +213,27 @@ export class TransactionDuplicateService {
     userId: number,
   ): Promise<boolean> {
     try {
-      const result = await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
-        {
-          description: transaction.description,
-          amount: transaction.amount,
-          type: transaction.type,
-          executionDate: transaction.executionDate!,
-          source: transaction.source,
-        },
-        userId,
-      );
+      const result =
+        await this.duplicateDetectionService.checkForDuplicateBeforeCreation(
+          {
+            description: transaction.description,
+            amount: transaction.amount,
+            type: transaction.type,
+            executionDate: transaction.executionDate!,
+            source: transaction.source,
+          },
+          userId,
+        );
 
       // Prevent creation if should be prevented, or if it's a duplicate with high similarity
-      return result.shouldPrevent || (result.isDuplicate && result.similarityScore >= 90);
+      return (
+        result.shouldPrevent ||
+        (result.isDuplicate && result.similarityScore >= 90)
+      );
     } catch (error) {
-      this.logger.error(`Error checking for duplicate prevention: ${error.message}`);
+      this.logger.error(
+        `Error checking for duplicate prevention: ${error.message}`,
+      );
       return false; // Allow creation if check fails
     }
   }
@@ -238,7 +252,7 @@ export class TransactionDuplicateService {
     if (threshold < 0 || threshold > 100) {
       throw new BadRequestException('Threshold must be between 0 and 100');
     }
-    
+
     this.duplicateThreshold = threshold;
     this.logger.log(`Duplicate threshold updated to ${threshold}%`);
   }
@@ -246,7 +260,10 @@ export class TransactionDuplicateService {
   /**
    * Calculate basic similarity between two transactions
    */
-  private calculateBasicSimilarity(transaction1: Transaction, transaction2: Transaction): number {
+  private calculateBasicSimilarity(
+    transaction1: Transaction,
+    transaction2: Transaction,
+  ): number {
     let score = 0;
     let maxScore = 0;
 
@@ -275,7 +292,7 @@ export class TransactionDuplicateService {
     if (transaction1.executionDate && transaction2.executionDate) {
       const date1 = new Date(transaction1.executionDate);
       const date2 = new Date(transaction2.executionDate);
-      
+
       if (date1.toDateString() === date2.toDateString()) {
         score += 10;
       }

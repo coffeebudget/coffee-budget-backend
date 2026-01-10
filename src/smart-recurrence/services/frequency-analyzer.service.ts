@@ -15,7 +15,9 @@ export class FrequencyAnalyzerService {
    */
   analyzeFrequency(transactions: Transaction[]): FrequencyPattern {
     if (transactions.length < 2) {
-      throw new Error('At least 2 transactions required for frequency analysis');
+      throw new Error(
+        'At least 2 transactions required for frequency analysis',
+      );
     }
 
     // Sort transactions by execution date (ascending)
@@ -61,8 +63,10 @@ export class FrequencyAnalyzerService {
     const intervals: number[] = [];
 
     for (let i = 1; i < transactions.length; i++) {
-      const prevDate = transactions[i - 1].executionDate || transactions[i - 1].createdAt;
-      const currDate = transactions[i].executionDate || transactions[i].createdAt;
+      const prevDate =
+        transactions[i - 1].executionDate || transactions[i - 1].createdAt;
+      const currDate =
+        transactions[i].executionDate || transactions[i].createdAt;
       const days = differenceInDays(currDate, prevDate);
       intervals.push(days);
     }
@@ -83,7 +87,10 @@ export class FrequencyAnalyzerService {
    * Calculate standard deviation of intervals
    * Measures consistency of intervals
    */
-  private calculateStandardDeviation(numbers: number[], average: number): number {
+  private calculateStandardDeviation(
+    numbers: number[],
+    average: number,
+  ): number {
     if (numbers.length === 0) return 0;
 
     const squaredDifferences = numbers.map((val) => Math.pow(val - average, 2));

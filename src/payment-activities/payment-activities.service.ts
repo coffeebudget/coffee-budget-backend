@@ -44,10 +44,7 @@ export class PaymentActivitiesService {
   /**
    * Find a single payment activity by ID (with user isolation)
    */
-  async findOne(
-    id: number,
-    userId: number,
-  ): Promise<PaymentActivity> {
+  async findOne(id: number, userId: number): Promise<PaymentActivity> {
     const activity = await this.paymentActivityRepository.findOne({
       where: {
         id,

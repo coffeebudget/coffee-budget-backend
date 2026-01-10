@@ -5,7 +5,10 @@ import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { PaymentActivitiesService } from './payment-activities.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
-import { SyncSource, SyncSourceType } from '../sync-history/entities/sync-report.entity';
+import {
+  SyncSource,
+  SyncSourceType,
+} from '../sync-history/entities/sync-report.entity';
 
 export interface ImportResult {
   imported: number;
@@ -61,7 +64,8 @@ export class PaymentAccountImportService {
       );
     }
 
-    const gocardlessAccountId = paymentAccount.providerConfig?.gocardlessAccountId;
+    const gocardlessAccountId =
+      paymentAccount.providerConfig?.gocardlessAccountId;
 
     if (!gocardlessAccountId) {
       throw new NotFoundException(
@@ -109,11 +113,10 @@ export class PaymentAccountImportService {
       for (const transaction of allTransactions) {
         try {
           // Check if already imported by external ID
-          const existing =
-            await this.paymentActivitiesService.findByExternalId(
-              transaction.transactionId,
-              userId,
-            );
+          const existing = await this.paymentActivitiesService.findByExternalId(
+            transaction.transactionId,
+            userId,
+          );
 
           if (existing) {
             this.logger.debug(
@@ -131,8 +134,11 @@ export class PaymentAccountImportService {
             'Unknown Merchant';
 
           // Determine if expense or income
-          const amount = Math.abs(parseFloat(transaction.transactionAmount.amount));
-          const isExpense = parseFloat(transaction.transactionAmount.amount) < 0;
+          const amount = Math.abs(
+            parseFloat(transaction.transactionAmount.amount),
+          );
+          const isExpense =
+            parseFloat(transaction.transactionAmount.amount) < 0;
 
           // Create payment activity
           await this.paymentActivitiesService.create(userId, {
@@ -187,7 +193,9 @@ export class PaymentAccountImportService {
               },
               importResults: [
                 {
-                  accountId: paymentAccount.providerConfig?.gocardlessAccountId || paymentAccountId.toString(),
+                  accountId:
+                    paymentAccount.providerConfig?.gocardlessAccountId ||
+                    paymentAccountId.toString(),
                   accountName: paymentAccount.displayName || 'PayPal',
                   accountType: 'payment_account',
                   success: result.errors.length === 0,
@@ -195,7 +203,10 @@ export class PaymentAccountImportService {
                   duplicates: result.skipped,
                   pendingDuplicates: 0,
                   importLogId: 0, // Payment activities don't have import logs (yet)
-                  error: result.errors.length > 0 ? result.errors.join('; ') : undefined,
+                  error:
+                    result.errors.length > 0
+                      ? result.errors.join('; ')
+                      : undefined,
                 },
               ],
             },
@@ -338,8 +349,12 @@ export class PaymentAccountImportService {
           {
             summary: {
               totalAccounts: paypalAccounts.length,
-              successfulImports: accountResults.filter((r) => r.result.errors.length === 0).length,
-              failedImports: accountResults.filter((r) => r.result.errors.length > 0).length,
+              successfulImports: accountResults.filter(
+                (r) => r.result.errors.length === 0,
+              ).length,
+              failedImports: accountResults.filter(
+                (r) => r.result.errors.length > 0,
+              ).length,
               totalNewTransactions: totalImported,
               totalDuplicates: totalSkipped,
               totalPendingDuplicates: 0,
@@ -353,7 +368,10 @@ export class PaymentAccountImportService {
               duplicates: ar.result.skipped,
               pendingDuplicates: 0,
               importLogId: 0,
-              error: ar.result.errors.length > 0 ? ar.result.errors.join('; ') : undefined,
+              error:
+                ar.result.errors.length > 0
+                  ? ar.result.errors.join('; ')
+                  : undefined,
             })),
           },
           syncStartTime,

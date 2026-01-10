@@ -18,7 +18,12 @@ import { BankAccountEventHandler } from './event-handlers/bank-account.event-han
     PreventedDuplicatesModule,
   ],
   controllers: [PendingDuplicatesController],
-  providers: [PendingDuplicatesService, DuplicateDetectionService, TransactionEventHandler, BankAccountEventHandler],
+  providers: [
+    PendingDuplicatesService,
+    DuplicateDetectionService,
+    TransactionEventHandler,
+    BankAccountEventHandler,
+  ],
   exports: [PendingDuplicatesService, DuplicateDetectionService, TypeOrmModule],
 })
 export class PendingDuplicatesModule {}

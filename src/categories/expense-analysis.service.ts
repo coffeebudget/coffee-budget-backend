@@ -26,7 +26,9 @@ export class ExpenseAnalysisService {
       if (!openaiApiKey) {
         this.logger.warn('OpenAI API key not configured');
         return {
-          insights: ['AI analysis not available - OpenAI API key not configured'],
+          insights: [
+            'AI analysis not available - OpenAI API key not configured',
+          ],
           recommendations: [],
           patterns: [],
         };
@@ -93,126 +95,199 @@ export class ExpenseAnalysisService {
     analysisType: 'monthly' | 'category' | 'trends',
   ): string {
     // Log some sample transactions to understand the data structure
-    this.logger.debug('Sample transactions (first 5):', transactions.slice(0, 5).map(t => ({
-      amount: t.amount,
-      category: t.category?.name,
-      description: t.description || t.note,
-      transactionType: t.type, // This is the actual transaction type (expense/income)
-      amountType: typeof t.amount
-    })));
-    
+    this.logger.debug(
+      'Sample transactions (first 5):',
+      transactions.slice(0, 5).map((t) => ({
+        amount: t.amount,
+        category: t.category?.name,
+        description: t.description || t.note,
+        transactionType: t.type, // This is the actual transaction type (expense/income)
+        amountType: typeof t.amount,
+      })),
+    );
+
     // Check all unique transaction types in the dataset
-    const uniqueTypes = [...new Set(transactions.map(t => t.type))];
+    const uniqueTypes = [...new Set(transactions.map((t) => t.type))];
     this.logger.debug('All transaction types found in dataset:', uniqueTypes);
 
     // Try both logics and see which makes more sense
-    const negativeAmounts = transactions.filter(t => parseFloat(t.amount) < 0);
-    const positiveAmounts = transactions.filter(t => parseFloat(t.amount) > 0);
-    
-    this.logger.debug('Negative amounts count:', negativeAmounts.length, 'Positive amounts count:', positiveAmounts.length);
-    
+    const negativeAmounts = transactions.filter(
+      (t) => parseFloat(t.amount) < 0,
+    );
+    const positiveAmounts = transactions.filter(
+      (t) => parseFloat(t.amount) > 0,
+    );
+
+    this.logger.debug(
+      'Negative amounts count:',
+      negativeAmounts.length,
+      'Positive amounts count:',
+      positiveAmounts.length,
+    );
+
     // Bank logic often has: positive = outgoing (expenses), negative = incoming (income)
     // But let's check what makes sense based on categories
-    const bankTransferPositive = transactions.filter(t => 
-      t.category?.name === 'Bank Transfers' && parseFloat(t.amount) > 0
+    const bankTransferPositive = transactions.filter(
+      (t) => t.category?.name === 'Bank Transfers' && parseFloat(t.amount) > 0,
     ).length;
-    const bankTransferNegative = transactions.filter(t => 
-      t.category?.name === 'Bank Transfers' && parseFloat(t.amount) < 0
+    const bankTransferNegative = transactions.filter(
+      (t) => t.category?.name === 'Bank Transfers' && parseFloat(t.amount) < 0,
     ).length;
-    
-    this.logger.debug('Bank Transfers: positive count:', bankTransferPositive, 'negative count:', bankTransferNegative);
-    
+
+    this.logger.debug(
+      'Bank Transfers: positive count:',
+      bankTransferPositive,
+      'negative count:',
+      bankTransferNegative,
+    );
+
     // DEFINITIVE LOGIC: Use the type column instead of amount sign
     // This is much more reliable than guessing from positive/negative amounts
-    const expenses = transactions.filter(t => t.type === 'expense');
-    const income = transactions.filter(t => t.type === 'income');
-    
-    this.logger.debug('USING TYPE COLUMN - Expenses (type=expense):', expenses.length, 'Income (type=income):', income.length);
-    
+    const expenses = transactions.filter((t) => t.type === 'expense');
+    const income = transactions.filter((t) => t.type === 'income');
+
+    this.logger.debug(
+      'USING TYPE COLUMN - Expenses (type=expense):',
+      expenses.length,
+      'Income (type=income):',
+      income.length,
+    );
+
     // BANK TRANSFERS ANALYSIS: Check income vs expense breakdown
-    const bankTransferIncome = transactions.filter(t => 
-      t.category?.name === 'Bank Transfers' && t.type === 'income'
+    const bankTransferIncome = transactions.filter(
+      (t) => t.category?.name === 'Bank Transfers' && t.type === 'income',
     );
-    const bankTransferExpense = transactions.filter(t => 
-      t.category?.name === 'Bank Transfers' && t.type === 'expense'
+    const bankTransferExpense = transactions.filter(
+      (t) => t.category?.name === 'Bank Transfers' && t.type === 'expense',
     );
-    
+
     // DETAILED BANK TRANSFERS LOGGING
-    const bankTransferIncomeSum = bankTransferIncome.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const bankTransferExpenseSum = bankTransferExpense.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const bankTransferIncomeSum = bankTransferIncome.reduce(
+      (sum, t) => sum + parseFloat(t.amount),
+      0,
+    );
+    const bankTransferExpenseSum = bankTransferExpense.reduce(
+      (sum, t) => sum + parseFloat(t.amount),
+      0,
+    );
     const bankTransferTotal = bankTransferIncomeSum + bankTransferExpenseSum;
-    
+
     this.logger.log('=== DETAILED BANK TRANSFERS BREAKDOWN ===');
     this.logger.log('- Income transactions:', bankTransferIncome.length);
     this.logger.log('- Expense transactions:', bankTransferExpense.length);
-    this.logger.log('- Income sum (raw amounts):', bankTransferIncomeSum.toFixed(2));
-    this.logger.log('- Expense sum (raw amounts):', bankTransferExpenseSum.toFixed(2));
-    this.logger.log('- Total Bank Transfers net:', bankTransferTotal.toFixed(2));
-    this.logger.log('- Sample income Bank Transfers:', bankTransferIncome.slice(0, 3).map(t => ({
-      amount: t.amount,
-      description: t.description?.substring(0, 60) + '...'
-    })));
-    this.logger.log('- Sample expense Bank Transfers:', bankTransferExpense.slice(0, 3).map(t => ({
-      amount: t.amount,
-      description: t.description?.substring(0, 60) + '...'
-    })));
-    
+    this.logger.log(
+      '- Income sum (raw amounts):',
+      bankTransferIncomeSum.toFixed(2),
+    );
+    this.logger.log(
+      '- Expense sum (raw amounts):',
+      bankTransferExpenseSum.toFixed(2),
+    );
+    this.logger.log(
+      '- Total Bank Transfers net:',
+      bankTransferTotal.toFixed(2),
+    );
+    this.logger.log(
+      '- Sample income Bank Transfers:',
+      bankTransferIncome.slice(0, 3).map((t) => ({
+        amount: t.amount,
+        description: t.description?.substring(0, 60) + '...',
+      })),
+    );
+    this.logger.log(
+      '- Sample expense Bank Transfers:',
+      bankTransferExpense.slice(0, 3).map((t) => ({
+        amount: t.amount,
+        description: t.description?.substring(0, 60) + '...',
+      })),
+    );
+
     // TEST: Let's check specific categories we're looking for
-    const salaryCategories = transactions.filter(t => 
-      t.category?.name && t.category.name.toLowerCase().includes('salary')
+    const salaryCategories = transactions.filter(
+      (t) =>
+        t.category?.name && t.category.name.toLowerCase().includes('salary'),
     );
-    const aleCategories = transactions.filter(t => 
-      t.category?.name && t.category.name.toLowerCase().includes('ale')
+    const aleCategories = transactions.filter(
+      (t) => t.category?.name && t.category.name.toLowerCase().includes('ale'),
     );
-    const robyCategories = transactions.filter(t => 
-      t.category?.name && t.category.name.toLowerCase().includes('roby')
+    const robyCategories = transactions.filter(
+      (t) => t.category?.name && t.category.name.toLowerCase().includes('roby'),
     );
-    
-    this.logger.debug('Salary categories found:', salaryCategories.length, 
-      salaryCategories.map(t => ({ category: t.category?.name, amount: t.amount })).slice(0, 5));
-    this.logger.debug('Ale categories found:', aleCategories.length, 
-      aleCategories.map(t => ({ category: t.category?.name, amount: t.amount })).slice(0, 5));
-    this.logger.debug('Roby categories found:', robyCategories.length, 
-      robyCategories.map(t => ({ category: t.category?.name, amount: t.amount })).slice(0, 5));
-    
-    const totalExpenses = expenses.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount) || 0), 0);
-    const totalIncome = income.reduce((sum, t) => sum + Math.abs(parseFloat(t.amount) || 0), 0);
+
+    this.logger.debug(
+      'Salary categories found:',
+      salaryCategories.length,
+      salaryCategories
+        .map((t) => ({ category: t.category?.name, amount: t.amount }))
+        .slice(0, 5),
+    );
+    this.logger.debug(
+      'Ale categories found:',
+      aleCategories.length,
+      aleCategories
+        .map((t) => ({ category: t.category?.name, amount: t.amount }))
+        .slice(0, 5),
+    );
+    this.logger.debug(
+      'Roby categories found:',
+      robyCategories.length,
+      robyCategories
+        .map((t) => ({ category: t.category?.name, amount: t.amount }))
+        .slice(0, 5),
+    );
+
+    const totalExpenses = expenses.reduce(
+      (sum, t) => sum + Math.abs(parseFloat(t.amount) || 0),
+      0,
+    );
+    const totalIncome = income.reduce(
+      (sum, t) => sum + Math.abs(parseFloat(t.amount) || 0),
+      0,
+    );
     const netFlow = totalIncome - totalExpenses;
-    
+
     // IMPROVED: Calculate NET by category instead of separate income/expense
     // This gives a more accurate view for mixed categories like Bank Transfers
-    const categoryNets: Record<string, { income: number; expense: number; net: number }> = 
-      transactions.reduce((acc, t) => {
+    const categoryNets: Record<
+      string,
+      { income: number; expense: number; net: number }
+    > = transactions.reduce(
+      (acc, t) => {
         const category = t.category?.name || 'Uncategorized';
         const amount = parseFloat(t.amount) || 0;
-        
+
         if (!acc[category]) {
           acc[category] = { income: 0, expense: 0, net: 0 };
         }
-        
+
         if (t.type === 'income') {
           acc[category].income += Math.abs(amount);
         } else {
           acc[category].expense += Math.abs(amount);
         }
-        
+
         // NET = income - expense (positive = net income, negative = net expense)
         acc[category].net = acc[category].income - acc[category].expense;
-        
+
         return acc;
-      }, {} as Record<string, { income: number; expense: number; net: number }>);
+      },
+      {} as Record<string, { income: number; expense: number; net: number }>,
+    );
 
     this.logger.log('=== CATEGORY NET ANALYSIS ===');
     Object.entries(categoryNets).forEach(([category, data]) => {
-      if (Math.abs(data.net) > 1000) { // Only log significant categories
-        this.logger.log(`${category}: Income €${data.income.toFixed(2)}, Expense €${data.expense.toFixed(2)}, NET €${data.net.toFixed(2)}`);
+      if (Math.abs(data.net) > 1000) {
+        // Only log significant categories
+        this.logger.log(
+          `${category}: Income €${data.income.toFixed(2)}, Expense €${data.expense.toFixed(2)}, NET €${data.net.toFixed(2)}`,
+        );
       }
     });
 
     // Separate categories into net expenses and net income
     const netExpenseCategories: Record<string, number> = {};
     const netIncomeCategories: Record<string, number> = {};
-    
+
     Object.entries(categoryNets).forEach(([category, data]) => {
       if (data.net < 0) {
         // Net expense (spent more than received)
@@ -223,25 +298,46 @@ export class ExpenseAnalysisService {
       }
       // If net = 0, we ignore it from tops
     });
-    
+
     // DEBUG: Check Bank Transfers NET calculation
     this.logger.log('=== BANK TRANSFERS NET CHECK ===');
     const bankTransfersData = categoryNets['Bank Transfers'];
     if (bankTransfersData) {
-      this.logger.log('- Bank Transfers Income:', bankTransfersData.income.toFixed(2));
-      this.logger.log('- Bank Transfers Expense:', bankTransfersData.expense.toFixed(2));
-      this.logger.log('- Bank Transfers NET:', bankTransfersData.net.toFixed(2));
-      this.logger.log('- Classification:', bankTransfersData.net < 0 ? 'Net Expense' : 'Net Income');
+      this.logger.log(
+        '- Bank Transfers Income:',
+        bankTransfersData.income.toFixed(2),
+      );
+      this.logger.log(
+        '- Bank Transfers Expense:',
+        bankTransfersData.expense.toFixed(2),
+      );
+      this.logger.log(
+        '- Bank Transfers NET:',
+        bankTransfersData.net.toFixed(2),
+      );
+      this.logger.log(
+        '- Classification:',
+        bankTransfersData.net < 0 ? 'Net Expense' : 'Net Income',
+      );
     }
-    
+
     // TEST: Log the NET categories we found
-    this.logger.debug('Net expense categories found:', Object.keys(netExpenseCategories));
-    this.logger.debug('Net income categories found:', Object.keys(netIncomeCategories));
-    this.logger.debug('Sample income transactions:', income.slice(0, 3).map(t => ({ 
-      category: t.category?.name, 
-      amount: t.amount, 
-      description: t.description?.substring(0, 50) + '...' 
-    })));
+    this.logger.debug(
+      'Net expense categories found:',
+      Object.keys(netExpenseCategories),
+    );
+    this.logger.debug(
+      'Net income categories found:',
+      Object.keys(netIncomeCategories),
+    );
+    this.logger.debug(
+      'Sample income transactions:',
+      income.slice(0, 3).map((t) => ({
+        category: t.category?.name,
+        amount: t.amount,
+        description: t.description?.substring(0, 50) + '...',
+      })),
+    );
 
     // Top NET expense categories (categories with negative net impact)
     const topExpenseCategories = Object.entries(netExpenseCategories)
@@ -275,7 +371,9 @@ TIPO ANALISI: ${analysisType}
 
     switch (analysisType) {
       case 'monthly':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 Fornisci un'analisi finanziaria mensile con:
 1. Pattern di spesa e entrata principali
 2. Raccomandazioni per ottimizzare il budget e il flusso di cassa
@@ -291,10 +389,13 @@ Formato richiesto:
   "warnings": ["avviso1", "avviso2"] 
 }
 
-Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
+Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`
+        );
 
       case 'category':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 Fornisci un'analisi per categorie con:
 1. Categorie con maggiore spesa vs. maggiori entrate
 2. Suggerimenti per ridurre costi in specifiche categorie di spesa
@@ -310,10 +411,13 @@ Formato richiesto:
   "warnings": ["avviso1", "avviso2"] 
 }
 
-Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
+Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`
+        );
 
       case 'trends':
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 Identifica trend finanziari con:
 1. Tendenze generali nelle spese e entrate
 2. Raccomandazioni per il futuro basate sul flusso di cassa
@@ -329,10 +433,13 @@ Formato richiesto:
   "warnings": ["avviso1", "avviso2"] 
 }
 
-Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
+Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`
+        );
 
       default:
-        return basePrompt + `
+        return (
+          basePrompt +
+          `
 Fornisci un'analisi finanziaria generale includendo sia spese che entrate.
 
 IMPORTANTE: Rispondi SOLO con un JSON valido, senza code fences o testo aggiuntivo.
@@ -345,7 +452,8 @@ Formato richiesto:
   "warnings": ["avviso1", "avviso2"] 
 }
 
-Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
+Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`
+        );
     }
   }
 
@@ -361,46 +469,60 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     try {
       // Clean the response by removing code fences and extra formatting
       let cleanedResponse = response.trim();
-      
+
       this.logger.debug('Original response:', response);
-      
+
       // Remove code fences if present
       if (cleanedResponse.startsWith('```json')) {
-        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        cleanedResponse = cleanedResponse
+          .replace(/^```json\s*/, '')
+          .replace(/\s*```$/, '');
       } else if (cleanedResponse.startsWith('```')) {
-        cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        cleanedResponse = cleanedResponse
+          .replace(/^```\s*/, '')
+          .replace(/\s*```$/, '');
       }
-      
+
       this.logger.debug('Cleaned response:', cleanedResponse);
-      
+
       // Try to parse as JSON
       const parsed = JSON.parse(cleanedResponse);
-      
+
       this.logger.debug('Parsed JSON:', parsed);
-      
+
       // If the AI returned a different structure, try to adapt it
       if (parsed.analisi_spese || parsed.categories || parsed.analysis) {
         this.logger.debug('Using adaptNonStandardResponse');
         return this.adaptNonStandardResponse(parsed);
       }
-      
+
       // Standard format
       this.logger.debug('Using standard format');
       return {
         insights: Array.isArray(parsed.insights) ? parsed.insights : [],
-        recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+        recommendations: Array.isArray(parsed.recommendations)
+          ? parsed.recommendations
+          : [],
         patterns: Array.isArray(parsed.patterns) ? parsed.patterns : [],
         warnings: Array.isArray(parsed.warnings) ? parsed.warnings : undefined,
       };
     } catch (error) {
-      this.logger.warn('Failed to parse AI response as JSON, attempting fallback parsing');
-      
+      this.logger.warn(
+        'Failed to parse AI response as JSON, attempting fallback parsing',
+      );
+
       // Enhanced fallback parsing
-      const lines = response.split('\n')
-        .filter(line => line.trim().length > 0)
-        .map(line => line.trim())
-        .filter(line => !line.startsWith('{') && !line.startsWith('}') && !line.startsWith('"'));
-      
+      const lines = response
+        .split('\n')
+        .filter((line) => line.trim().length > 0)
+        .map((line) => line.trim())
+        .filter(
+          (line) =>
+            !line.startsWith('{') &&
+            !line.startsWith('}') &&
+            !line.startsWith('"'),
+        );
+
       if (lines.length === 0) {
         return {
           insights: ['Analisi non disponibile al momento'],
@@ -408,7 +530,7 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
           patterns: ['Dati insufficienti'],
         };
       }
-      
+
       // Split lines into sections
       const third = Math.ceil(lines.length / 3);
       return {
@@ -436,21 +558,25 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     // Try to extract meaningful information from the AI's custom format
     if (parsed.analisi_spese) {
       const analysis = parsed.analisi_spese;
-      
+
       // Extract insights from category analysis
       if (analysis.categorie_maggiore_spesa) {
-        Object.entries(analysis.categorie_maggiore_spesa).forEach(([category, data]: [string, any]) => {
-          if (data.importo && data.percentuale_totale) {
-            insights.push(`${category}: €${data.importo.toFixed(2)} (${data.percentuale_totale}% del totale)`);
-          }
-        });
+        Object.entries(analysis.categorie_maggiore_spesa).forEach(
+          ([category, data]: [string, any]) => {
+            if (data.importo && data.percentuale_totale) {
+              insights.push(
+                `${category}: €${data.importo.toFixed(2)} (${data.percentuale_totale}% del totale)`,
+              );
+            }
+          },
+        );
       }
-      
+
       // Extract recommendations
       if (analysis.raccomandazioni) {
         recommendations.push(...analysis.raccomandazioni);
       }
-      
+
       // Extract patterns
       if (analysis.pattern) {
         patterns.push(...analysis.pattern);
@@ -458,9 +584,14 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     }
 
     return {
-      insights: insights.length > 0 ? insights : ['Analisi completata con successo'],
-      recommendations: recommendations.length > 0 ? recommendations : ['Continua a monitorare le tue spese'],
-      patterns: patterns.length > 0 ? patterns : ['Pattern identificati nei dati'],
+      insights:
+        insights.length > 0 ? insights : ['Analisi completata con successo'],
+      recommendations:
+        recommendations.length > 0
+          ? recommendations
+          : ['Continua a monitorare le tue spese'],
+      patterns:
+        patterns.length > 0 ? patterns : ['Pattern identificati nei dati'],
       warnings: warnings.length > 0 ? warnings : undefined,
     };
   }
@@ -472,22 +603,26 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     transactions: any[],
     period: string,
   ): Promise<string> {
-    const analysis = await this.analyzeSpendingPatterns(transactions, 0, 'monthly');
-    
+    const analysis = await this.analyzeSpendingPatterns(
+      transactions,
+      0,
+      'monthly',
+    );
+
     const summary = [
       `📊 Riepilogo Spese ${period}`,
       '',
       '💡 Insights Principali:',
-      ...analysis.insights.map(insight => `• ${insight}`),
+      ...analysis.insights.map((insight) => `• ${insight}`),
       '',
       '🎯 Raccomandazioni:',
-      ...analysis.recommendations.map(rec => `• ${rec}`),
+      ...analysis.recommendations.map((rec) => `• ${rec}`),
     ];
 
     if (analysis.warnings && analysis.warnings.length > 0) {
       summary.push('');
       summary.push('⚠️ Avvisi:');
-      summary.push(...analysis.warnings.map(warning => `• ${warning}`));
+      summary.push(...analysis.warnings.map((warning) => `• ${warning}`));
     }
 
     return summary.join('\n');
@@ -538,21 +673,28 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
       const { budgetOverview, categories } = data;
 
       // Calculate budget health score
-      const budgetHealthScore = this.calculateBudgetHealthScore(budgetOverview, categories);
+      const budgetHealthScore = this.calculateBudgetHealthScore(
+        budgetOverview,
+        categories,
+      );
 
       // Identify overspending categories
       const overspendingCategories = categories
-        .filter(cat => cat.budgetStatus === 'over' && cat.monthlyBudget)
-        .map(cat => ({
+        .filter((cat) => cat.budgetStatus === 'over' && cat.monthlyBudget)
+        .map((cat) => ({
           category: cat.name,
           currentSpent: cat.currentMonthSpent,
           budget: cat.monthlyBudget!,
           overspendingAmount: cat.currentMonthSpent - cat.monthlyBudget!,
-          suggestions: [] as string[]
+          suggestions: [] as string[],
         }));
 
       // Build AI prompt for budget analysis
-      const prompt = this.buildBudgetAnalysisPrompt(budgetOverview, categories, overspendingCategories);
+      const prompt = this.buildBudgetAnalysisPrompt(
+        budgetOverview,
+        categories,
+        overspendingCategories,
+      );
 
       // Call OpenAI API
       const openaiApiKey = this.configService.get<string>('OPENAI_API_KEY');
@@ -560,28 +702,32 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
         throw new Error('OpenAI API key not configured');
       }
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openaiApiKey}`,
-          'Content-Type': 'application/json',
+      const response = await fetch(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Sei un consulente finanziario esperto. Analizza i dati di budget e fornisci consigli pratici e personalizzati per ottimizzare le spese. Rispondi sempre in italiano con un tono professionale ma amichevole.',
+              },
+              {
+                role: 'user',
+                content: prompt,
+              },
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+          }),
         },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'Sei un consulente finanziario esperto. Analizza i dati di budget e fornisci consigli pratici e personalizzati per ottimizzare le spese. Rispondi sempre in italiano con un tono professionale ma amichevole.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 1500,
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error(`OpenAI API error: ${response.status}`);
@@ -595,23 +741,35 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
 
       // Parse AI response
       const parsedResponse = this.parseBudgetAnalysisResponse(aiContent);
-      this.logger.debug('Parsed AI Response:', JSON.stringify(parsedResponse, null, 2));
+      this.logger.debug(
+        'Parsed AI Response:',
+        JSON.stringify(parsedResponse, null, 2),
+      );
 
       // Add AI suggestions to overspending categories - Match by category name with fuzzy matching
-      overspendingCategories.forEach(cat => {
+      overspendingCategories.forEach((cat) => {
         const aiSuggestion = parsedResponse.overspendingCategories.find(
-          aiCat => aiCat.category && this.matchCategoryNames(aiCat.category, cat.category)
+          (aiCat) =>
+            aiCat.category &&
+            this.matchCategoryNames(aiCat.category, cat.category),
         );
-        
-        if (aiSuggestion && aiSuggestion.suggestions && aiSuggestion.suggestions.length > 0) {
+
+        if (
+          aiSuggestion &&
+          aiSuggestion.suggestions &&
+          aiSuggestion.suggestions.length > 0
+        ) {
           cat.suggestions = aiSuggestion.suggestions;
-          this.logger.debug(`Matched AI suggestions for ${cat.category}:`, aiSuggestion.suggestions);
+          this.logger.debug(
+            `Matched AI suggestions for ${cat.category}:`,
+            aiSuggestion.suggestions,
+          );
         } else {
           // Fallback suggestions if AI didn't provide specific ones
           cat.suggestions = [
             `Monitora più attentamente le spese nella categoria ${cat.category}`,
             'Considera di aumentare il budget o ridurre le spese',
-            'Cerca alternative più economiche per questa categoria'
+            'Cerca alternative più economiche per questa categoria',
           ];
           this.logger.debug(`Using fallback suggestions for ${cat.category}`);
         }
@@ -624,10 +782,9 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
         optimizationTips: parsedResponse.optimizationTips,
         overallRecommendations: parsedResponse.overallRecommendations,
       };
-
     } catch (error) {
       this.logger.error('Error in AI budget analysis:', error);
-      
+
       // Return fallback analysis
       return this.getFallbackBudgetAnalysis(data);
     }
@@ -638,7 +795,7 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
    */
   private calculateBudgetHealthScore(
     budgetOverview: any,
-    categories: any[]
+    categories: any[],
   ): number {
     let score = 100;
 
@@ -657,15 +814,21 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     // Deduct points for negative net flow (less punitive)
     if (budgetOverview.averageMonthlyNetFlow < 0) {
       score -= 20;
-    } else if (budgetOverview.averageMonthlyNetFlow < budgetOverview.averageMonthlyIncome * 0.1) {
+    } else if (
+      budgetOverview.averageMonthlyNetFlow <
+      budgetOverview.averageMonthlyIncome * 0.1
+    ) {
       score -= 5; // Less than 10% savings rate
     }
 
     // More balanced deduction for overspending categories
-    const overspendingCount = categories.filter(c => c.budgetStatus === 'over').length;
+    const overspendingCount = categories.filter(
+      (c) => c.budgetStatus === 'over',
+    ).length;
     const totalCategories = categories.length;
-    const overspendingRatio = totalCategories > 0 ? overspendingCount / totalCategories : 0;
-    
+    const overspendingRatio =
+      totalCategories > 0 ? overspendingCount / totalCategories : 0;
+
     if (overspendingRatio > 0.5) {
       score -= 20; // More than 50% categories overspending
     } else if (overspendingRatio > 0.3) {
@@ -677,7 +840,10 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
     }
 
     // Bonus for positive financial management
-    if (budgetOverview.averageMonthlyNetFlow > budgetOverview.averageMonthlyIncome * 0.15) {
+    if (
+      budgetOverview.averageMonthlyNetFlow >
+      budgetOverview.averageMonthlyIncome * 0.15
+    ) {
       score += 5; // Good savings rate
     }
 
@@ -689,25 +855,34 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
    */
   private matchCategoryNames(aiCategory: string, ourCategory: string): boolean {
     if (!aiCategory || !ourCategory) return false;
-    
+
     // Normalize strings: lowercase, remove spaces, slashes, and special characters
-    const normalize = (str: string) => str.toLowerCase()
-      .replace(/[\/\-\s&]+/g, '')
-      .replace(/[^\w]/g, '');
-    
+    const normalize = (str: string) =>
+      str
+        .toLowerCase()
+        .replace(/[\/\-\s&]+/g, '')
+        .replace(/[^\w]/g, '');
+
     const normalizedAi = normalize(aiCategory);
     const normalizedOur = normalize(ourCategory);
-    
+
     // Exact match after normalization
     if (normalizedAi === normalizedOur) return true;
-    
+
     // Check if one contains the other (for cases like "Books" vs "Books / Media")
-    if (normalizedAi.includes(normalizedOur) || normalizedOur.includes(normalizedAi)) return true;
-    
+    if (
+      normalizedAi.includes(normalizedOur) ||
+      normalizedOur.includes(normalizedAi)
+    )
+      return true;
+
     // Check similarity for common variations
     const similarityThreshold = 0.8;
-    const similarity = this.calculateStringSimilarity(normalizedAi, normalizedOur);
-    
+    const similarity = this.calculateStringSimilarity(
+      normalizedAi,
+      normalizedOur,
+    );
+
     return similarity >= similarityThreshold;
   }
 
@@ -717,7 +892,7 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
   private calculateStringSimilarity(str1: string, str2: string): number {
     const maxLength = Math.max(str1.length, str2.length);
     if (maxLength === 0) return 1;
-    
+
     const distance = this.levenshteinDistance(str1, str2);
     return (maxLength - distance) / maxLength;
   }
@@ -726,7 +901,9 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
    * Calculate Levenshtein distance between two strings
    */
   private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+    const matrix = Array(str2.length + 1)
+      .fill(null)
+      .map(() => Array(str1.length + 1).fill(null));
 
     for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
     for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
@@ -735,9 +912,9 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
       for (let i = 1; i <= str1.length; i++) {
         const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
         matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,     // deletion
-          matrix[j - 1][i] + 1,     // insertion
-          matrix[j - 1][i - 1] + indicator  // substitution
+          matrix[j][i - 1] + 1, // deletion
+          matrix[j - 1][i] + 1, // insertion
+          matrix[j - 1][i - 1] + indicator, // substitution
         );
       }
     }
@@ -751,25 +928,44 @@ Non usare \`\`\` o \`\`\`json. Restituisci solo il JSON puro.`;
   private buildBudgetAnalysisPrompt(
     budgetOverview: any,
     categories: any[],
-    overspendingCategories: any[]
+    overspendingCategories: any[],
   ): string {
     // Format enriched categories data
-    const categoriesDataFormatted = categories.map(cat => {
-      const statusIcon = cat.budgetStatus === 'over' ? '🔴' : cat.budgetStatus === 'warning' ? '🟡' : '🟢';
-      return `- ${cat.name} (${cat.budgetLevel}):
+    const categoriesDataFormatted = categories
+      .map((cat) => {
+        const statusIcon =
+          cat.budgetStatus === 'over'
+            ? '🔴'
+            : cat.budgetStatus === 'warning'
+              ? '🟡'
+              : '🟢';
+        return `- ${cat.name} (${cat.budgetLevel}):
   * Mese corrente: €${cat.currentMonthSpent} / €${cat.monthlyBudget} (${cat.percentage}%) ${statusIcon}
   * Rimanente: €${cat.remaining}
   * Proiezione fine mese: €${cat.projectedSpend} (${cat.projectedPercentage}%)
   * Rolling 12M: €${cat.rolling12MSpent} / €${cat.rolling12MBudget} (${cat.rolling12MPercentage}%)
   * Media mensile: €${cat.averageMonthlySpending}`;
-    }).join('\n\n');
+      })
+      .join('\n\n');
 
     // Calculate statistics
-    const overspendingCount = categories.filter(c => c.budgetStatus === 'over').length;
-    const warningCount = categories.filter(c => c.budgetStatus === 'warning').length;
-    const underBudgetCount = categories.filter(c => c.budgetStatus === 'under').length;
-    const total12MBudget = categories.reduce((sum, c) => sum + (c.rolling12MBudget || 0), 0);
-    const total12MSpent = categories.reduce((sum, c) => sum + (c.rolling12MSpent || 0), 0);
+    const overspendingCount = categories.filter(
+      (c) => c.budgetStatus === 'over',
+    ).length;
+    const warningCount = categories.filter(
+      (c) => c.budgetStatus === 'warning',
+    ).length;
+    const underBudgetCount = categories.filter(
+      (c) => c.budgetStatus === 'under',
+    ).length;
+    const total12MBudget = categories.reduce(
+      (sum, c) => sum + (c.rolling12MBudget || 0),
+      0,
+    );
+    const total12MSpent = categories.reduce(
+      (sum, c) => sum + (c.rolling12MSpent || 0),
+      0,
+    );
 
     return `
 Analizza questo budget personale e fornisci consigli di ottimizzazione:
@@ -851,32 +1047,43 @@ Non usare code fences o testo aggiuntivo, solo JSON puro.
   } {
     try {
       let cleanedResponse = response.trim();
-      
+
       // Remove code fences if present
       if (cleanedResponse.startsWith('```json')) {
-        cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        cleanedResponse = cleanedResponse
+          .replace(/^```json\s*/, '')
+          .replace(/\s*```$/, '');
       } else if (cleanedResponse.startsWith('```')) {
-        cleanedResponse = cleanedResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        cleanedResponse = cleanedResponse
+          .replace(/^```\s*/, '')
+          .replace(/\s*```$/, '');
       }
-      
+
       const parsed = JSON.parse(cleanedResponse);
-      
+
       return {
         analysis: parsed.analysis || 'Analisi completata',
-        overspendingCategories: Array.isArray(parsed.overspendingCategories) ? parsed.overspendingCategories : [],
-        optimizationTips: Array.isArray(parsed.optimizationTips) ? parsed.optimizationTips : [],
-        overallRecommendations: Array.isArray(parsed.overallRecommendations) ? parsed.overallRecommendations : [],
+        overspendingCategories: Array.isArray(parsed.overspendingCategories)
+          ? parsed.overspendingCategories
+          : [],
+        optimizationTips: Array.isArray(parsed.optimizationTips)
+          ? parsed.optimizationTips
+          : [],
+        overallRecommendations: Array.isArray(parsed.overallRecommendations)
+          ? parsed.overallRecommendations
+          : [],
       };
     } catch (error) {
       this.logger.warn('Failed to parse AI budget analysis response');
       return {
-        analysis: 'Analisi del budget completata. Controlla le categorie in sforamento e considera di ottimizzare le spese.',
+        analysis:
+          'Analisi del budget completata. Controlla le categorie in sforamento e considera di ottimizzare le spese.',
         overspendingCategories: [],
         optimizationTips: [],
         overallRecommendations: [
           'Monitora regolarmente le tue spese',
           'Imposta budget realistici per ogni categoria',
-          'Cerca di aumentare il tuo tasso di risparmio'
+          'Cerca di aumentare il tuo tasso di risparmio',
         ],
       };
     }
@@ -893,11 +1100,14 @@ Non usare code fences o testo aggiuntivo, solo JSON puro.
     overallRecommendations: string[];
   } {
     const { budgetOverview, categories } = data;
-    const budgetHealthScore = this.calculateBudgetHealthScore(budgetOverview, categories);
-    
+    const budgetHealthScore = this.calculateBudgetHealthScore(
+      budgetOverview,
+      categories,
+    );
+
     const overspendingCategories = categories
-      .filter(cat => cat.budgetStatus === 'over' && cat.monthlyBudget)
-      .map(cat => ({
+      .filter((cat) => cat.budgetStatus === 'over' && cat.monthlyBudget)
+      .map((cat) => ({
         category: cat.name,
         currentSpent: cat.currentMonthSpent,
         budget: cat.monthlyBudget,
@@ -905,28 +1115,29 @@ Non usare code fences o testo aggiuntivo, solo JSON puro.
         suggestions: [
           'Monitora più attentamente le spese in questa categoria',
           'Considera di aumentare il budget o ridurre le spese',
-          'Cerca alternative più economiche'
-        ]
+          'Cerca alternative più economiche',
+        ],
       }));
 
     return {
-      analysis: budgetHealthScore >= 70 
-        ? 'Il tuo budget è in buone condizioni, ma ci sono sempre margini di miglioramento.'
-        : 'Il tuo budget necessita di alcune ottimizzazioni per migliorare la situazione finanziaria.',
+      analysis:
+        budgetHealthScore >= 70
+          ? 'Il tuo budget è in buone condizioni, ma ci sono sempre margini di miglioramento.'
+          : 'Il tuo budget necessita di alcune ottimizzazioni per migliorare la situazione finanziaria.',
       budgetHealthScore,
       overspendingCategories,
       optimizationTips: [
         {
           category: 'Generale',
           tip: 'Rivedi periodicamente i tuoi budget e adattali alle tue esigenze',
-          potentialSavings: 100
-        }
+          potentialSavings: 100,
+        },
       ],
       overallRecommendations: [
         'Monitora regolarmente le tue spese',
         'Imposta budget realistici per ogni categoria',
-        'Cerca di aumentare il tuo tasso di risparmio'
+        'Cerca di aumentare il tuo tasso di risparmio',
       ],
     };
   }
-} 
+}

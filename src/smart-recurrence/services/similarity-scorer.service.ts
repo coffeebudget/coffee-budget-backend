@@ -122,10 +122,7 @@ export class SimilarityScorerService {
   private normalizeDescription(description: string | null): string | null {
     if (!description) return null;
 
-    return description
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' '); // Collapse whitespace
+    return description.toLowerCase().trim().replace(/\s+/g, ' '); // Collapse whitespace
   }
 
   /**
@@ -161,11 +158,12 @@ export class SimilarityScorerService {
   ): number {
     if (group.length === 0) return 0;
 
-    const scores = group.map((t) =>
-      this.calculateSimilarity(transaction, t, weights).total,
+    const scores = group.map(
+      (t) => this.calculateSimilarity(transaction, t, weights).total,
     );
 
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const average =
+      scores.reduce((sum, score) => sum + score, 0) / scores.length;
     return Math.round(average * 100) / 100; // Round to 2 decimals
   }
 }

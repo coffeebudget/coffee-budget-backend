@@ -23,14 +23,14 @@ export class EventPublisherService {
   ): Promise<void> {
     try {
       const name = eventName || event.constructor.name;
-      
+
       this.logger.debug(`Publishing event: ${name}`, {
         userId: event.userId,
         timestamp: event.timestamp,
       });
 
       await this.eventEmitter.emitAsync(name, event);
-      
+
       this.logger.debug(`Event published successfully: ${name}`);
     } catch (error) {
       this.logger.error(`Failed to publish event: ${event.constructor.name}`, {
@@ -48,11 +48,13 @@ export class EventPublisherService {
    */
   async publishBatch<T extends BaseEvent>(events: T[]): Promise<void> {
     this.logger.debug(`Publishing batch of ${events.length} events`);
-    
-    const promises = events.map(event => this.publish(event));
+
+    const promises = events.map((event) => this.publish(event));
     await Promise.all(promises);
-    
-    this.logger.debug(`Batch of ${events.length} events published successfully`);
+
+    this.logger.debug(
+      `Batch of ${events.length} events published successfully`,
+    );
   }
 
   /**
@@ -60,27 +62,27 @@ export class EventPublisherService {
    * @param event The event to publish
    * @param eventName Optional custom event name
    */
-  publishSync<T extends BaseEvent>(
-    event: T,
-    eventName?: string,
-  ): void {
+  publishSync<T extends BaseEvent>(event: T, eventName?: string): void {
     try {
       const name = eventName || event.constructor.name;
-      
+
       this.logger.debug(`Publishing event synchronously: ${name}`, {
         userId: event.userId,
         timestamp: event.timestamp,
       });
 
       this.eventEmitter.emit(name, event);
-      
+
       this.logger.debug(`Event published synchronously: ${name}`);
     } catch (error) {
-      this.logger.error(`Failed to publish event synchronously: ${event.constructor.name}`, {
-        error: error.message,
-        stack: error.stack,
-        userId: event.userId,
-      });
+      this.logger.error(
+        `Failed to publish event synchronously: ${event.constructor.name}`,
+        {
+          error: error.message,
+          stack: error.stack,
+          userId: event.userId,
+        },
+      );
       throw error;
     }
   }

@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, In, IsNull } from 'typeorm';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { TransactionBulkService } from './transaction-bulk.service';
 import { Transaction } from './transaction.entity';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
@@ -114,7 +118,9 @@ describe('TransactionBulkService', () => {
 
     service = module.get<TransactionBulkService>(TransactionBulkService);
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    pendingDuplicateRepository = module.get(getRepositoryToken(PendingDuplicate));
+    pendingDuplicateRepository = module.get(
+      getRepositoryToken(PendingDuplicate),
+    );
     tagRepository = module.get(getRepositoryToken(Tag));
     categoryRepository = module.get(getRepositoryToken(Category));
     pendingDuplicatesService = module.get(PendingDuplicatesService);
@@ -132,7 +138,9 @@ describe('TransactionBulkService', () => {
       ];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
-      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue([]);
+      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue(
+        [],
+      );
       transactionRepository.delete.mockResolvedValue({ affected: 3 } as any);
 
       const result = await service.bulkDeleteByIds(transactionIds, mockUser.id);
@@ -151,9 +159,9 @@ describe('TransactionBulkService', () => {
     });
 
     it('should throw BadRequestException for empty transaction IDs', async () => {
-      await expect(
-        service.bulkDeleteByIds([], mockUser.id),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.bulkDeleteByIds([], mockUser.id)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for null transaction IDs', async () => {
@@ -226,15 +234,21 @@ describe('TransactionBulkService', () => {
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
-      categoriesService.suggestCategoryForDescription.mockResolvedValue(mockCategory);
-      transactionRepository.save.mockResolvedValue(uncategorizedTransactions as any);
+      categoriesService.suggestCategoryForDescription.mockResolvedValue(
+        mockCategory,
+      );
+      transactionRepository.save.mockResolvedValue(
+        uncategorizedTransactions as any,
+      );
 
       const result = await service.bulkCategorizeUncategorized(mockUser.id, 50);
 
       expect(result.totalProcessed).toBe(2);
       expect(result.keywordMatched).toBe(2);
       expect(result.errors).toBe(0);
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledTimes(2);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledTimes(2);
     });
 
     it('should handle batch processing correctly', async () => {
@@ -245,8 +259,12 @@ describe('TransactionBulkService', () => {
       })) as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
-      categoriesService.suggestCategoryForDescription.mockResolvedValue(mockCategory);
-      transactionRepository.save.mockResolvedValue(uncategorizedTransactions as any);
+      categoriesService.suggestCategoryForDescription.mockResolvedValue(
+        mockCategory,
+      );
+      transactionRepository.save.mockResolvedValue(
+        uncategorizedTransactions as any,
+      );
 
       const result = await service.bulkCategorizeUncategorized(mockUser.id, 25);
 
@@ -291,8 +309,12 @@ describe('TransactionBulkService', () => {
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(uncategorizedTransactions);
-      categoriesService.suggestCategoryForDescription.mockResolvedValue(mockCategory);
-      transactionRepository.save.mockResolvedValue(uncategorizedTransactions as any);
+      categoriesService.suggestCategoryForDescription.mockResolvedValue(
+        mockCategory,
+      );
+      transactionRepository.save.mockResolvedValue(
+        uncategorizedTransactions as any,
+      );
 
       await service.bulkCategorizeUncategorized(mockUser.id);
 
@@ -320,10 +342,14 @@ describe('TransactionBulkService', () => {
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
       transactionRepository.save.mockResolvedValue(
-        mockTransactions.map(t => ({ ...t, status: newStatus })) as any,
+        mockTransactions.map((t) => ({ ...t, status: newStatus })) as any,
       );
 
-      const result = await service.bulkUpdateStatus(transactionIds, newStatus, mockUser.id);
+      const result = await service.bulkUpdateStatus(
+        transactionIds,
+        newStatus,
+        mockUser.id,
+      );
 
       expect(result).toBe(3);
       expect(transactionRepository.find).toHaveBeenCalledWith({
@@ -333,7 +359,7 @@ describe('TransactionBulkService', () => {
         },
       });
       expect(transactionRepository.save).toHaveBeenCalledWith(
-        mockTransactions.map(t => ({ ...t, status: newStatus })),
+        mockTransactions.map((t) => ({ ...t, status: newStatus })),
       );
     });
 
@@ -353,7 +379,11 @@ describe('TransactionBulkService', () => {
       const transactionIds = [1, 2, 3];
       transactionRepository.find.mockResolvedValue([]);
 
-      const result = await service.bulkUpdateStatus(transactionIds, 'pending', mockUser.id);
+      const result = await service.bulkUpdateStatus(
+        transactionIds,
+        'pending',
+        mockUser.id,
+      );
 
       expect(result).toBe(0);
       expect(transactionRepository.save).not.toHaveBeenCalled();
@@ -375,7 +405,11 @@ describe('TransactionBulkService', () => {
       tagRepository.find.mockResolvedValue(mockTags);
       transactionRepository.save.mockResolvedValue(mockTransactions as any);
 
-      const result = await service.bulkUpdateTags(transactionIds, tagIds, mockUser.id);
+      const result = await service.bulkUpdateTags(
+        transactionIds,
+        tagIds,
+        mockUser.id,
+      );
 
       expect(result).toBe(3);
       expect(transactionRepository.find).toHaveBeenCalledWith({
@@ -406,7 +440,11 @@ describe('TransactionBulkService', () => {
       const transactionIds = [1, 2, 3];
       transactionRepository.find.mockResolvedValue([]);
 
-      const result = await service.bulkUpdateTags(transactionIds, [1], mockUser.id);
+      const result = await service.bulkUpdateTags(
+        transactionIds,
+        [1],
+        mockUser.id,
+      );
 
       expect(result).toBe(0);
       expect(transactionRepository.save).not.toHaveBeenCalled();
@@ -415,16 +453,18 @@ describe('TransactionBulkService', () => {
     it('should handle transactions with existing tags', async () => {
       const transactionIds = [1];
       const tagIds = [1, 2];
-      const mockTransactions = [
-        { ...mockTransaction, id: 1, tags: [mockTag] },
-      ];
+      const mockTransactions = [{ ...mockTransaction, id: 1, tags: [mockTag] }];
       const mockTags = [mockTag, { ...mockTag, id: 2 }];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
       tagRepository.find.mockResolvedValue(mockTags);
       transactionRepository.save.mockResolvedValue(mockTransactions as any);
 
-      const result = await service.bulkUpdateTags(transactionIds, tagIds, mockUser.id);
+      const result = await service.bulkUpdateTags(
+        transactionIds,
+        tagIds,
+        mockUser.id,
+      );
 
       expect(result).toBe(1);
       expect(transactionRepository.save).toHaveBeenCalledWith([
@@ -443,9 +483,14 @@ describe('TransactionBulkService', () => {
       ];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
-      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue([]);
+      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue(
+        [],
+      );
 
-      const result = await service.validateBulkOperation(transactionIds, mockUser.id);
+      const result = await service.validateBulkOperation(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.foundTransactions).toBe(3);
@@ -464,7 +509,10 @@ describe('TransactionBulkService', () => {
         mockPendingDuplicates as any,
       );
 
-      const result = await service.validateBulkOperation(transactionIds, mockUser.id);
+      const result = await service.validateBulkOperation(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.isValid).toBe(false);
       expect(result.conflicts).toHaveLength(1);
@@ -476,9 +524,14 @@ describe('TransactionBulkService', () => {
       const mockTransactions = [{ ...mockTransaction, id: 1 }];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
-      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue([]);
+      pendingDuplicatesService.findAllByExistingTransactionId.mockResolvedValue(
+        [],
+      );
 
-      const result = await service.validateBulkOperation(transactionIds, mockUser.id);
+      const result = await service.validateBulkOperation(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.isValid).toBe(false);
       expect(result.foundTransactions).toBe(1);
@@ -490,14 +543,32 @@ describe('TransactionBulkService', () => {
     it('should return statistics for bulk operations', async () => {
       const transactionIds = [1, 2, 3];
       const mockTransactions = [
-        { ...mockTransaction, id: 1, category: mockCategory, status: 'executed' as const },
-        { ...mockTransaction, id: 2, category: null, status: 'pending' as const },
-        { ...mockTransaction, id: 3, category: mockCategory, status: 'executed' as const },
+        {
+          ...mockTransaction,
+          id: 1,
+          category: mockCategory,
+          status: 'executed' as const,
+        },
+        {
+          ...mockTransaction,
+          id: 2,
+          category: null,
+          status: 'pending' as const,
+        },
+        {
+          ...mockTransaction,
+          id: 3,
+          category: mockCategory,
+          status: 'executed' as const,
+        },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
 
-      const result = await service.getBulkOperationStats(transactionIds, mockUser.id);
+      const result = await service.getBulkOperationStats(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.totalTransactions).toBe(3);
       expect(result.categorizedCount).toBe(2);
@@ -510,7 +581,10 @@ describe('TransactionBulkService', () => {
       const transactionIds: number[] = [];
       transactionRepository.find.mockResolvedValue([]);
 
-      const result = await service.getBulkOperationStats(transactionIds, mockUser.id);
+      const result = await service.getBulkOperationStats(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.totalTransactions).toBe(0);
       expect(result.categorizedCount).toBe(0);
@@ -520,14 +594,29 @@ describe('TransactionBulkService', () => {
     it('should calculate category distribution', async () => {
       const transactionIds = [1, 2, 3];
       const mockTransactions = [
-        { ...mockTransaction, id: 1, category: { ...mockCategory, id: 1, name: 'Food' } },
-        { ...mockTransaction, id: 2, category: { ...mockCategory, id: 1, name: 'Food' } },
-        { ...mockTransaction, id: 3, category: { ...mockCategory, id: 2, name: 'Transport' } },
+        {
+          ...mockTransaction,
+          id: 1,
+          category: { ...mockCategory, id: 1, name: 'Food' },
+        },
+        {
+          ...mockTransaction,
+          id: 2,
+          category: { ...mockCategory, id: 1, name: 'Food' },
+        },
+        {
+          ...mockTransaction,
+          id: 3,
+          category: { ...mockCategory, id: 2, name: 'Transport' },
+        },
       ] as Transaction[];
 
       transactionRepository.find.mockResolvedValue(mockTransactions);
 
-      const result = await service.getBulkOperationStats(transactionIds, mockUser.id);
+      const result = await service.getBulkOperationStats(
+        transactionIds,
+        mockUser.id,
+      );
 
       expect(result.categoryDistribution.Food).toBe(2);
       expect(result.categoryDistribution.Transport).toBe(1);
@@ -537,7 +626,9 @@ describe('TransactionBulkService', () => {
   describe('error handling', () => {
     it('should handle database errors gracefully', async () => {
       const transactionIds = [1, 2, 3];
-      transactionRepository.find.mockRejectedValue(new Error('Database connection failed'));
+      transactionRepository.find.mockRejectedValue(
+        new Error('Database connection failed'),
+      );
 
       await expect(
         service.bulkDeleteByIds(transactionIds, mockUser.id),
@@ -547,7 +638,7 @@ describe('TransactionBulkService', () => {
     it('should handle service dependency errors', async () => {
       const transactionIds = [1];
       const mockTransactions = [{ ...mockTransaction, id: 1 }];
-      
+
       transactionRepository.find.mockResolvedValue(mockTransactions);
       pendingDuplicatesService.findAllByExistingTransactionId.mockRejectedValue(
         new Error('Service unavailable'),

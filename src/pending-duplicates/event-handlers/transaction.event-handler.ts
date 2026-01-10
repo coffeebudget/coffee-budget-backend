@@ -20,12 +20,17 @@ export class TransactionEventHandler {
    * Check for potential duplicates when a new transaction is created
    */
   @OnEvent(TransactionCreatedEvent.name)
-  async handleTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
+  async handleTransactionCreated(
+    event: TransactionCreatedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling TransactionCreatedEvent for duplicate detection', {
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling TransactionCreatedEvent for duplicate detection',
+        {
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
 
       // Check for potential duplicates using the existing method
       // Note: This is a simplified approach - in a real implementation,
@@ -38,12 +43,15 @@ export class TransactionEventHandler {
         transactionId: event.transaction.id,
       });
     } catch (error) {
-      this.logger.error('Failed to handle TransactionCreatedEvent for duplicate detection', {
-        error: error.message,
-        stack: error.stack,
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle TransactionCreatedEvent for duplicate detection',
+        {
+          error: error.message,
+          stack: error.stack,
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the transaction creation flow
     }
   }

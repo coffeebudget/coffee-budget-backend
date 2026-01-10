@@ -100,7 +100,9 @@ export class PatternClassificationService {
     if (uncachedPatterns.length > 0) {
       // Check API rate limit
       if (this.dailyApiCalls >= this.config.maxDailyApiCalls) {
-        this.logger.warn('Daily API call limit reached, using rule-based fallback');
+        this.logger.warn(
+          'Daily API call limit reached, using rule-based fallback',
+        );
         newClassifications = uncachedPatterns.map((p) =>
           this.classifyWithRules(p),
         );
@@ -119,7 +121,9 @@ export class PatternClassificationService {
         for (const batch of batches) {
           if (this.dailyApiCalls >= this.config.maxDailyApiCalls) {
             // Fallback to rules for remaining patterns
-            const ruleBasedResults = batch.map((p) => this.classifyWithRules(p));
+            const ruleBasedResults = batch.map((p) =>
+              this.classifyWithRules(p),
+            );
             newClassifications.push(...ruleBasedResults);
             continue;
           }
@@ -145,7 +149,9 @@ export class PatternClassificationService {
             this.logger.error(
               `Batch classification failed, using rules: ${error.message}`,
             );
-            const ruleBasedResults = batch.map((p) => this.classifyWithRules(p));
+            const ruleBasedResults = batch.map((p) =>
+              this.classifyWithRules(p),
+            );
             newClassifications.push(...ruleBasedResults);
           }
         }
@@ -189,7 +195,10 @@ export class PatternClassificationService {
    */
   private async classifyBatchWithOpenAI(
     patterns: PatternClassificationRequest[],
-  ): Promise<{ classifications: PatternClassificationResponse[]; tokens: number }> {
+  ): Promise<{
+    classifications: PatternClassificationResponse[];
+    tokens: number;
+  }> {
     const prompt = this.buildBatchClassificationPrompt(patterns);
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
@@ -312,7 +321,9 @@ Respond with a JSON array in this exact format:
 
       return parsed.map((item) => {
         // Validate expense type
-        const expenseType = Object.values(ExpenseType).includes(item.expenseType)
+        const expenseType = Object.values(ExpenseType).includes(
+          item.expenseType,
+        )
           ? item.expenseType
           : ExpenseType.OTHER_FIXED;
 
@@ -341,7 +352,13 @@ Respond with a JSON array in this exact format:
   classifyWithRules(
     pattern: PatternClassificationRequest,
   ): PatternClassificationResponse {
-    const { merchantName, categoryName, representativeDescription, averageAmount, frequencyType } = pattern;
+    const {
+      merchantName,
+      categoryName,
+      representativeDescription,
+      averageAmount,
+      frequencyType,
+    } = pattern;
 
     const searchText = [merchantName, categoryName, representativeDescription]
       .filter(Boolean)
@@ -354,51 +371,111 @@ Respond with a JSON array in this exact format:
     let confidence = 50;
 
     // Subscription detection
-    if (this.matchesKeywords(searchText, ['netflix', 'spotify', 'disney', 'hbo', 'prime', 'youtube', 'apple music', 'dazn', 'sky'])) {
+    if (
+      this.matchesKeywords(searchText, [
+        'netflix',
+        'spotify',
+        'disney',
+        'hbo',
+        'prime',
+        'youtube',
+        'apple music',
+        'dazn',
+        'sky',
+      ])
+    ) {
       expenseType = ExpenseType.SUBSCRIPTION;
       isEssential = false;
       suggestedPlanName = this.extractPlanName(merchantName, 'Subscription');
       confidence = 80;
     }
     // Utility detection
-    else if (this.matchesKeywords(searchText, ['electric', 'enel', 'gas', 'water', 'utility', 'bolletta', 'luce', 'acqua'])) {
+    else if (
+      this.matchesKeywords(searchText, [
+        'electric',
+        'enel',
+        'gas',
+        'water',
+        'utility',
+        'bolletta',
+        'luce',
+        'acqua',
+      ])
+    ) {
       expenseType = ExpenseType.UTILITY;
       isEssential = true;
       suggestedPlanName = this.extractPlanName(merchantName, 'Utility Bill');
       confidence = 85;
     }
     // Insurance detection
-    else if (this.matchesKeywords(searchText, ['insurance', 'assicura', 'polizza', 'allianz', 'generali', 'unipol', 'axa'])) {
+    else if (
+      this.matchesKeywords(searchText, [
+        'insurance',
+        'assicura',
+        'polizza',
+        'allianz',
+        'generali',
+        'unipol',
+        'axa',
+      ])
+    ) {
       expenseType = ExpenseType.INSURANCE;
       isEssential = true;
       suggestedPlanName = this.extractPlanName(merchantName, 'Insurance');
       confidence = 85;
     }
     // Mortgage/Rent detection
-    else if (this.matchesKeywords(searchText, ['mortgage', 'mutuo', 'rent', 'affitto', 'housing'])) {
-      expenseType = searchText.includes('rent') || searchText.includes('affitto')
-        ? ExpenseType.RENT
-        : ExpenseType.MORTGAGE;
+    else if (
+      this.matchesKeywords(searchText, [
+        'mortgage',
+        'mutuo',
+        'rent',
+        'affitto',
+        'housing',
+      ])
+    ) {
+      expenseType =
+        searchText.includes('rent') || searchText.includes('affitto')
+          ? ExpenseType.RENT
+          : ExpenseType.MORTGAGE;
       isEssential = true;
-      suggestedPlanName = expenseType === ExpenseType.RENT ? 'Rent Payment' : 'Mortgage Payment';
+      suggestedPlanName =
+        expenseType === ExpenseType.RENT ? 'Rent Payment' : 'Mortgage Payment';
       confidence = 90;
     }
     // Loan detection
-    else if (this.matchesKeywords(searchText, ['loan', 'prestito', 'finanziamento', 'rata'])) {
+    else if (
+      this.matchesKeywords(searchText, [
+        'loan',
+        'prestito',
+        'finanziamento',
+        'rata',
+      ])
+    ) {
       expenseType = ExpenseType.LOAN;
       isEssential = true;
       suggestedPlanName = this.extractPlanName(merchantName, 'Loan Payment');
       confidence = 75;
     }
     // Salary detection (income)
-    else if (this.matchesKeywords(searchText, ['salary', 'stipendio', 'wage', 'payroll', 'paga'])) {
+    else if (
+      this.matchesKeywords(searchText, [
+        'salary',
+        'stipendio',
+        'wage',
+        'payroll',
+        'paga',
+      ])
+    ) {
       expenseType = ExpenseType.SALARY;
       isEssential = false;
       suggestedPlanName = 'Salary Income';
       confidence = 90;
     }
     // Tax detection
-    else if (this.matchesKeywords(searchText, ['tax', 'tasse', 'imu', 'tari', 'irpef'])) {
+    else if (
+      this.matchesKeywords(searchText, ['tax', 'tasse', 'imu', 'tari', 'irpef'])
+    ) {
       expenseType = ExpenseType.TAX;
       isEssential = true;
       suggestedPlanName = this.extractPlanName(merchantName, 'Tax Payment');
@@ -432,13 +509,18 @@ Respond with a JSON array in this exact format:
   /**
    * Extract a clean plan name from merchant name
    */
-  private extractPlanName(merchantName: string | null, fallback: string): string {
+  private extractPlanName(
+    merchantName: string | null,
+    fallback: string,
+  ): string {
     if (!merchantName) return fallback;
 
     // Clean up common suffixes and normalize
-    return merchantName
-      .replace(/\s*(s\.?r\.?l\.?|s\.?p\.?a\.?|inc\.?|ltd\.?|llc\.?)/gi, '')
-      .trim() || fallback;
+    return (
+      merchantName
+        .replace(/\s*(s\.?r\.?l\.?|s\.?p\.?a\.?|inc\.?|ltd\.?|llc\.?)/gi, '')
+        .trim() || fallback
+    );
   }
 
   /**
@@ -500,7 +582,10 @@ Respond with a JSON array in this exact format:
   /**
    * Add classification to cache
    */
-  private addToCache(key: string, response: PatternClassificationResponse): void {
+  private addToCache(
+    key: string,
+    response: PatternClassificationResponse,
+  ): void {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + this.config.cacheTtlMinutes);
 
@@ -543,7 +628,10 @@ Respond with a JSON array in this exact format:
     return {
       dailyApiCalls: this.dailyApiCalls,
       maxDailyApiCalls: this.config.maxDailyApiCalls,
-      remainingCalls: Math.max(0, this.config.maxDailyApiCalls - this.dailyApiCalls),
+      remainingCalls: Math.max(
+        0,
+        this.config.maxDailyApiCalls - this.dailyApiCalls,
+      ),
       cacheSize: this.cache.size,
     };
   }

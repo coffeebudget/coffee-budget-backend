@@ -156,7 +156,11 @@ describe('TransactionsController', () => {
 
       mockTransactionsService.update.mockResolvedValue(mockUpdatedTransaction);
 
-      const result = await controller.update(transactionId, updateDto, mockUser);
+      const result = await controller.update(
+        transactionId,
+        updateDto,
+        mockUser,
+      );
 
       expect(mockTransactionsService.update).toHaveBeenCalledWith(
         transactionId,
@@ -181,7 +185,11 @@ describe('TransactionsController', () => {
 
       mockTransactionsService.update.mockResolvedValue(mockUpdatedTransaction);
 
-      const result = await controller.update(transactionId, updateDto, mockUser);
+      const result = await controller.update(
+        transactionId,
+        updateDto,
+        mockUser,
+      );
 
       expect(mockTransactionsService.update).toHaveBeenCalledWith(
         transactionId,

@@ -81,7 +81,8 @@ export class ExpensePlanSuggestionsController {
   @Get()
   @ApiOperation({
     summary: 'Get all suggestions',
-    description: 'Retrieve all expense plan suggestions for the authenticated user',
+    description:
+      'Retrieve all expense plan suggestions for the authenticated user',
   })
   @ApiQuery({
     name: 'status',

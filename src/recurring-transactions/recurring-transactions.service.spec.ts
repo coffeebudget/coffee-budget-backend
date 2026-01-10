@@ -95,7 +95,9 @@ describe('RecurringTransactionsService', () => {
 
     // Create a mock generator service with Jest functions
     const mockGeneratorService = {
-      calculateNextExecutionDate: jest.fn().mockReturnValue(new Date('2024-02-15')),
+      calculateNextExecutionDate: jest
+        .fn()
+        .mockReturnValue(new Date('2024-02-15')),
       calculateNextOccurrences: jest
         .fn()
         .mockReturnValue([new Date('2024-02-01'), new Date('2024-03-01')]),
@@ -303,9 +305,9 @@ describe('RecurringTransactionsService', () => {
       };
 
       // Mock the actual method that exists on the simplified service
-      (generatorService.calculateNextExecutionDate as jest.Mock).mockReturnValue(
-        new Date('2024-02-15')
-      );
+      (
+        generatorService.calculateNextExecutionDate as jest.Mock
+      ).mockReturnValue(new Date('2024-02-15'));
 
       // Mock transactions service createAutomatedTransaction instead of create
       // This is likely what the service is actually calling now
@@ -391,9 +393,9 @@ describe('RecurringTransactionsService', () => {
         },
       ];
 
-      (generatorService.calculateNextExecutionDate as jest.Mock).mockReturnValue(
-        mockTransactions,
-      );
+      (
+        generatorService.calculateNextExecutionDate as jest.Mock
+      ).mockReturnValue(mockTransactions);
 
       // Mock createAutomatedTransaction
       (
@@ -452,7 +454,9 @@ describe('RecurringTransactionsService', () => {
         updatedTransaction,
       );
 
-      (generatorService.calculateNextExecutionDate as jest.Mock).mockReturnValue([]);
+      (
+        generatorService.calculateNextExecutionDate as jest.Mock
+      ).mockReturnValue([]);
 
       const result = await service.update(1, updateDto, mockUser.id);
 
@@ -510,9 +514,9 @@ describe('RecurringTransactionsService', () => {
         status: 'pending',
         type: 'expense',
       };
-      (generatorService.calculateNextExecutionDate as jest.Mock).mockReturnValue([
-        mockPendingTransaction,
-      ]);
+      (
+        generatorService.calculateNextExecutionDate as jest.Mock
+      ).mockReturnValue([mockPendingTransaction]);
 
       // Mock transactions service
       (
@@ -582,9 +586,9 @@ describe('RecurringTransactionsService', () => {
         description: 'Netflix Subscription',
         amount: 9.99,
       };
-      (generatorService.calculateNextExecutionDate as jest.Mock).mockReturnValue([
-        mockPendingTransaction,
-      ]);
+      (
+        generatorService.calculateNextExecutionDate as jest.Mock
+      ).mockReturnValue([mockPendingTransaction]);
 
       // Mock transactions service
       (

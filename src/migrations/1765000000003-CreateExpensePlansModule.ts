@@ -6,7 +6,9 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class CreateExpensePlansModule1765000000003 implements MigrationInterface {
+export class CreateExpensePlansModule1765000000003
+  implements MigrationInterface
+{
   name = 'CreateExpensePlansModule1765000000003';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -237,7 +239,9 @@ export class CreateExpensePlansModule1765000000003 implements MigrationInterface
     // EXPENSE_PLAN_TRANSACTIONS TABLE
     // ═══════════════════════════════════════════════════════════════
 
-    const hasTransactionsTable = await queryRunner.hasTable('expense_plan_transactions');
+    const hasTransactionsTable = await queryRunner.hasTable(
+      'expense_plan_transactions',
+    );
     if (!hasTransactionsTable) {
       await queryRunner.createTable(
         new Table({
@@ -345,7 +349,9 @@ export class CreateExpensePlansModule1765000000003 implements MigrationInterface
     // INCOME_DISTRIBUTION_RULES TABLE
     // ═══════════════════════════════════════════════════════════════
 
-    const hasRulesTable = await queryRunner.hasTable('income_distribution_rules');
+    const hasRulesTable = await queryRunner.hasTable(
+      'income_distribution_rules',
+    );
     if (!hasRulesTable) {
       await queryRunner.createTable(
         new Table({
@@ -511,14 +517,20 @@ export class CreateExpensePlansModule1765000000003 implements MigrationInterface
         (fk) => fk.name === 'FK_income_distribution_rules_category',
       );
       if (fkCategory) {
-        await queryRunner.dropForeignKey('income_distribution_rules', fkCategory);
+        await queryRunner.dropForeignKey(
+          'income_distribution_rules',
+          fkCategory,
+        );
       }
 
       const fkBankAccount = rulesTable.foreignKeys.find(
         (fk) => fk.name === 'FK_income_distribution_rules_bank_account',
       );
       if (fkBankAccount) {
-        await queryRunner.dropForeignKey('income_distribution_rules', fkBankAccount);
+        await queryRunner.dropForeignKey(
+          'income_distribution_rules',
+          fkBankAccount,
+        );
       }
 
       await queryRunner.dropTable('income_distribution_rules');
@@ -528,14 +540,19 @@ export class CreateExpensePlansModule1765000000003 implements MigrationInterface
     // DROP EXPENSE_PLAN_TRANSACTIONS
     // ═══════════════════════════════════════════════════════════════
 
-    const transactionsTable = await queryRunner.getTable('expense_plan_transactions');
+    const transactionsTable = await queryRunner.getTable(
+      'expense_plan_transactions',
+    );
     if (transactionsTable) {
       // Drop index
       const transactionsIndex = transactionsTable.indices.find(
         (idx) => idx.name === 'IDX_expense_plan_transactions_plan_date',
       );
       if (transactionsIndex) {
-        await queryRunner.dropIndex('expense_plan_transactions', transactionsIndex);
+        await queryRunner.dropIndex(
+          'expense_plan_transactions',
+          transactionsIndex,
+        );
       }
 
       // Drop foreign keys
@@ -550,7 +567,10 @@ export class CreateExpensePlansModule1765000000003 implements MigrationInterface
         (fk) => fk.name === 'FK_expense_plan_transactions_transaction',
       );
       if (fkTransaction) {
-        await queryRunner.dropForeignKey('expense_plan_transactions', fkTransaction);
+        await queryRunner.dropForeignKey(
+          'expense_plan_transactions',
+          fkTransaction,
+        );
       }
 
       await queryRunner.dropTable('expense_plan_transactions');

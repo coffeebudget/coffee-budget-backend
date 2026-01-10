@@ -43,7 +43,9 @@ export class RepositoryMockFactory {
       findBy: jest.fn().mockResolvedValue([]),
       findAndCount: jest.fn().mockResolvedValue([[], 0]),
       findAndCountBy: jest.fn().mockResolvedValue([[], 0]),
-      save: jest.fn().mockImplementation((entity) => Promise.resolve({ id: 1, ...entity })),
+      save: jest
+        .fn()
+        .mockImplementation((entity) => Promise.resolve({ id: 1, ...entity })),
       create: jest.fn().mockImplementation((dto) => dto),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -52,12 +54,14 @@ export class RepositoryMockFactory {
       countBy: jest.fn().mockResolvedValue(0),
       exists: jest.fn().mockResolvedValue(false),
       existsBy: jest.fn().mockResolvedValue(false),
-      
+
       // Query builder
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
-      
+
       // Additional TypeORM methods
-      preload: jest.fn().mockImplementation((entity) => Promise.resolve(entity)),
+      preload: jest
+        .fn()
+        .mockImplementation((entity) => Promise.resolve(entity)),
       upsert: jest.fn().mockResolvedValue({ affected: 1 }),
       insert: jest.fn().mockResolvedValue({ affected: 1, raw: [] }),
       softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -69,7 +73,9 @@ export class RepositoryMockFactory {
   /**
    * Creates a standardized repository provider for NestJS testing modules
    */
-  static createRepositoryProvider<T extends ObjectLiteral>(entity: new () => T) {
+  static createRepositoryProvider<T extends ObjectLiteral>(
+    entity: new () => T,
+  ) {
     return {
       provide: getRepositoryToken(entity),
       useValue: this.createMockRepository<T>(),
@@ -79,9 +85,11 @@ export class RepositoryMockFactory {
   /**
    * Creates multiple repository providers at once
    */
-  static createRepositoryProviders<T extends Record<string, new () => ObjectLiteral>>(entities: T) {
-    return Object.entries(entities).map(([key, entity]) => 
-      this.createRepositoryProvider(entity)
+  static createRepositoryProviders<
+    T extends Record<string, new () => ObjectLiteral>,
+  >(entities: T) {
+    return Object.entries(entities).map(([key, entity]) =>
+      this.createRepositoryProvider(entity),
     );
   }
 }
@@ -104,12 +112,23 @@ export const CommonEntities = {
  * Pre-configured repository mocks for common entities
  */
 export const StandardRepositoryMocks = {
-  User: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.User),
-  Transaction: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.Transaction),
-  BankAccount: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.BankAccount),
-  CreditCard: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.CreditCard),
-  Category: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.Category),
+  User: () =>
+    RepositoryMockFactory.createRepositoryProvider(CommonEntities.User),
+  Transaction: () =>
+    RepositoryMockFactory.createRepositoryProvider(CommonEntities.Transaction),
+  BankAccount: () =>
+    RepositoryMockFactory.createRepositoryProvider(CommonEntities.BankAccount),
+  CreditCard: () =>
+    RepositoryMockFactory.createRepositoryProvider(CommonEntities.CreditCard),
+  Category: () =>
+    RepositoryMockFactory.createRepositoryProvider(CommonEntities.Category),
   Tag: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.Tag),
-  RecurringTransaction: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.RecurringTransaction),
-  PendingDuplicate: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.PendingDuplicate),
+  RecurringTransaction: () =>
+    RepositoryMockFactory.createRepositoryProvider(
+      CommonEntities.RecurringTransaction,
+    ),
+  PendingDuplicate: () =>
+    RepositoryMockFactory.createRepositoryProvider(
+      CommonEntities.PendingDuplicate,
+    ),
 };

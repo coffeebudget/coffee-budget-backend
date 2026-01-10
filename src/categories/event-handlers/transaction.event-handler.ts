@@ -11,21 +11,24 @@ import { CategoriesService } from '../categories.service';
 export class TransactionEventHandler {
   private readonly logger = new Logger(TransactionEventHandler.name);
 
-  constructor(
-    private readonly categoriesService: CategoriesService,
-  ) {}
+  constructor(private readonly categoriesService: CategoriesService) {}
 
   /**
    * Handle TransactionCreatedEvent
    * Suggest category for transaction when created
    */
   @OnEvent(TransactionCreatedEvent.name)
-  async handleTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
+  async handleTransactionCreated(
+    event: TransactionCreatedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling TransactionCreatedEvent for category suggestion', {
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling TransactionCreatedEvent for category suggestion',
+        {
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
 
       // Only suggest category if transaction doesn't already have one
       if (!event.transaction.category && event.transaction.description) {
@@ -39,12 +42,15 @@ export class TransactionEventHandler {
         transactionId: event.transaction.id,
       });
     } catch (error) {
-      this.logger.error('Failed to handle TransactionCreatedEvent for category suggestion', {
-        error: error.message,
-        stack: error.stack,
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle TransactionCreatedEvent for category suggestion',
+        {
+          error: error.message,
+          stack: error.stack,
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the transaction creation flow
     }
   }

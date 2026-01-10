@@ -371,7 +371,9 @@ describe('FinecoParser', () => {
 
       // Check that tagNames were set correctly for later processing
       expect((result[1] as any).tagNames).toBeDefined();
-      expect((result[1] as any).tagNames).toEqual(['Internet Telefono e Tecnologia']);
+      expect((result[1] as any).tagNames).toEqual([
+        'Internet Telefono e Tecnologia',
+      ]);
 
       // Third transaction (expense) - with Altre spese tag
       expect(result[2]).toMatchObject({

@@ -565,7 +565,8 @@ describe('CategoriesService - Keyword Matching', () => {
     });
 
     test('should still match multi-word keywords correctly', () => {
-      const description = 'Pag. del 01/12/25 ora 11:48 presso: COOP LOMBARDIA S.C.';
+      const description =
+        'Pag. del 01/12/25 ora 11:48 presso: COOP LOMBARDIA S.C.';
       const keyword = 'coop lombardia';
 
       const result = testWordBoundaryMatching(description, keyword);

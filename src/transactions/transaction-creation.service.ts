@@ -50,7 +50,10 @@ export class TransactionCreationService {
     let category: Category | null = null;
     let suggestedCategory: Category | null = null;
 
-    if (createTransactionDto.categoryId && createTransactionDto.categoryId > 0) {
+    if (
+      createTransactionDto.categoryId &&
+      createTransactionDto.categoryId > 0
+    ) {
       category = await this.categoriesRepository.findOne({
         where: { id: createTransactionDto.categoryId, user: { id: userId } },
       });
@@ -62,10 +65,11 @@ export class TransactionCreationService {
       }
     } else if (createTransactionDto.description) {
       // Try keyword-based categorization only
-      suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-        createTransactionDto.description,
-        userId,
-      );
+      suggestedCategory =
+        await this.categoriesService.suggestCategoryForDescription(
+          createTransactionDto.description,
+          userId,
+        );
     }
 
     // Validate payment method
@@ -216,16 +220,26 @@ export class TransactionCreationService {
       case DuplicateTransactionChoice.USE_NEW:
         // Replace existing transaction with new one
         await this.transactionsRepository.delete(existingTransaction.id);
-        return this.createAndSaveTransaction(newTransactionData, userId, undefined, true);
-      
+        return this.createAndSaveTransaction(
+          newTransactionData,
+          userId,
+          undefined,
+          true,
+        );
+
       case DuplicateTransactionChoice.KEEP_EXISTING:
         // Keep existing transaction, discard new one
         return existingTransaction;
-      
+
       case DuplicateTransactionChoice.MAINTAIN_BOTH:
         // Create new transaction alongside existing one
-        return this.createAndSaveTransaction(newTransactionData, userId, undefined, true);
-      
+        return this.createAndSaveTransaction(
+          newTransactionData,
+          userId,
+          undefined,
+          true,
+        );
+
       default:
         throw new BadRequestException('Invalid duplicate choice');
     }
@@ -234,12 +248,12 @@ export class TransactionCreationService {
   calculateBillingDate(executionDate: Date, billingDay: number): Date {
     const billingDate = new Date(executionDate);
     billingDate.setDate(billingDay);
-    
+
     // If the billing day has already passed this month, use next month
     if (billingDate <= executionDate) {
       billingDate.setMonth(billingDate.getMonth() + 1);
     }
-    
+
     return billingDate;
   }
 

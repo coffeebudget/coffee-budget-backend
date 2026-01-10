@@ -18,7 +18,7 @@ describe('TransactionCategorizationTestService', () => {
     description: 'ESSELUNGA SPA',
     merchantName: 'ESSELUNGA SPA',
     merchantCategoryCode: '5411',
-    amount: -50.00,
+    amount: -50.0,
     category: null,
     executionDate: new Date('2024-12-01'),
     user: { id: 1 },
@@ -52,9 +52,13 @@ describe('TransactionCategorizationTestService', () => {
       ],
     }).compile();
 
-    service = module.get<TransactionCategorizationTestService>(TransactionCategorizationTestService);
+    service = module.get<TransactionCategorizationTestService>(
+      TransactionCategorizationTestService,
+    );
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    transactionCategorizationService = module.get(TransactionCategorizationService);
+    transactionCategorizationService = module.get(
+      TransactionCategorizationService,
+    );
     merchantCategorizationService = module.get(MerchantCategorizationService);
   });
 
@@ -68,7 +72,9 @@ describe('TransactionCategorizationTestService', () => {
       transactionRepository.find.mockResolvedValue([mockTransaction]);
 
       // Mock categorization service
-      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(mockCategorizedTransaction);
+      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(
+        mockCategorizedTransaction,
+      );
 
       const result = await service.testCategorizationQuality(1, true);
 
@@ -83,7 +89,9 @@ describe('TransactionCategorizationTestService', () => {
 
     it('should handle categorization failures gracefully', async () => {
       transactionRepository.find.mockResolvedValue([mockTransaction]);
-      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(mockTransaction);
+      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(
+        mockTransaction,
+      );
 
       const result = await service.testCategorizationQuality(1, true);
 
@@ -95,7 +103,9 @@ describe('TransactionCategorizationTestService', () => {
 
     it('should handle errors during categorization', async () => {
       transactionRepository.find.mockResolvedValue([mockTransaction]);
-      transactionCategorizationService.categorizeTransactionByDescription.mockRejectedValue(new Error('Categorization failed'));
+      transactionCategorizationService.categorizeTransactionByDescription.mockRejectedValue(
+        new Error('Categorization failed'),
+      );
 
       const result = await service.testCategorizationQuality(1, true);
 
@@ -109,7 +119,9 @@ describe('TransactionCategorizationTestService', () => {
   describe('testGoCardlessCategorization', () => {
     it('should test categorization specifically for GoCardless transactions', async () => {
       transactionRepository.find.mockResolvedValue([mockTransaction]);
-      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(mockCategorizedTransaction);
+      transactionCategorizationService.categorizeTransactionByDescription.mockResolvedValue(
+        mockCategorizedTransaction,
+      );
 
       const result = await service.testGoCardlessCategorization(1, true);
 

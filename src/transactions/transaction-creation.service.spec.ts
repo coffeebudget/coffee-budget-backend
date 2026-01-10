@@ -130,7 +130,9 @@ describe('TransactionCreationService', () => {
       ],
     }).compile();
 
-    service = module.get<TransactionCreationService>(TransactionCreationService);
+    service = module.get<TransactionCreationService>(
+      TransactionCreationService,
+    );
     transactionRepository = module.get(getRepositoryToken(Transaction));
     bankAccountRepository = module.get(getRepositoryToken(BankAccount));
     creditCardRepository = module.get(getRepositoryToken(CreditCard));
@@ -138,7 +140,9 @@ describe('TransactionCreationService', () => {
     tagRepository = module.get(getRepositoryToken(Tag));
     categoriesService = module.get<CategoriesService>(CategoriesService);
     tagsService = module.get<TagsService>(TagsService);
-    pendingDuplicatesService = module.get<PendingDuplicatesService>(PendingDuplicatesService);
+    pendingDuplicatesService = module.get<PendingDuplicatesService>(
+      PendingDuplicatesService,
+    );
   });
 
   afterEach(async () => {
@@ -150,7 +154,7 @@ describe('TransactionCreationService', () => {
       // Arrange
       const createDto: CreateTransactionDto = {
         description: 'Test Transaction',
-        amount: 100.50,
+        amount: 100.5,
         type: 'expense',
         status: 'executed',
         source: 'manual',
@@ -160,7 +164,9 @@ describe('TransactionCreationService', () => {
         tagIds: [1],
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
       (tagRepository.find as jest.Mock).mockResolvedValue([mockTag]);
       (transactionRepository.save as jest.Mock).mockResolvedValue({
@@ -175,12 +181,15 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Act
-      const result = await service.createAndSaveTransaction(createDto, mockUser.id);
+      const result = await service.createAndSaveTransaction(
+        createDto,
+        mockUser.id,
+      );
 
       // Assert
       expect(result).toBeDefined();
       expect(result.description).toBe('Test Transaction');
-      expect(result.amount).toBe(100.50);
+      expect(result.amount).toBe(100.5);
       expect(result.type).toBe('expense');
       expect(result.bankAccount).toBe(mockBankAccount);
       expect(result.category).toBe(mockCategory);
@@ -201,7 +210,9 @@ describe('TransactionCreationService', () => {
         categoryId: 1,
       };
 
-      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(mockCreditCard);
+      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(
+        mockCreditCard,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
       (transactionRepository.save as jest.Mock).mockResolvedValue({
         id: 1,
@@ -214,7 +225,10 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Act
-      const result = await service.createAndSaveTransaction(createDto, mockUser.id);
+      const result = await service.createAndSaveTransaction(
+        createDto,
+        mockUser.id,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -238,9 +252,13 @@ describe('TransactionCreationService', () => {
 
       const suggestedCategory = { ...mockCategory, name: 'Entertainment' };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null); // No category found for ID 0
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(suggestedCategory);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(suggestedCategory);
       (transactionRepository.save as jest.Mock).mockResolvedValue({
         id: 1,
         ...createDto,
@@ -251,10 +269,15 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Act
-      const result = await service.createAndSaveTransaction(createDto, mockUser.id);
+      const result = await service.createAndSaveTransaction(
+        createDto,
+        mockUser.id,
+      );
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('Netflix Subscription', mockUser.id);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Netflix Subscription', mockUser.id);
       expect(result.category).toBe(suggestedCategory);
       expect(transactionRepository.save).toHaveBeenCalled();
     });
@@ -277,8 +300,9 @@ describe('TransactionCreationService', () => {
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(service.createAndSaveTransaction(createDto, mockUser.id))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.createAndSaveTransaction(createDto, mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw error when neither bank account nor credit card provided', async () => {
@@ -297,8 +321,9 @@ describe('TransactionCreationService', () => {
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
 
       // Act & Assert
-      await expect(service.createAndSaveTransaction(createDto, mockUser.id))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.createAndSaveTransaction(createDto, mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw error when bank account not found', async () => {
@@ -317,8 +342,9 @@ describe('TransactionCreationService', () => {
       (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.createAndSaveTransaction(createDto, mockUser.id))
-        .rejects.toThrow(NotFoundException);
+      await expect(
+        service.createAndSaveTransaction(createDto, mockUser.id),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw error when credit card not found', async () => {
@@ -337,8 +363,9 @@ describe('TransactionCreationService', () => {
       (creditCardRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.createAndSaveTransaction(createDto, mockUser.id))
-        .rejects.toThrow(NotFoundException);
+      await expect(
+        service.createAndSaveTransaction(createDto, mockUser.id),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw error when category not found', async () => {
@@ -354,12 +381,15 @@ describe('TransactionCreationService', () => {
         executionDate: new Date('2024-01-15'),
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.createAndSaveTransaction(createDto, mockUser.id))
-        .rejects.toThrow(NotFoundException);
+      await expect(
+        service.createAndSaveTransaction(createDto, mockUser.id),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should handle duplicate detection when duplicate found', async () => {
@@ -384,9 +414,13 @@ describe('TransactionCreationService', () => {
         user: mockUser,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
-      jest.spyOn(service, 'findPotentialDuplicate').mockResolvedValue(existingTransaction as any);
+      jest
+        .spyOn(service, 'findPotentialDuplicate')
+        .mockResolvedValue(existingTransaction as any);
       jest.spyOn(service, 'handleDuplicateConfirmation').mockResolvedValue({
         id: 2,
         ...createDto,
@@ -395,10 +429,18 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Act
-      const result = await service.createAndSaveTransaction(createDto, mockUser.id);
+      const result = await service.createAndSaveTransaction(
+        createDto,
+        mockUser.id,
+      );
 
       // Assert
-      expect(service.findPotentialDuplicate).toHaveBeenCalledWith(100, 'expense', new Date('2024-01-15'), mockUser.id);
+      expect(service.findPotentialDuplicate).toHaveBeenCalledWith(
+        100,
+        'expense',
+        new Date('2024-01-15'),
+        mockUser.id,
+      );
       expect(service.handleDuplicateConfirmation).toHaveBeenCalled();
       expect(result).toBeDefined();
     });
@@ -416,7 +458,9 @@ describe('TransactionCreationService', () => {
         categoryId: 1,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
       (categoryRepository.findOne as jest.Mock).mockResolvedValue(mockCategory);
       (transactionRepository.save as jest.Mock).mockResolvedValue({
         id: 1,
@@ -427,10 +471,18 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Mock the findPotentialDuplicate method to track calls
-      const findPotentialDuplicateSpy = jest.spyOn(service, 'findPotentialDuplicate');
+      const findPotentialDuplicateSpy = jest.spyOn(
+        service,
+        'findPotentialDuplicate',
+      );
 
       // Act
-      const result = await service.createAndSaveTransaction(createDto, mockUser.id, undefined, true);
+      const result = await service.createAndSaveTransaction(
+        createDto,
+        mockUser.id,
+        undefined,
+        true,
+      );
 
       // Assert
       expect(findPotentialDuplicateSpy).not.toHaveBeenCalled();
@@ -455,10 +507,17 @@ describe('TransactionCreationService', () => {
         user: { id: 1 },
       };
 
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(duplicateTransaction);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        duplicateTransaction,
+      );
 
       // Act
-      const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
+      const result = await service.findPotentialDuplicate(
+        amount,
+        type,
+        executionDate,
+        userId,
+      );
 
       // Assert
       expect(result).toBe(duplicateTransaction);
@@ -469,7 +528,7 @@ describe('TransactionCreationService', () => {
           user: { id: userId },
           executionDate: Between(
             new Date(executionDate.getTime() - 24 * 60 * 60 * 1000),
-            new Date(executionDate.getTime() + 24 * 60 * 60 * 1000)
+            new Date(executionDate.getTime() + 24 * 60 * 60 * 1000),
           ),
         },
       } as any);
@@ -480,7 +539,12 @@ describe('TransactionCreationService', () => {
       (transactionRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act
-      const result = await service.findPotentialDuplicate(100, 'expense', new Date('2024-01-15'), 1);
+      const result = await service.findPotentialDuplicate(
+        100,
+        'expense',
+        new Date('2024-01-15'),
+        1,
+      );
 
       // Assert
       expect(result).toBeNull();
@@ -533,7 +597,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.USE_NEW
+        DuplicateTransactionChoice.USE_NEW,
       );
 
       // Assert
@@ -541,7 +605,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.USE_NEW
+        DuplicateTransactionChoice.USE_NEW,
       );
       expect(result).toBeDefined();
     });
@@ -591,7 +655,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.MAINTAIN_BOTH
+        DuplicateTransactionChoice.MAINTAIN_BOTH,
       );
 
       // Assert
@@ -599,7 +663,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.MAINTAIN_BOTH
+        DuplicateTransactionChoice.MAINTAIN_BOTH,
       );
       expect(result).toBeDefined();
     });
@@ -649,7 +713,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.KEEP_EXISTING
+        DuplicateTransactionChoice.KEEP_EXISTING,
       );
 
       // Assert
@@ -657,7 +721,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.KEEP_EXISTING
+        DuplicateTransactionChoice.KEEP_EXISTING,
       );
       expect(result).toBeDefined();
     });
@@ -705,18 +769,20 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Mock the createAndSaveTransaction method to avoid internal calls
-      const createAndSaveTransactionSpy = jest.spyOn(service, 'createAndSaveTransaction').mockResolvedValue({
-        id: 1,
-        ...newTransactionData,
-        user: mockUser,
-      } as any);
+      const createAndSaveTransactionSpy = jest
+        .spyOn(service, 'createAndSaveTransaction')
+        .mockResolvedValue({
+          id: 1,
+          ...newTransactionData,
+          user: mockUser,
+        } as any);
 
       // Act
       const result = await service.handleDuplicateResolution(
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.USE_NEW
+        DuplicateTransactionChoice.USE_NEW,
       );
 
       // Assert
@@ -765,18 +831,20 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Mock the createAndSaveTransaction method to avoid internal calls
-      const createAndSaveTransactionSpy = jest.spyOn(service, 'createAndSaveTransaction').mockResolvedValue({
-        id: 2,
-        ...newTransactionData,
-        user: mockUser,
-      } as any);
+      const createAndSaveTransactionSpy = jest
+        .spyOn(service, 'createAndSaveTransaction')
+        .mockResolvedValue({
+          id: 2,
+          ...newTransactionData,
+          user: mockUser,
+        } as any);
 
       // Act
       const result = await service.handleDuplicateResolution(
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.MAINTAIN_BOTH
+        DuplicateTransactionChoice.MAINTAIN_BOTH,
       );
 
       // Assert
@@ -829,7 +897,7 @@ describe('TransactionCreationService', () => {
         existingTransaction,
         newTransactionData,
         mockUser.id,
-        DuplicateTransactionChoice.KEEP_EXISTING
+        DuplicateTransactionChoice.KEEP_EXISTING,
       );
 
       // Assert
@@ -884,7 +952,12 @@ describe('TransactionCreationService', () => {
       } as any);
 
       // Act
-      const result = await service.transactionExists(amount, type, executionDate, userId);
+      const result = await service.transactionExists(
+        amount,
+        type,
+        executionDate,
+        userId,
+      );
 
       // Assert
       expect(result).toBe(true);
@@ -895,7 +968,12 @@ describe('TransactionCreationService', () => {
       (transactionRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act
-      const result = await service.transactionExists(100, 'expense', new Date('2024-01-15'), 1);
+      const result = await service.transactionExists(
+        100,
+        'expense',
+        new Date('2024-01-15'),
+        1,
+      );
 
       // Assert
       expect(result).toBe(false);
@@ -903,8 +981,9 @@ describe('TransactionCreationService', () => {
 
     it('should throw error when executionDate is null', async () => {
       // Act & Assert
-      await expect(service.transactionExists(100, 'expense', null as any, 1))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.transactionExists(100, 'expense', null as any, 1),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

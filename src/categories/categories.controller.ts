@@ -29,7 +29,11 @@ import { DefaultCategoriesService } from './default-categories.service';
 
 import { KeywordStatsService } from './keyword-stats.service';
 import { ExpenseAnalysisService } from './expense-analysis.service';
-import { BudgetManagementService, BudgetSummary, CategorySpending } from './budget-management.service';
+import {
+  BudgetManagementService,
+  BudgetSummary,
+  CategorySpending,
+} from './budget-management.service';
 
 @ApiTags('categories')
 @ApiBearerAuth()
@@ -119,9 +123,10 @@ export class CategoriesController {
   }
 
   @Get('budget-summary')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get intelligent budget summary',
-    description: 'Get budget status, savings recommendations, and category-level insights' 
+    description:
+      'Get budget status, savings recommendations, and category-level insights',
   })
   @ApiResponse({
     status: 200,
@@ -130,30 +135,31 @@ export class CategoriesController {
       type: 'object',
       properties: {
         totalAutoSaveNeeded: { type: 'number' },
-        primaryCategoriesData: { 
+        primaryCategoriesData: {
           type: 'array',
-          items: { type: 'object' }
+          items: { type: 'object' },
         },
-        secondaryWarnings: { 
+        secondaryWarnings: {
           type: 'array',
-          items: { type: 'object' }
+          items: { type: 'object' },
         },
-        optionalSuggestions: { 
+        optionalSuggestions: {
           type: 'array',
-          items: { type: 'object' }
+          items: { type: 'object' },
         },
-        monthlyBudgetUtilization: { type: 'number' }
-      }
-    }
+        monthlyBudgetUtilization: { type: 'number' },
+      },
+    },
   })
   async getBudgetSummary(@CurrentUser() user: User): Promise<BudgetSummary> {
     return this.budgetManagementService.getBudgetSummary(user.id);
   }
 
   @Get('budget-categories')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get all categories with spending data for budget management',
-    description: 'Get all categories with their spending statistics, ordered by net flow (same as Annual Savings Plan)' 
+    description:
+      'Get all categories with their spending statistics, ordered by net flow (same as Annual Savings Plan)',
   })
   @ApiResponse({
     status: 200,
@@ -161,17 +167,22 @@ export class CategoriesController {
     type: 'array',
     schema: {
       type: 'array',
-      items: { type: 'object' }
-    }
+      items: { type: 'object' },
+    },
   })
-  async getAllCategoriesWithSpendingData(@CurrentUser() user: User): Promise<CategorySpending[]> {
-    return this.budgetManagementService.getAllCategoriesWithSpendingData(user.id);
+  async getAllCategoriesWithSpendingData(
+    @CurrentUser() user: User,
+  ): Promise<CategorySpending[]> {
+    return this.budgetManagementService.getAllCategoriesWithSpendingData(
+      user.id,
+    );
   }
 
   @Get(':id/transactions')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Get transactions for a category with summary statistics',
-    description: 'Get all transactions for a specific category in the last N months with financial summary' 
+    description:
+      'Get all transactions for a specific category in the last N months with financial summary',
   })
   @ApiResponse({
     status: 200,
@@ -181,7 +192,7 @@ export class CategoriesController {
       properties: {
         transactions: {
           type: 'array',
-          items: { type: 'object' }
+          items: { type: 'object' },
         },
         summary: {
           type: 'object',
@@ -192,18 +203,22 @@ export class CategoriesController {
             transactionCount: { type: 'number' },
             averageMonthlyIncome: { type: 'number' },
             averageMonthlyExpenses: { type: 'number' },
-            averageMonthlyNetFlow: { type: 'number' }
-          }
-        }
-      }
-    }
+            averageMonthlyNetFlow: { type: 'number' },
+          },
+        },
+      },
+    },
   })
   async getCategoryTransactions(
     @Param('id', ParseIntPipe) id: number,
     @Query('months', new ParseIntPipe({ optional: true })) months: number = 12,
     @CurrentUser() user: User,
   ) {
-    return this.budgetManagementService.getCategoryTransactions(user.id, id, months);
+    return this.budgetManagementService.getCategoryTransactions(
+      user.id,
+      id,
+      months,
+    );
   }
 
   @Get(':id')
@@ -359,9 +374,9 @@ export class CategoriesController {
   }
 
   @Post('analyze-expenses')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Analyze spending patterns using AI',
-    description: 'Generate insights and recommendations based on spending data' 
+    description: 'Generate insights and recommendations based on spending data',
   })
   @ApiResponse({
     status: 200,
@@ -371,25 +386,26 @@ export class CategoriesController {
       properties: {
         insights: {
           type: 'array',
-          items: { type: 'string' }
+          items: { type: 'string' },
         },
         recommendations: {
-          type: 'array', 
-          items: { type: 'string' }
+          type: 'array',
+          items: { type: 'string' },
         },
         patterns: {
           type: 'array',
-          items: { type: 'string' }
+          items: { type: 'string' },
         },
         warnings: {
           type: 'array',
-          items: { type: 'string' }
-        }
-      }
-    }
+          items: { type: 'string' },
+        },
+      },
+    },
   })
   async analyzeExpenses(
-    @Body() dto: { 
+    @Body()
+    dto: {
       transactions: Transaction[];
       analysisType?: 'monthly' | 'category' | 'trends';
     },
@@ -403,9 +419,9 @@ export class CategoriesController {
   }
 
   @Post('spending-summary')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Generate spending summary for a period',
-    description: 'Create a comprehensive spending summary with AI insights' 
+    description: 'Create a comprehensive spending summary with AI insights',
   })
   @ApiResponse({
     status: 200,
@@ -413,12 +429,13 @@ export class CategoriesController {
     schema: {
       type: 'object',
       properties: {
-        summary: { type: 'string' }
-      }
-    }
+        summary: { type: 'string' },
+      },
+    },
   })
   async generateSpendingSummary(
-    @Body() dto: { 
+    @Body()
+    dto: {
       transactions: Transaction[];
       period: string;
     },
@@ -432,9 +449,10 @@ export class CategoriesController {
   }
 
   @Post('ai-budget-analysis')
-  @ApiOperation({ 
+  @ApiOperation({
     summary: 'Analyze budget and spending patterns with AI recommendations',
-    description: 'Provide personalized budget optimization suggestions based on categories and spending data' 
+    description:
+      'Provide personalized budget optimization suggestions based on categories and spending data',
   })
   @ApiResponse({
     status: 200,
@@ -453,9 +471,9 @@ export class CategoriesController {
               currentSpent: { type: 'number' },
               budget: { type: 'number' },
               overspendingAmount: { type: 'number' },
-              suggestions: { type: 'array', items: { type: 'string' } }
-            }
-          }
+              suggestions: { type: 'array', items: { type: 'string' } },
+            },
+          },
         },
         optimizationTips: {
           type: 'array',
@@ -464,19 +482,20 @@ export class CategoriesController {
             properties: {
               category: { type: 'string' },
               tip: { type: 'string' },
-              potentialSavings: { type: 'number' }
-            }
-          }
+              potentialSavings: { type: 'number' },
+            },
+          },
         },
         overallRecommendations: {
           type: 'array',
-          items: { type: 'string' }
-        }
-      }
-    }
+          items: { type: 'string' },
+        },
+      },
+    },
   })
   async analyzeBudgetWithAI(
-    @Body() dto: { 
+    @Body()
+    dto: {
       budgetOverview: {
         averageMonthlyIncome: number;
         averageMonthlyExpenses: number;
@@ -491,7 +510,7 @@ export class CategoriesController {
         monthlyBudget: number | null;
         averageMonthlySpending: number;
         budgetStatus: 'under' | 'warning' | 'over' | 'no_budget';
-    
+
         suggestedSavings: number;
       }>;
       period: number;
@@ -500,5 +519,4 @@ export class CategoriesController {
   ) {
     return this.expenseAnalysisService.analyzeBudgetWithAI(dto, user.id);
   }
-
 }

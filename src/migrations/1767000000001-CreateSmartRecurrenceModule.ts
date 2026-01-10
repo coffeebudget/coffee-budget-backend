@@ -6,7 +6,9 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterface {
+export class CreateSmartRecurrenceModule1767000000001
+  implements MigrationInterface
+{
   name = 'CreateSmartRecurrenceModule1767000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -39,7 +41,8 @@ export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterf
     // DETECTED_PATTERNS TABLE
     // ═══════════════════════════════════════════════════════════════
 
-    const hasDetectedPatternsTable = await queryRunner.hasTable('detected_patterns');
+    const hasDetectedPatternsTable =
+      await queryRunner.hasTable('detected_patterns');
     if (!hasDetectedPatternsTable) {
       await queryRunner.createTable(
         new Table({
@@ -199,7 +202,9 @@ export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterf
     // EXPENSE_PLAN_SUGGESTIONS TABLE
     // ═══════════════════════════════════════════════════════════════
 
-    const hasSuggestionsTable = await queryRunner.hasTable('expense_plan_suggestions');
+    const hasSuggestionsTable = await queryRunner.hasTable(
+      'expense_plan_suggestions',
+    );
     if (!hasSuggestionsTable) {
       await queryRunner.createTable(
         new Table({
@@ -456,7 +461,9 @@ export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterf
     // DROP EXPENSE_PLAN_SUGGESTIONS
     // ═══════════════════════════════════════════════════════════════
 
-    const suggestionsTable = await queryRunner.getTable('expense_plan_suggestions');
+    const suggestionsTable = await queryRunner.getTable(
+      'expense_plan_suggestions',
+    );
     if (suggestionsTable) {
       // Drop indexes
       const suggestionsIndexes = [
@@ -465,7 +472,9 @@ export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterf
         'IDX_expense_plan_suggestions_expires_at',
       ];
       for (const indexName of suggestionsIndexes) {
-        const index = suggestionsTable.indices.find((idx) => idx.name === indexName);
+        const index = suggestionsTable.indices.find(
+          (idx) => idx.name === indexName,
+        );
         if (index) {
           await queryRunner.dropIndex('expense_plan_suggestions', index);
         }
@@ -499,7 +508,9 @@ export class CreateSmartRecurrenceModule1767000000001 implements MigrationInterf
         'IDX_detected_patterns_next_expected_date',
       ];
       for (const indexName of patternsIndexes) {
-        const index = patternsTable.indices.find((idx) => idx.name === indexName);
+        const index = patternsTable.indices.find(
+          (idx) => idx.name === indexName,
+        );
         if (index) {
           await queryRunner.dropIndex('detected_patterns', index);
         }

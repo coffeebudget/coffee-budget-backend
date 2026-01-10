@@ -28,7 +28,7 @@ export class AddSyncReportRelationToImportLog1750000000002
 
     // Add foreign key constraint if it doesn't exist
     const hasForeignKey = table?.foreignKeys.some(
-      (fk) => fk.columnNames.indexOf('syncReportId') !== -1
+      (fk) => fk.columnNames.indexOf('syncReportId') !== -1,
     );
     if (!hasForeignKey) {
       await queryRunner.createForeignKey(

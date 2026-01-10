@@ -15,7 +15,7 @@ export interface SimilarityWeights {
 
 export const DEFAULT_SIMILARITY_WEIGHTS: SimilarityWeights = {
   category: 0.35,
-  merchant: 0.30,
+  merchant: 0.3,
   description: 0.25,
-  amount: 0.10,
+  amount: 0.1,
 };

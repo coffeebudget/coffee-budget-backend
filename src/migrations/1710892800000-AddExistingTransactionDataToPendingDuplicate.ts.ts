@@ -5,7 +5,9 @@ export class AddExistingTransactionDataToPendingDuplicate1710892800000
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
     const table = await queryRunner.getTable('pending_duplicates');
-    const hasColumn = table?.columns.some((c) => c.name === 'existingTransactionData');
+    const hasColumn = table?.columns.some(
+      (c) => c.name === 'existingTransactionData',
+    );
 
     if (!hasColumn) {
       await queryRunner.addColumn(
@@ -21,7 +23,9 @@ export class AddExistingTransactionDataToPendingDuplicate1710892800000
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     const table = await queryRunner.getTable('pending_duplicates');
-    const hasColumn = table?.columns.some((c) => c.name === 'existingTransactionData');
+    const hasColumn = table?.columns.some(
+      (c) => c.name === 'existingTransactionData',
+    );
 
     if (hasColumn) {
       await queryRunner.dropColumn(

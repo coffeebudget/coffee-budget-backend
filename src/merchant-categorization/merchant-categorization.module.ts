@@ -7,14 +7,10 @@ import { AIModule } from '../ai/ai.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      MerchantCategorization,
-      Category,
-    ]),
+    TypeOrmModule.forFeature([MerchantCategorization, Category]),
     AIModule,
   ],
   providers: [MerchantCategorizationService],
   exports: [MerchantCategorizationService],
 })
 export class MerchantCategorizationModule {}
-

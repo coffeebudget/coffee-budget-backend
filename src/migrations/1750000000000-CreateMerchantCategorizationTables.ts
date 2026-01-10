@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner, Table, TableIndex } from 'typeorm';
 
-export class CreateMerchantCategorizationTables1750000000000 implements MigrationInterface {
+export class CreateMerchantCategorizationTables1750000000000
+  implements MigrationInterface
+{
   name = 'CreateMerchantCategorizationTables1750000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -124,15 +126,16 @@ export class CreateMerchantCategorizationTables1750000000000 implements Migratio
         isUnique: true,
       }),
     );
-
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     // Drop indexes first
-    await queryRunner.dropIndex('merchant_categorization', 'IDX_merchant_categorization_unique');
+    await queryRunner.dropIndex(
+      'merchant_categorization',
+      'IDX_merchant_categorization_unique',
+    );
 
     // Drop tables
     await queryRunner.dropTable('merchant_categorization');
   }
 }
-

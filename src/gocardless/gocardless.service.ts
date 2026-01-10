@@ -328,11 +328,11 @@ export class GocardlessService {
 
       // Build query parameters for date range
       const queryParams = new URLSearchParams();
-      
+
       if (dateFrom) {
         queryParams.append('date_from', dateFrom.toISOString().split('T')[0]);
       }
-      
+
       if (dateTo) {
         queryParams.append('date_to', dateTo.toISOString().split('T')[0]);
       }
@@ -637,17 +637,19 @@ export class GocardlessService {
 
           const importOptions =
             account.type === 'bank_account'
-              ? { 
+              ? {
                   bankAccountId: account.localId,
                   skipDuplicateCheck: options.skipDuplicateCheck || false,
-                  createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                  createPendingForDuplicates:
+                    options.createPendingForDuplicates !== false,
                   dateFrom: options.dateFrom,
                   dateTo: options.dateTo,
                 }
-              : { 
+              : {
                   creditCardId: account.localId,
                   skipDuplicateCheck: options.skipDuplicateCheck || false,
-                  createPendingForDuplicates: options.createPendingForDuplicates !== false,
+                  createPendingForDuplicates:
+                    options.createPendingForDuplicates !== false,
                   dateFrom: options.dateFrom,
                   dateTo: options.dateTo,
                 };

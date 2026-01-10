@@ -48,7 +48,8 @@ export class IncomeDistributionController {
   @Get('rules')
   @ApiOperation({
     summary: 'Get all income distribution rules',
-    description: 'Retrieve all income distribution rules for the authenticated user',
+    description:
+      'Retrieve all income distribution rules for the authenticated user',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -96,7 +97,8 @@ export class IncomeDistributionController {
   @Post('rules')
   @ApiOperation({
     summary: 'Create a new income distribution rule',
-    description: 'Create a rule for automatically distributing income to expense plans',
+    description:
+      'Create a rule for automatically distributing income to expense plans',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -190,7 +192,8 @@ export class IncomeDistributionController {
   @Post('distribute-manually')
   @ApiOperation({
     summary: 'Manually distribute funds to expense plans',
-    description: 'Distribute a specified amount to active expense plans using the chosen strategy',
+    description:
+      'Distribute a specified amount to active expense plans using the chosen strategy',
   })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -219,7 +222,8 @@ export class IncomeDistributionController {
   @Get('pending-distributions')
   @ApiOperation({
     summary: 'Get pending distributions',
-    description: 'Get a list of expense plans that need funding with their required amounts',
+    description:
+      'Get a list of expense plans that need funding with their required amounts',
   })
   @ApiResponse({
     status: HttpStatus.OK,

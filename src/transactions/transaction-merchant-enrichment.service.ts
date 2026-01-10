@@ -15,7 +15,9 @@ export interface EnrichmentResult {
 
 @Injectable()
 export class TransactionMerchantEnrichmentService {
-  private readonly logger = new Logger(TransactionMerchantEnrichmentService.name);
+  private readonly logger = new Logger(
+    TransactionMerchantEnrichmentService.name,
+  );
 
   constructor(
     @InjectRepository(Transaction)
@@ -30,13 +32,15 @@ export class TransactionMerchantEnrichmentService {
    */
   async enrichTransactionsWithMerchantData(
     userId: number,
-    dryRun: boolean = true
+    dryRun: boolean = true,
   ): Promise<EnrichmentResult> {
-    this.logger.log(`Starting merchant data enrichment for user ${userId} (dryRun: ${dryRun})`);
+    this.logger.log(
+      `Starting merchant data enrichment for user ${userId} (dryRun: ${dryRun})`,
+    );
 
     // Get GoCardless bank accounts for the user
     const goCardlessAccounts = await this.getGoCardlessAccounts(userId);
-    
+
     if (goCardlessAccounts.length === 0) {
       this.logger.warn('No GoCardless accounts found for user');
       return {
@@ -61,7 +65,11 @@ export class TransactionMerchantEnrichmentService {
     // Process each GoCardless account
     for (const account of goCardlessAccounts) {
       try {
-        const accountResult = await this.enrichAccountTransactions(account, userId, dryRun);
+        const accountResult = await this.enrichAccountTransactions(
+          account,
+          userId,
+          dryRun,
+        );
         result.totalTransactions += accountResult.totalTransactions;
         result.enrichedTransactions += accountResult.enrichedTransactions;
         result.skippedTransactions += accountResult.skippedTransactions;
@@ -83,15 +91,20 @@ export class TransactionMerchantEnrichmentService {
   private async enrichAccountTransactions(
     account: BankAccount,
     userId: number,
-    dryRun: boolean
+    dryRun: boolean,
   ): Promise<EnrichmentResult> {
     this.logger.log(`Enriching transactions for account: ${account.name}`);
 
     // Get transactions from this account that need enrichment
-    const transactions = await this.getTransactionsNeedingEnrichment(account.id, userId);
-    
+    const transactions = await this.getTransactionsNeedingEnrichment(
+      account.id,
+      userId,
+    );
+
     if (transactions.length === 0) {
-      this.logger.log(`No transactions need enrichment for account: ${account.name}`);
+      this.logger.log(
+        `No transactions need enrichment for account: ${account.name}`,
+      );
       return {
         totalTransactions: 0,
         enrichedTransactions: 0,
@@ -101,13 +114,18 @@ export class TransactionMerchantEnrichmentService {
       };
     }
 
-    this.logger.log(`Found ${transactions.length} transactions needing enrichment for account: ${account.name}`);
+    this.logger.log(
+      `Found ${transactions.length} transactions needing enrichment for account: ${account.name}`,
+    );
 
     // Fetch fresh transaction data from GoCardless
-    const freshTransactions = await this.fetchFreshTransactionsFromGoCardless(account);
-    
+    const freshTransactions =
+      await this.fetchFreshTransactionsFromGoCardless(account);
+
     if (!freshTransactions || freshTransactions.length === 0) {
-      this.logger.warn(`No fresh transactions found from GoCardless for account: ${account.name}`);
+      this.logger.warn(
+        `No fresh transactions found from GoCardless for account: ${account.name}`,
+      );
       return {
         totalTransactions: transactions.length,
         enrichedTransactions: 0,
@@ -128,15 +146,22 @@ export class TransactionMerchantEnrichmentService {
 
     for (const transaction of transactions) {
       try {
-        const enriched = await this.enrichSingleTransaction(transaction, freshTransactions, dryRun);
-        
+        const enriched = await this.enrichSingleTransaction(
+          transaction,
+          freshTransactions,
+          dryRun,
+        );
+
         if (enriched) {
           result.enrichedTransactions++;
         } else {
           result.skippedTransactions++;
         }
       } catch (error) {
-        this.logger.error(`Error enriching transaction ${transaction.id}:`, error);
+        this.logger.error(
+          `Error enriching transaction ${transaction.id}:`,
+          error,
+        );
         result.errors++;
       }
     }
@@ -161,7 +186,10 @@ export class TransactionMerchantEnrichmentService {
   /**
    * Get transactions that need merchant data enrichment
    */
-  private async getTransactionsNeedingEnrichment(accountId: number, userId: number): Promise<Transaction[]> {
+  private async getTransactionsNeedingEnrichment(
+    accountId: number,
+    userId: number,
+  ): Promise<Transaction[]> {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
@@ -181,7 +209,9 @@ export class TransactionMerchantEnrichmentService {
   /**
    * Fetch fresh transaction data from GoCardless API
    */
-  private async fetchFreshTransactionsFromGoCardless(account: BankAccount): Promise<any[]> {
+  private async fetchFreshTransactionsFromGoCardless(
+    account: BankAccount,
+  ): Promise<any[]> {
     try {
       const oneYearAgo = new Date();
       oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -189,12 +219,15 @@ export class TransactionMerchantEnrichmentService {
       const response = await this.gocardlessService.getAccountTransactions(
         account.gocardlessAccountId!,
         oneYearAgo,
-        new Date()
+        new Date(),
       );
 
       return response.transactions.booked || [];
     } catch (error) {
-      this.logger.error(`Failed to fetch fresh transactions for account ${account.name}:`, error);
+      this.logger.error(
+        `Failed to fetch fresh transactions for account ${account.name}:`,
+        error,
+      );
       return [];
     }
   }
@@ -205,30 +238,42 @@ export class TransactionMerchantEnrichmentService {
   private async enrichSingleTransaction(
     transaction: Transaction,
     freshTransactions: any[],
-    dryRun: boolean
+    dryRun: boolean,
   ): Promise<boolean> {
     // Find matching transaction in fresh data
-    const matchingTx = this.findMatchingTransaction(transaction, freshTransactions);
-    
+    const matchingTx = this.findMatchingTransaction(
+      transaction,
+      freshTransactions,
+    );
+
     if (!matchingTx) {
       this.logger.debug(`No matching transaction found for ${transaction.id}`);
       return false;
     }
 
     // Extract merchant data
-    const merchantData = this.extractMerchantDataFromGoCardless(matchingTx, transaction.amount);
-    
+    const merchantData = this.extractMerchantDataFromGoCardless(
+      matchingTx,
+      transaction.amount,
+    );
+
     if (!merchantData.merchantName) {
-      this.logger.debug(`No merchant data available for transaction ${transaction.id}`);
+      this.logger.debug(
+        `No merchant data available for transaction ${transaction.id}`,
+      );
       return false;
     }
 
     // Update transaction with merchant data
     if (!dryRun) {
       await this.updateTransactionWithMerchantData(transaction, merchantData);
-      this.logger.debug(`Enriched transaction ${transaction.id} with merchant: ${merchantData.merchantName}`);
+      this.logger.debug(
+        `Enriched transaction ${transaction.id} with merchant: ${merchantData.merchantName}`,
+      );
     } else {
-      this.logger.debug(`Would enrich transaction ${transaction.id} with merchant: ${merchantData.merchantName} (dry run)`);
+      this.logger.debug(
+        `Would enrich transaction ${transaction.id} with merchant: ${merchantData.merchantName} (dry run)`,
+      );
     }
 
     return true;
@@ -237,18 +282,25 @@ export class TransactionMerchantEnrichmentService {
   /**
    * Find matching transaction in fresh GoCardless data
    */
-  private findMatchingTransaction(transaction: Transaction, freshTransactions: any[]): any | null {
+  private findMatchingTransaction(
+    transaction: Transaction,
+    freshTransactions: any[],
+  ): any | null {
     if (!transaction.executionDate) {
       return null;
     }
 
-    const transactionDate = transaction.executionDate.toISOString().split('T')[0];
+    const transactionDate = transaction.executionDate
+      .toISOString()
+      .split('T')[0];
     const transactionAmount = Math.abs(transaction.amount).toFixed(2);
 
-    return freshTransactions.find(tx => {
+    return freshTransactions.find((tx) => {
       const txDate = tx.bookingDate || tx.valueDate;
-      const txAmount = Math.abs(parseFloat(tx.transactionAmount.amount)).toFixed(2);
-      
+      const txAmount = Math.abs(
+        parseFloat(tx.transactionAmount.amount),
+      ).toFixed(2);
+
       return txDate === transactionDate && txAmount === transactionAmount;
     });
   }
@@ -256,7 +308,10 @@ export class TransactionMerchantEnrichmentService {
   /**
    * Extract merchant data from GoCardless transaction
    */
-  private extractMerchantDataFromGoCardless(goCardlessTx: any, amount: number): {
+  private extractMerchantDataFromGoCardless(
+    goCardlessTx: any,
+    amount: number,
+  ): {
     merchantName: string | null;
     merchantCategoryCode: string | null;
     debtorName: string | null;
@@ -264,7 +319,7 @@ export class TransactionMerchantEnrichmentService {
   } {
     // Extract merchant name using the same logic as the parser
     let merchantName: string | null = null;
-    
+
     if (amount < 0 && goCardlessTx.creditorName) {
       // For expenses, use creditor name (who we paid to)
       merchantName = goCardlessTx.creditorName.trim();
@@ -272,7 +327,7 @@ export class TransactionMerchantEnrichmentService {
       // For income, use debtor name (who paid us)
       merchantName = goCardlessTx.debtorName.trim();
     }
-    
+
     return {
       merchantName,
       merchantCategoryCode: goCardlessTx.merchantCategoryCode || null,
@@ -291,7 +346,7 @@ export class TransactionMerchantEnrichmentService {
       merchantCategoryCode: string | null;
       debtorName: string | null;
       creditorName: string | null;
-    }
+    },
   ): Promise<void> {
     transaction.merchantName = merchantData.merchantName;
     transaction.merchantCategoryCode = merchantData.merchantCategoryCode;
@@ -299,8 +354,10 @@ export class TransactionMerchantEnrichmentService {
     transaction.creditorName = merchantData.creditorName;
 
     await this.transactionRepository.save(transaction);
-    
-    this.logger.debug(`Updated transaction ${transaction.id} with merchant data: ${merchantData.merchantName}`);
+
+    this.logger.debug(
+      `Updated transaction ${transaction.id} with merchant data: ${merchantData.merchantName}`,
+    );
   }
 
   /**
@@ -316,7 +373,12 @@ export class TransactionMerchantEnrichmentService {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
-    const [totalTransactions, transactionsWithMerchantData, transactionsNeedingEnrichment, goCardlessAccounts] = await Promise.all([
+    const [
+      totalTransactions,
+      transactionsWithMerchantData,
+      transactionsNeedingEnrichment,
+      goCardlessAccounts,
+    ] = await Promise.all([
       this.transactionRepository.count({
         where: {
           user: { id: userId },
@@ -345,7 +407,8 @@ export class TransactionMerchantEnrichmentService {
       }),
     ]);
 
-    const potentialImprovement = goCardlessAccounts > 0 ? transactionsNeedingEnrichment : 0;
+    const potentialImprovement =
+      goCardlessAccounts > 0 ? transactionsNeedingEnrichment : 0;
 
     return {
       totalTransactions,

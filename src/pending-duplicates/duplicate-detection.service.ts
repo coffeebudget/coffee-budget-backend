@@ -130,13 +130,16 @@ export class DuplicateDetectionService {
           bestReason = 'Exact match (amount, description, same date)';
           bestConfidence = 'high';
         } else if (score >= 90) {
-          bestReason = 'Very high similarity (likely duplicate with minor date/description variance)';
+          bestReason =
+            'Very high similarity (likely duplicate with minor date/description variance)';
           bestConfidence = 'high';
         } else if (score >= 80) {
-          bestReason = 'High similarity (same amount, type, similar description/date)';
+          bestReason =
+            'High similarity (same amount, type, similar description/date)';
           bestConfidence = 'high';
         } else if (score >= 70) {
-          bestReason = 'Medium-high similarity (same amount, different date/description)';
+          bestReason =
+            'Medium-high similarity (same amount, different date/description)';
           bestConfidence = 'medium';
         } else if (score >= 60) {
           bestReason = 'Medium similarity (partial match)';
@@ -183,7 +186,8 @@ export class DuplicateDetectionService {
     // Our system stores all amounts as positive values and uses type field to indicate direction
     // Negative amounts indicate data corruption or import issues
     if (newTransaction.amount < 0 || existingTransaction.amount < 0) {
-      this.logger.warn(`Rejecting duplicate comparison - negative amount detected:
+      this.logger
+        .warn(`Rejecting duplicate comparison - negative amount detected:
         New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type}
         Existing: ${existingTransaction.description} | ${existingTransaction.amount} | ${existingTransaction.type}`);
       return 0; // Not a duplicate - invalid data
@@ -192,12 +196,12 @@ export class DuplicateDetectionService {
     // Amount match (30 points)
     maxScore += 30;
     const amountMatch = this.amountsMatch(
-      newTransaction.amount, 
+      newTransaction.amount,
       newTransaction.type,
-      existingTransaction.amount, 
-      existingTransaction.type
+      existingTransaction.amount,
+      existingTransaction.type,
     );
-    
+
     if (amountMatch) {
       score += 30;
     }
@@ -228,7 +232,9 @@ export class DuplicateDetectionService {
 
       // Calculate days difference
       daysDifference = Math.abs(
-        Math.floor((newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24))
+        Math.floor(
+          (newDate.getTime() - existingDate.getTime()) / (1000 * 60 * 60 * 24),
+        ),
       );
 
       // Early rejection for transactions too far apart in time
@@ -246,7 +252,7 @@ export class DuplicateDetectionService {
       } else if (daysDifference === 2) {
         dateScore = 12; // ±2 days - 60%
       } else if (daysDifference <= 7) {
-        dateScore = 8;  // ±3-7 days - 40%
+        dateScore = 8; // ±3-7 days - 40%
       }
       // else dateScore stays 0 for >7 days difference
 
@@ -257,8 +263,14 @@ export class DuplicateDetectionService {
 
     // Debug logging for transactions with high similarity
     if (finalScore >= 60) {
-      const normalizedNew = this.normalizeAmount(newTransaction.amount, newTransaction.type);
-      const normalizedExisting = this.normalizeAmount(existingTransaction.amount, existingTransaction.type);
+      const normalizedNew = this.normalizeAmount(
+        newTransaction.amount,
+        newTransaction.type,
+      );
+      const normalizedExisting = this.normalizeAmount(
+        existingTransaction.amount,
+        existingTransaction.type,
+      );
 
       this.logger.debug(`Similarity calculation:
         New: ${newTransaction.description} | ${newTransaction.amount} | ${newTransaction.type} | ${newTransaction.executionDate}
@@ -558,7 +570,12 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
+          this.amountsMatch(
+            t.amount,
+            t.type,
+            transaction.amount,
+            transaction.type,
+          ) &&
           this.isSameDay(t.executionDate!, transaction.executionDate!) &&
           t.description !== transaction.description, // Different descriptions
       );
@@ -601,7 +618,12 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
+          this.amountsMatch(
+            t.amount,
+            t.type,
+            transaction.amount,
+            transaction.type,
+          ) &&
           this.isSameDay(t.executionDate!, transaction.executionDate!), // Same day only
       );
 
@@ -638,7 +660,12 @@ export class DuplicateDetectionService {
           t.id !== transaction.id &&
           !processed.has(t.id) &&
           t.executionDate &&
-          this.amountsMatch(t.amount, t.type, transaction.amount, transaction.type) &&
+          this.amountsMatch(
+            t.amount,
+            t.type,
+            transaction.amount,
+            transaction.type,
+          ) &&
           this.isSameDay(t.executionDate!, transaction.executionDate!) && // Same day only
           this.isSimilarDescription(t.description, transaction.description),
       );
@@ -713,7 +740,7 @@ export class DuplicateDetectionService {
     type1: 'income' | 'expense',
     amount2: number,
     type2: 'income' | 'expense',
-    tolerance: number = 0.01 // Default $0.01 tolerance for floating-point differences
+    tolerance: number = 0.01, // Default $0.01 tolerance for floating-point differences
   ): boolean {
     // Only compare if same transaction type
     if (type1 !== type2) return false;
@@ -763,6 +790,4 @@ export class DuplicateDetectionService {
 
     return similarity >= 0.6; // 60% word similarity
   }
-
-
 }

@@ -122,7 +122,9 @@ describe('TransactionDuplicateService', () => {
       ],
     }).compile();
 
-    service = module.get<TransactionDuplicateService>(TransactionDuplicateService);
+    service = module.get<TransactionDuplicateService>(
+      TransactionDuplicateService,
+    );
     transactionRepository = module.get(getRepositoryToken(Transaction));
     duplicateDetectionService = module.get(DuplicateDetectionService);
     pendingDuplicatesService = module.get(PendingDuplicatesService);
@@ -148,15 +150,32 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
+      const result = await service.findPotentialDuplicate(
+        amount,
+        type,
+        executionDate,
+        userId,
+      );
 
       expect(result).toEqual(mockDuplicateTransaction);
-      expect(transactionRepository.createQueryBuilder).toHaveBeenCalledWith('transaction');
-      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith('transaction.user', 'user');
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith('user.id = :userId', { userId });
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.type = :type', { type });
+      expect(transactionRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'transaction',
+      );
+      expect(mockQueryBuilder.innerJoin).toHaveBeenCalledWith(
+        'transaction.user',
+        'user',
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith('user.id = :userId', {
+        userId,
+      });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'transaction.type = :type',
+        { type },
+      );
       expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
         'transaction.executionDate BETWEEN :startDate AND :endDate',
         expect.objectContaining({
@@ -168,7 +187,10 @@ describe('TransactionDuplicateService', () => {
         'ABS(transaction.amount - :amount) <= :tolerance',
         { amount, tolerance: 0.01 },
       );
-      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('transaction.createdAt', 'DESC');
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith(
+        'transaction.createdAt',
+        'DESC',
+      );
       expect(mockQueryBuilder.getOne).toHaveBeenCalled();
     });
 
@@ -186,9 +208,16 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
+      const result = await service.findPotentialDuplicate(
+        amount,
+        type,
+        executionDate,
+        userId,
+      );
 
       expect(result).toBeNull();
     });
@@ -199,7 +228,11 @@ describe('TransactionDuplicateService', () => {
       const executionDate = new Date('2024-01-15');
       const userId = 1;
 
-      const incomeTransaction = { ...mockDuplicateTransaction, amount: 100, type: 'income' as const };
+      const incomeTransaction = {
+        ...mockDuplicateTransaction,
+        amount: 100,
+        type: 'income' as const,
+      };
 
       const mockQueryBuilder = {
         innerJoin: jest.fn().mockReturnThis(),
@@ -208,12 +241,22 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(incomeTransaction),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
-      const result = await service.findPotentialDuplicate(amount, type, executionDate, userId);
+      const result = await service.findPotentialDuplicate(
+        amount,
+        type,
+        executionDate,
+        userId,
+      );
 
       expect(result).toEqual(incomeTransaction);
-      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('transaction.type = :type', { type: 'income' });
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'transaction.type = :type',
+        { type: 'income' },
+      );
     });
 
     it('should apply $0.01 tolerance to amount matching', async () => {
@@ -229,7 +272,9 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
       await service.findPotentialDuplicate(amount, type, executionDate, userId);
 
@@ -252,17 +297,24 @@ describe('TransactionDuplicateService', () => {
         preventedDuplicates: 0,
         usersProcessed: 1,
         executionTime: '1.0s',
-        duplicateGroups: [{
-          transactions: [mockTransaction, mockDuplicateTransaction],
-          reason: 'Similar transactions',
-          confidence: 'high' as const,
-        }],
+        duplicateGroups: [
+          {
+            transactions: [mockTransaction, mockDuplicateTransaction],
+            reason: 'Similar transactions',
+            confidence: 'high' as const,
+          },
+        ],
       });
 
-      const result = await service.detectSimilarTransactions(mockTransaction, userId);
+      const result = await service.detectSimilarTransactions(
+        mockTransaction,
+        userId,
+      );
 
       expect(result).toEqual(similarTransactions);
-      expect(duplicateDetectionService.detectDuplicates).toHaveBeenCalledWith(userId);
+      expect(duplicateDetectionService.detectDuplicates).toHaveBeenCalledWith(
+        userId,
+      );
     });
 
     it('should return empty array when no similar transactions found', async () => {
@@ -277,7 +329,10 @@ describe('TransactionDuplicateService', () => {
         duplicateGroups: [],
       });
 
-      const result = await service.detectSimilarTransactions(mockTransaction, userId);
+      const result = await service.detectSimilarTransactions(
+        mockTransaction,
+        userId,
+      );
 
       expect(result).toEqual([]);
     });
@@ -288,9 +343,9 @@ describe('TransactionDuplicateService', () => {
 
       duplicateDetectionService.detectDuplicates.mockRejectedValue(error);
 
-      await expect(service.detectSimilarTransactions(mockTransaction, userId)).rejects.toThrow(
-        'Detection failed',
-      );
+      await expect(
+        service.detectSimilarTransactions(mockTransaction, userId),
+      ).rejects.toThrow('Detection failed');
     });
   });
 
@@ -298,50 +353,67 @@ describe('TransactionDuplicateService', () => {
     it('should calculate similarity score using DuplicateDetectionService', async () => {
       const score = 85.5;
 
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: true,
-        existingTransaction: mockDuplicateTransaction,
-        similarityScore: score,
-        reason: 'High similarity',
-        confidence: 'high' as const,
-        shouldPrevent: false,
-        shouldCreatePending: true,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: true,
+          existingTransaction: mockDuplicateTransaction,
+          similarityScore: score,
+          reason: 'High similarity',
+          confidence: 'high' as const,
+          shouldPrevent: false,
+          shouldCreatePending: true,
+        },
+      );
 
-      const result = await service.calculateSimilarityScore(mockTransaction, mockDuplicateTransaction);
+      const result = await service.calculateSimilarityScore(
+        mockTransaction,
+        mockDuplicateTransaction,
+      );
 
       expect(result).toBe(score);
-      expect(duplicateDetectionService.checkForDuplicateBeforeCreation).toHaveBeenCalled();
+      expect(
+        duplicateDetectionService.checkForDuplicateBeforeCreation,
+      ).toHaveBeenCalled();
     });
 
     it('should return 0 for completely different transactions', async () => {
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: false,
-        existingTransaction: undefined,
-        similarityScore: 0,
-        reason: 'No match',
-        confidence: 'low' as const,
-        shouldPrevent: false,
-        shouldCreatePending: false,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: false,
+          existingTransaction: undefined,
+          similarityScore: 0,
+          reason: 'No match',
+          confidence: 'low' as const,
+          shouldPrevent: false,
+          shouldCreatePending: false,
+        },
+      );
 
-      const result = await service.calculateSimilarityScore(mockTransaction, mockDuplicateTransaction);
+      const result = await service.calculateSimilarityScore(
+        mockTransaction,
+        mockDuplicateTransaction,
+      );
 
       expect(result).toBe(0);
     });
 
     it('should return 100 for identical transactions', async () => {
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: true,
-        existingTransaction: mockTransaction,
-        similarityScore: 100,
-        reason: 'Exact match',
-        confidence: 'high' as const,
-        shouldPrevent: true,
-        shouldCreatePending: false,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: true,
+          existingTransaction: mockTransaction,
+          similarityScore: 100,
+          reason: 'Exact match',
+          confidence: 'high' as const,
+          shouldPrevent: true,
+          shouldCreatePending: false,
+        },
+      );
 
-      const result = await service.calculateSimilarityScore(mockTransaction, mockTransaction);
+      const result = await service.calculateSimilarityScore(
+        mockTransaction,
+        mockTransaction,
+      );
 
       expect(result).toBe(100);
     });
@@ -363,7 +435,9 @@ describe('TransactionDuplicateService', () => {
       const choice = DuplicateTransactionChoice.USE_NEW;
       const newTransaction = { ...mockTransaction, id: 3 };
 
-      transactionCreationService.createAndSaveTransaction.mockResolvedValue(newTransaction);
+      transactionCreationService.createAndSaveTransaction.mockResolvedValue(
+        newTransaction,
+      );
 
       const result = await service.handleDuplicateResolution(
         mockDuplicateTransaction,
@@ -373,10 +447,9 @@ describe('TransactionDuplicateService', () => {
       );
 
       expect(result).toEqual(newTransaction);
-      expect(transactionCreationService.createAndSaveTransaction).toHaveBeenCalledWith(
-        mockCreateTransactionDto,
-        userId,
-      );
+      expect(
+        transactionCreationService.createAndSaveTransaction,
+      ).toHaveBeenCalledWith(mockCreateTransactionDto, userId);
     });
 
     it('should handle KEEP_EXISTING choice by returning existing transaction', async () => {
@@ -391,7 +464,9 @@ describe('TransactionDuplicateService', () => {
       );
 
       expect(result).toEqual(mockDuplicateTransaction);
-      expect(transactionCreationService.createAndSaveTransaction).not.toHaveBeenCalled();
+      expect(
+        transactionCreationService.createAndSaveTransaction,
+      ).not.toHaveBeenCalled();
     });
 
     it('should handle MAINTAIN_BOTH choice by creating new transaction', async () => {
@@ -399,7 +474,9 @@ describe('TransactionDuplicateService', () => {
       const choice = DuplicateTransactionChoice.MAINTAIN_BOTH;
       const newTransaction = { ...mockTransaction, id: 3 };
 
-      transactionCreationService.createAndSaveTransaction.mockResolvedValue(newTransaction);
+      transactionCreationService.createAndSaveTransaction.mockResolvedValue(
+        newTransaction,
+      );
 
       const result = await service.handleDuplicateResolution(
         mockDuplicateTransaction,
@@ -409,10 +486,9 @@ describe('TransactionDuplicateService', () => {
       );
 
       expect(result).toEqual(newTransaction);
-      expect(transactionCreationService.createAndSaveTransaction).toHaveBeenCalledWith(
-        mockCreateTransactionDto,
-        userId,
-      );
+      expect(
+        transactionCreationService.createAndSaveTransaction,
+      ).toHaveBeenCalledWith(mockCreateTransactionDto, userId);
     });
 
     it('should handle null existing transaction by creating new transaction', async () => {
@@ -420,7 +496,9 @@ describe('TransactionDuplicateService', () => {
       const choice = DuplicateTransactionChoice.USE_NEW;
       const newTransaction = { ...mockTransaction, id: 3 };
 
-      transactionCreationService.createAndSaveTransaction.mockResolvedValue(newTransaction);
+      transactionCreationService.createAndSaveTransaction.mockResolvedValue(
+        newTransaction,
+      );
 
       const result = await service.handleDuplicateResolution(
         null,
@@ -430,10 +508,9 @@ describe('TransactionDuplicateService', () => {
       );
 
       expect(result).toEqual(newTransaction);
-      expect(transactionCreationService.createAndSaveTransaction).toHaveBeenCalledWith(
-        mockCreateTransactionDto,
-        userId,
-      );
+      expect(
+        transactionCreationService.createAndSaveTransaction,
+      ).toHaveBeenCalledWith(mockCreateTransactionDto, userId);
     });
 
     it('should handle errors during transaction creation', async () => {
@@ -441,7 +518,9 @@ describe('TransactionDuplicateService', () => {
       const choice = DuplicateTransactionChoice.USE_NEW;
       const error = new Error('Creation failed');
 
-      transactionCreationService.createAndSaveTransaction.mockRejectedValue(error);
+      transactionCreationService.createAndSaveTransaction.mockRejectedValue(
+        error,
+      );
 
       await expect(
         service.handleDuplicateResolution(
@@ -482,7 +561,9 @@ describe('TransactionDuplicateService', () => {
       const userChoice = DuplicateTransactionChoice.USE_NEW;
       const newTransaction = { ...mockTransaction, id: 3 };
 
-      jest.spyOn(service, 'handleDuplicateResolution').mockResolvedValue(newTransaction);
+      jest
+        .spyOn(service, 'handleDuplicateResolution')
+        .mockResolvedValue(newTransaction);
 
       const result = await service.handleDuplicateConfirmation(
         mockDuplicateTransaction,
@@ -527,20 +608,27 @@ describe('TransactionDuplicateService', () => {
     it('should prevent creation when duplicate is found', async () => {
       const userId = 1;
 
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: true,
-        existingTransaction: mockDuplicateTransaction,
-        similarityScore: 95,
-        reason: 'Exact match',
-        confidence: 'high',
-        shouldPrevent: true,
-        shouldCreatePending: false,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: true,
+          existingTransaction: mockDuplicateTransaction,
+          similarityScore: 95,
+          reason: 'Exact match',
+          confidence: 'high',
+          shouldPrevent: true,
+          shouldCreatePending: false,
+        },
+      );
 
-      const result = await service.preventDuplicateCreation(mockTransaction, userId);
+      const result = await service.preventDuplicateCreation(
+        mockTransaction,
+        userId,
+      );
 
       expect(result).toBe(true);
-      expect(duplicateDetectionService.checkForDuplicateBeforeCreation).toHaveBeenCalledWith(
+      expect(
+        duplicateDetectionService.checkForDuplicateBeforeCreation,
+      ).toHaveBeenCalledWith(
         {
           description: mockTransaction.description,
           amount: mockTransaction.amount,
@@ -555,17 +643,22 @@ describe('TransactionDuplicateService', () => {
     it('should allow creation when no duplicate found', async () => {
       const userId = 1;
 
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: false,
-        existingTransaction: undefined,
-        similarityScore: 0,
-        reason: 'No match found',
-        confidence: 'low',
-        shouldPrevent: false,
-        shouldCreatePending: false,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: false,
+          existingTransaction: undefined,
+          similarityScore: 0,
+          reason: 'No match found',
+          confidence: 'low',
+          shouldPrevent: false,
+          shouldCreatePending: false,
+        },
+      );
 
-      const result = await service.preventDuplicateCreation(mockTransaction, userId);
+      const result = await service.preventDuplicateCreation(
+        mockTransaction,
+        userId,
+      );
 
       expect(result).toBe(false);
     });
@@ -573,17 +666,22 @@ describe('TransactionDuplicateService', () => {
     it('should handle high similarity scores correctly', async () => {
       const userId = 1;
 
-      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue({
-        isDuplicate: true,
-        existingTransaction: mockDuplicateTransaction,
-        similarityScore: 85,
-        reason: 'High similarity',
-        confidence: 'medium',
-        shouldPrevent: false,
-        shouldCreatePending: true,
-      });
+      duplicateDetectionService.checkForDuplicateBeforeCreation.mockResolvedValue(
+        {
+          isDuplicate: true,
+          existingTransaction: mockDuplicateTransaction,
+          similarityScore: 85,
+          reason: 'High similarity',
+          confidence: 'medium',
+          shouldPrevent: false,
+          shouldCreatePending: true,
+        },
+      );
 
-      const result = await service.preventDuplicateCreation(mockTransaction, userId);
+      const result = await service.preventDuplicateCreation(
+        mockTransaction,
+        userId,
+      );
 
       expect(result).toBe(false);
     });
@@ -611,16 +709,18 @@ describe('TransactionDuplicateService', () => {
     it('should validate threshold range', async () => {
       const invalidThreshold = 150;
 
-      await expect(service.updateDuplicateThreshold(invalidThreshold)).rejects.toThrow(
-        'Threshold must be between 0 and 100',
-      );
+      await expect(
+        service.updateDuplicateThreshold(invalidThreshold),
+      ).rejects.toThrow('Threshold must be between 0 and 100');
     });
 
     it('should accept valid threshold values', async () => {
       const validThresholds = [0, 50, 80, 100];
 
       for (const threshold of validThresholds) {
-        await expect(service.updateDuplicateThreshold(threshold)).resolves.not.toThrow();
+        await expect(
+          service.updateDuplicateThreshold(threshold),
+        ).resolves.not.toThrow();
       }
     });
   });
@@ -641,11 +741,13 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockRejectedValue(error),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
-      await expect(service.findPotentialDuplicate(amount, type, executionDate, userId)).rejects.toThrow(
-        'Database connection failed',
-      );
+      await expect(
+        service.findPotentialDuplicate(amount, type, executionDate, userId),
+      ).rejects.toThrow('Database connection failed');
     });
 
     it('should handle service dependency errors', async () => {
@@ -654,9 +756,9 @@ describe('TransactionDuplicateService', () => {
 
       duplicateDetectionService.detectDuplicates.mockRejectedValue(error);
 
-      await expect(service.detectSimilarTransactions(mockTransaction, userId)).rejects.toThrow(
-        'Service unavailable',
-      );
+      await expect(
+        service.detectSimilarTransactions(mockTransaction, userId),
+      ).rejects.toThrow('Service unavailable');
     });
   });
 
@@ -681,10 +783,14 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(mockDuplicateTransaction),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
       // Mock duplicate confirmation
-      jest.spyOn(service, 'handleDuplicateConfirmation').mockResolvedValue(mockTransaction);
+      jest
+        .spyOn(service, 'handleDuplicateConfirmation')
+        .mockResolvedValue(mockTransaction);
 
       const duplicate = await service.findPotentialDuplicate(
         createDto.amount,
@@ -725,7 +831,9 @@ describe('TransactionDuplicateService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getOne: jest.fn().mockResolvedValue(null),
       };
-      transactionRepository.createQueryBuilder = jest.fn().mockReturnValue(mockQueryBuilder);
+      transactionRepository.createQueryBuilder = jest
+        .fn()
+        .mockReturnValue(mockQueryBuilder);
 
       const duplicate = await service.findPotentialDuplicate(
         createDto.amount,

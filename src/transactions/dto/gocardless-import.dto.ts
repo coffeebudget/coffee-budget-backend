@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsBoolean, IsDateString } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsBoolean,
+  IsDateString,
+} from 'class-validator';
 
 export class GocardlessImportDto {
   @ApiProperty({
@@ -35,7 +41,8 @@ export class GocardlessImportDto {
   skipDuplicateCheck?: boolean;
 
   @ApiProperty({
-    description: 'Create pending duplicates for manual review instead of skipping',
+    description:
+      'Create pending duplicates for manual review instead of skipping',
     required: false,
     default: true,
   })

@@ -11,7 +11,10 @@ import {
 } from 'typeorm';
 import { User } from '../../users/user.entity';
 import { Category } from '../../categories/entities/category.entity';
+import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
 import { ExpensePlanTransaction } from './expense-plan-transaction.entity';
+
+export type PaymentAccountType = 'bank_account'; // Future: | 'credit_card'
 
 export type ExpensePlanType =
   | 'fixed_monthly'
@@ -83,6 +86,20 @@ export class ExpensePlan {
 
   @Column({ default: false })
   autoTrackCategory: boolean;
+
+  // ─────────────────────────────────────────────────────────────
+  // PAYMENT SOURCE (Optional - for coverage tracking)
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  paymentAccountType: PaymentAccountType | null;
+
+  @Column({ nullable: true })
+  paymentAccountId: number | null;
+
+  @ManyToOne(() => BankAccount, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'paymentAccountId' })
+  paymentAccount: BankAccount | null;
 
   // ─────────────────────────────────────────────────────────────
   // FINANCIAL
@@ -165,6 +182,9 @@ export class ExpensePlan {
   // RELATIONS
   // ─────────────────────────────────────────────────────────────
 
-  @OneToMany(() => ExpensePlanTransaction, (transaction) => transaction.expensePlan)
+  @OneToMany(
+    () => ExpensePlanTransaction,
+    (transaction) => transaction.expensePlan,
+  )
   transactions: ExpensePlanTransaction[];
 }

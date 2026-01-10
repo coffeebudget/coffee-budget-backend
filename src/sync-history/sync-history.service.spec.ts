@@ -2,9 +2,17 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Repository, In } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { SyncHistoryService } from './sync-history.service';
-import { SyncReport, SyncStatus, SyncSource, SyncSourceType } from './entities/sync-report.entity';
+import {
+  SyncReport,
+  SyncStatus,
+  SyncSource,
+  SyncSourceType,
+} from './entities/sync-report.entity';
 import { User } from '../users/user.entity';
-import { ImportLog, ImportStatus } from '../transactions/entities/import-log.entity';
+import {
+  ImportLog,
+  ImportStatus,
+} from '../transactions/entities/import-log.entity';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 
 describe('SyncHistoryService', () => {

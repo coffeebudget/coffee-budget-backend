@@ -321,7 +321,11 @@ describe('SimilarityScorerService', () => {
       };
 
       // Act
-      const result = service.calculateGroupSimilarity(transaction, group, weights);
+      const result = service.calculateGroupSimilarity(
+        transaction,
+        group,
+        weights,
+      );
 
       // Assert
       expect(result).toBe(100);
@@ -352,7 +356,9 @@ describe('SimilarityScorerService', () => {
       // Assert
       expect(result).toEqual(expect.any(Number));
       // Check it's rounded to max 2 decimal places
-      expect(result.toString().split('.')[1]?.length || 0).toBeLessThanOrEqual(2);
+      expect(result.toString().split('.')[1]?.length || 0).toBeLessThanOrEqual(
+        2,
+      );
     });
   });
 

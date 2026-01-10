@@ -66,10 +66,12 @@ import databaseConfig from './config/database.config';
       ignoreErrors: false,
     }),
     // 🔒 SECURITY: Rate limiting (100 requests per minute)
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 100, // max 100 requests per minute
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 minute
+        limit: 100, // max 100 requests per minute
+      },
+    ]),
     UsersModule,
     AuthModule,
     TransactionsModule,

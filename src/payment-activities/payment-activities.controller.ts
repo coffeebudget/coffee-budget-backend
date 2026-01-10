@@ -22,10 +22,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/user.decorator';
 import { PaymentActivitiesService } from './payment-activities.service';
 import { PaymentAccountImportService } from './payment-account-import.service';
-import {
-  CreatePaymentActivityDto,
-  UpdatePaymentActivityDto,
-} from './dto';
+import { CreatePaymentActivityDto, UpdatePaymentActivityDto } from './dto';
 import { PaymentActivity } from './payment-activity.entity';
 
 @ApiTags('Payment Activities')
@@ -70,7 +67,8 @@ export class PaymentActivitiesController {
   @Get('payment-account/:paymentAccountId')
   @ApiOperation({
     summary: 'Get all activities for a payment account',
-    description: 'Retrieve all payment activities for a specific payment account',
+    description:
+      'Retrieve all payment activities for a specific payment account',
   })
   @ApiParam({
     name: 'paymentAccountId',
@@ -271,15 +269,14 @@ export class PaymentActivitiesController {
     @Body() updateDto: UpdatePaymentActivityDto,
     @CurrentUser() user: any,
   ): Promise<PaymentActivity> {
-    return this.paymentActivitiesService.updateReconciliation(
-      id,
-      user.id,
-      {
-        reconciledTransactionId: updateDto.reconciledTransactionId!,
-        reconciliationStatus: updateDto.reconciliationStatus as 'reconciled' | 'failed' | 'manual',
-        reconciliationConfidence: updateDto.reconciliationConfidence,
-      },
-    );
+    return this.paymentActivitiesService.updateReconciliation(id, user.id, {
+      reconciledTransactionId: updateDto.reconciledTransactionId!,
+      reconciliationStatus: updateDto.reconciliationStatus as
+        | 'reconciled'
+        | 'failed'
+        | 'manual',
+      reconciliationConfidence: updateDto.reconciliationConfidence,
+    });
   }
 
   @Put(':id/reconciliation/fail')
@@ -309,10 +306,7 @@ export class PaymentActivitiesController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: any,
   ): Promise<PaymentActivity> {
-    return this.paymentActivitiesService.markReconciliationFailed(
-      id,
-      user.id,
-    );
+    return this.paymentActivitiesService.markReconciliationFailed(id, user.id);
   }
 
   @Post('import/:paymentAccountId')

@@ -136,10 +136,11 @@ export class TransactionsService {
       }
     } else if (createTransactionDto.description) {
       // Try keyword-based categorization only
-      suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-        createTransactionDto.description,
-        userId,
-      );
+      suggestedCategory =
+        await this.categoriesService.suggestCategoryForDescription(
+          createTransactionDto.description,
+          userId,
+        );
     }
 
     // Validate payment method
@@ -190,12 +191,13 @@ export class TransactionsService {
 
     // Check for duplicates only if not skipped
     if (!skipDuplicateCheck) {
-      const duplicateTransaction = await this.transactionDuplicateService.findPotentialDuplicate(
-        createTransactionDto.amount,
-        createTransactionDto.type,
-        transactionExecutionDate,
-        userId,
-      );
+      const duplicateTransaction =
+        await this.transactionDuplicateService.findPotentialDuplicate(
+          createTransactionDto.amount,
+          createTransactionDto.type,
+          transactionExecutionDate,
+          userId,
+        );
 
       if (duplicateTransaction) {
         return this.transactionDuplicateService.handleDuplicateConfirmation(
@@ -246,12 +248,13 @@ export class TransactionsService {
       tags,
     });
 
-    const savedTransaction = await this.transactionsRepository.save(transaction);
+    const savedTransaction =
+      await this.transactionsRepository.save(transaction);
 
     // Publish TransactionCreatedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new TransactionCreatedEvent(savedTransaction, userId)
+        new TransactionCreatedEvent(savedTransaction, userId),
       );
     } catch (error) {
       this.logger.error('Failed to publish TransactionCreatedEvent', {
@@ -490,7 +493,9 @@ export class TransactionsService {
         creditCardId: transactionData.creditCard?.id,
         // Only set categoryId if category entity exists with valid ID
         // This allows automatic keyword categorization to work when no category is provided
-        ...(transactionData.category?.id && { categoryId: transactionData.category.id }),
+        ...(transactionData.category?.id && {
+          categoryId: transactionData.category.id,
+        }),
       };
 
       // Remove entity references to avoid conflicts
@@ -553,7 +558,6 @@ export class TransactionsService {
     return this.transactionImportService.importTransactions(importDto, userId);
   }
 
-
   async categorizeTransactionByDescription(
     transaction: Transaction,
     userId: number,
@@ -593,7 +597,6 @@ export class TransactionsService {
     const absAmount = Math.abs(amount);
     return type === 'income' ? absAmount : -absAmount;
   }
-
 
   async findByRecurringTransactionId(
     recurringTransactionId: number,
@@ -698,7 +701,10 @@ export class TransactionsService {
     estimatedCost: number;
   }> {
     // Delegate to the dedicated TransactionBulkService
-    return this.transactionBulkService.bulkCategorizeUncategorized(userId, batchSize);
+    return this.transactionBulkService.bulkCategorizeUncategorized(
+      userId,
+      batchSize,
+    );
   }
 
   /**
@@ -707,8 +713,8 @@ export class TransactionsService {
   async importFromGoCardless(
     accountId: string,
     userId: number,
-    options: { 
-      bankAccountId?: number; 
+    options: {
+      bankAccountId?: number;
       creditCardId?: number;
       skipDuplicateCheck?: boolean; // New option to force import
       createPendingForDuplicates?: boolean; // New option to create pending duplicates
@@ -723,13 +729,14 @@ export class TransactionsService {
     newTransactionsCount: number;
     pendingDuplicatesCreated: number;
   }> {
-    const dateRangeInfo = options.dateFrom && options.dateTo
-      ? ` from ${options.dateFrom.toISOString().split('T')[0]} to ${options.dateTo.toISOString().split('T')[0]}`
-      : options.dateFrom
-      ? ` from ${options.dateFrom.toISOString().split('T')[0]}`
-      : options.dateTo
-      ? ` until ${options.dateTo.toISOString().split('T')[0]}`
-      : '';
+    const dateRangeInfo =
+      options.dateFrom && options.dateTo
+        ? ` from ${options.dateFrom.toISOString().split('T')[0]} to ${options.dateTo.toISOString().split('T')[0]}`
+        : options.dateFrom
+          ? ` from ${options.dateFrom.toISOString().split('T')[0]}`
+          : options.dateTo
+            ? ` until ${options.dateTo.toISOString().split('T')[0]}`
+            : '';
 
     this.logger.log(
       `Starting GoCardless import for account ${accountId}, user ${userId}${dateRangeInfo}`,
@@ -749,7 +756,11 @@ export class TransactionsService {
     try {
       // Fetch transactions from GoCardless with date range
       const gocardlessData =
-        await this.gocardlessService.getAccountTransactions(accountId, options.dateFrom, options.dateTo);
+        await this.gocardlessService.getAccountTransactions(
+          accountId,
+          options.dateFrom,
+          options.dateTo,
+        );
 
       // Parse transactions
       const parser = new GocardlessParser();
@@ -786,7 +797,8 @@ export class TransactionsService {
             const existingByApiId = await this.transactionsRepository.findOne({
               where: {
                 user: { id: userId },
-                transactionIdOpenBankAPI: transactionData.transactionIdOpenBankAPI,
+                transactionIdOpenBankAPI:
+                  transactionData.transactionIdOpenBankAPI,
                 source: 'gocardless',
               },
             });
@@ -805,8 +817,8 @@ export class TransactionsService {
           }
 
           // PRIORITY 2: Use similarity-based duplicate detection for transactions without API ID
-          const duplicateCheck = await this.transactionOperationsService
-            .duplicateDetectionService.checkForDuplicateBeforeCreation(
+          const duplicateCheck =
+            await this.transactionOperationsService.duplicateDetectionService.checkForDuplicateBeforeCreation(
               {
                 description: transactionData.description || '',
                 amount: transactionData.amount || 0,
@@ -827,7 +839,10 @@ export class TransactionsService {
             continue;
           }
 
-          if (duplicateCheck.shouldCreatePending || (options.createPendingForDuplicates && duplicateCheck.isDuplicate)) {
+          if (
+            duplicateCheck.shouldCreatePending ||
+            (options.createPendingForDuplicates && duplicateCheck.isDuplicate)
+          ) {
             // Create pending duplicate for manual review
             await this.pendingDuplicatesService.createPendingDuplicate(
               duplicateCheck.existingTransaction!,
@@ -843,7 +858,7 @@ export class TransactionsService {
 
             pendingDuplicatesCreated++;
             duplicatesCount++;
-            
+
             await this.importLogsService.appendToLog(
               importLog.id,
               `Created pending duplicate for review: ${transactionData.description} (${duplicateCheck.similarityScore}% match)`,

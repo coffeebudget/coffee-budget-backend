@@ -25,7 +25,9 @@ export class ExpensePlanTransaction {
   @Column()
   expensePlanId: number;
 
-  @ManyToOne(() => ExpensePlan, (plan) => plan.transactions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ExpensePlan, (plan) => plan.transactions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'expensePlanId' })
   expensePlan: ExpensePlan;
 

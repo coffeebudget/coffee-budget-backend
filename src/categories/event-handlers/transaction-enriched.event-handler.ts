@@ -37,12 +37,8 @@ export class TransactionEnrichedEventHandler {
   async handleTransactionEnriched(
     event: TransactionEnrichedEvent,
   ): Promise<void> {
-    const {
-      transaction,
-      enhancedMerchantName,
-      originalMerchantName,
-      userId,
-    } = event;
+    const { transaction, enhancedMerchantName, originalMerchantName, userId } =
+      event;
 
     this.logger.debug(
       'Processing TransactionEnrichedEvent for re-categorization',
@@ -56,10 +52,7 @@ export class TransactionEnrichedEventHandler {
 
     try {
       // Skip re-categorization if enhanced merchant name is not meaningful
-      if (
-        !enhancedMerchantName ||
-        enhancedMerchantName.trim().length === 0
-      ) {
+      if (!enhancedMerchantName || enhancedMerchantName.trim().length === 0) {
         this.logger.debug(
           'Skipping re-categorization: no enhanced merchant name',
           {
@@ -121,19 +114,15 @@ export class TransactionEnrichedEventHandler {
           const previousCategoryId = transaction.category?.id;
 
           // Reload transaction to ensure we have latest state
-          const currentTransaction =
-            await this.transactionRepository.findOne({
-              where: { id: transaction.id },
-              relations: ['category'],
-            });
+          const currentTransaction = await this.transactionRepository.findOne({
+            where: { id: transaction.id },
+            relations: ['category'],
+          });
 
           if (!currentTransaction) {
-            this.logger.warn(
-              'Transaction not found for re-categorization',
-              {
-                transactionId: transaction.id,
-              },
-            );
+            this.logger.warn('Transaction not found for re-categorization', {
+              transactionId: transaction.id,
+            });
             return;
           }
 
@@ -232,10 +221,7 @@ export class TransactionEnrichedEventHandler {
       normalizedOriginal.includes(normalizedEnhanced)
     ) {
       const overlapRatio = shorterLength / longerLength;
-      if (
-        overlapRatio >
-        TransactionEnrichedEventHandler.SIMILARITY_THRESHOLD
-      ) {
+      if (overlapRatio > TransactionEnrichedEventHandler.SIMILARITY_THRESHOLD) {
         return true;
       }
     }
@@ -261,7 +247,10 @@ export class TransactionEnrichedEventHandler {
       // or provider name with common suffixes like "payment", "transfer", etc.
       const enhancedWithoutProvider = normalizedEnhanced
         .replace(new RegExp(provider, 'gi'), '')
-        .replace(/\s*(payment|transfer|transaction|charge|debit|credit)\s*/gi, '')
+        .replace(
+          /\s*(payment|transfer|transaction|charge|debit|credit)\s*/gi,
+          '',
+        )
         .trim();
       return (
         normalizedEnhanced.includes(provider) &&

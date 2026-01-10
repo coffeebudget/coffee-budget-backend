@@ -96,7 +96,9 @@ describe('Transaction Events', () => {
       );
       const after = new Date();
 
-      expect(event.timestamp.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      expect(event.timestamp.getTime()).toBeGreaterThanOrEqual(
+        before.getTime(),
+      );
       expect(event.timestamp.getTime()).toBeLessThanOrEqual(after.getTime());
     });
   });

@@ -68,7 +68,11 @@ export class TransactionImportService {
     try {
       // Bank-specific import formats
       if (importDto.bankFormat) {
-        return await this.processBankSpecificImport(importDto, userId, importLog.id);
+        return await this.processBankSpecificImport(
+          importDto,
+          userId,
+          importLog.id,
+        );
       }
 
       // Generic CSV import
@@ -146,10 +150,11 @@ export class TransactionImportService {
 
         // Add keyword-based category suggestion based on description
         if (!tx.category && tx.description) {
-          const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-            tx.description,
-            userId,
-          );
+          const suggestedCategory =
+            await this.categoriesService.suggestCategoryForDescription(
+              tx.description,
+              userId,
+            );
 
           if (suggestedCategory) {
             tx.category = suggestedCategory;
@@ -170,10 +175,9 @@ export class TransactionImportService {
             if (existingTag) {
               createdTags.push(existingTag);
             } else {
-              const newTag = await this.tagsService.create(
-                { name: tagName },
-                { id: userId } as any,
-              );
+              const newTag = await this.tagsService.create({ name: tagName }, {
+                id: userId,
+              } as any);
               createdTags.push(newTag);
             }
           }
@@ -192,11 +196,12 @@ export class TransactionImportService {
       for (let i = 0; i < parsedTransactions.length; i++) {
         try {
           const tx = parsedTransactions[i];
-          const transaction = await this.transactionOperationsService.createAutomatedTransaction(
-            tx,
-            userId,
-            'csv_import',
-          );
+          const transaction =
+            await this.transactionOperationsService.createAutomatedTransaction(
+              tx,
+              userId,
+              'csv_import',
+            );
 
           if (transaction) {
             createdTransactions.push(transaction);
@@ -384,9 +389,7 @@ export class TransactionImportService {
         // Map CSV columns to transaction fields based on columnMappings
         transactionData.description =
           record[importDto.columnMappings.description];
-        this.logger.debug(
-          `Mapped description: ${transactionData.description}`,
-        );
+        this.logger.debug(`Mapped description: ${transactionData.description}`);
 
         // Parse amount with proper handling of different number formats
         const amountStr = record[importDto.columnMappings.amount];
@@ -399,10 +402,7 @@ export class TransactionImportService {
         if (isNaN(parsedAmount)) {
           const errorMessage = `Invalid amount format: ${amountStr}`;
           this.logger.error(errorMessage);
-          await this.importLogsService.appendToLog(
-            importLogId,
-            errorMessage,
-          );
+          await this.importLogsService.appendToLog(importLogId, errorMessage);
           await this.importLogsService.incrementCounters(importLogId, {
             processed: 1,
             failed: 1,
@@ -436,10 +436,7 @@ export class TransactionImportService {
             );
           } catch (error) {
             const errorMessage = `Invalid date format for executionDate: ${executionDateString}. Expected format: ${dateFormat}`;
-            await this.importLogsService.appendToLog(
-              importLogId,
-              errorMessage,
-            );
+            await this.importLogsService.appendToLog(importLogId, errorMessage);
             await this.importLogsService.incrementCounters(importLogId, {
               processed: 1,
               failed: 1,
@@ -451,12 +448,8 @@ export class TransactionImportService {
 
         // Ensure description is not null or empty
         if (!transactionData.description) {
-          const errorMessage =
-            'Description is required for each transaction.';
-          await this.importLogsService.appendToLog(
-            importLogId,
-            errorMessage,
-          );
+          const errorMessage = 'Description is required for each transaction.';
+          await this.importLogsService.appendToLog(importLogId, errorMessage);
           await this.importLogsService.incrementCounters(importLogId, {
             processed: 1,
             failed: 1,
@@ -475,10 +468,7 @@ export class TransactionImportService {
             transactionData.bankAccount = bankAccount;
           } else {
             const errorMessage = `Bank account "${bankAccountId}" not found. Please create it first.`;
-            await this.importLogsService.appendToLog(
-              importLogId,
-              errorMessage,
-            );
+            await this.importLogsService.appendToLog(importLogId, errorMessage);
             await this.importLogsService.incrementCounters(importLogId, {
               processed: 1,
               failed: 1,
@@ -506,10 +496,7 @@ export class TransactionImportService {
             }
           } else {
             const errorMessage = `Credit card "${creditCardId}" not found. Please create it first.`;
-            await this.importLogsService.appendToLog(
-              importLogId,
-              errorMessage,
-            );
+            await this.importLogsService.appendToLog(importLogId, errorMessage);
             await this.importLogsService.incrementCounters(importLogId, {
               processed: 1,
               failed: 1,
@@ -523,10 +510,7 @@ export class TransactionImportService {
         if (transactionData.bankAccount && transactionData.creditCard) {
           const errorMessage =
             'A transaction cannot have both a bank account and a credit card.';
-          await this.importLogsService.appendToLog(
-            importLogId,
-            errorMessage,
-          );
+          await this.importLogsService.appendToLog(importLogId, errorMessage);
           await this.importLogsService.incrementCounters(importLogId, {
             processed: 1,
             failed: 1,
@@ -576,10 +560,9 @@ export class TransactionImportService {
               userId,
             );
             if (!existingTag) {
-              const newTag = await this.tagsService.create(
-                { name: tagName },
-                { id: userId } as any,
-              );
+              const newTag = await this.tagsService.create({ name: tagName }, {
+                id: userId,
+              } as any);
               createdTags.push(newTag);
             } else {
               createdTags.push(existingTag);
@@ -589,11 +572,12 @@ export class TransactionImportService {
         }
 
         try {
-          const transaction = await this.transactionOperationsService.createAutomatedTransaction(
-            transactionData,
-            userId,
-            'csv_import',
-          );
+          const transaction =
+            await this.transactionOperationsService.createAutomatedTransaction(
+              transactionData,
+              userId,
+              'csv_import',
+            );
 
           if (transaction) {
             this.logger.debug(
@@ -656,9 +640,7 @@ export class TransactionImportService {
     this.logger.log(summary);
 
     const finalStatus =
-      failCount > 0
-        ? ImportStatus.PARTIALLY_COMPLETED
-        : ImportStatus.COMPLETED;
+      failCount > 0 ? ImportStatus.PARTIALLY_COMPLETED : ImportStatus.COMPLETED;
 
     await this.importLogsService.updateStatus(
       importLogId,
@@ -679,10 +661,11 @@ export class TransactionImportService {
   ): Promise<Partial<Transaction>> {
     // Add keyword-based category suggestion based on description
     if (!transactionData.category && transactionData.description) {
-      const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-        transactionData.description,
-        userId,
-      );
+      const suggestedCategory =
+        await this.categoriesService.suggestCategoryForDescription(
+          transactionData.description,
+          userId,
+        );
 
       if (suggestedCategory) {
         transactionData.category = suggestedCategory;
@@ -691,22 +674,21 @@ export class TransactionImportService {
     }
 
     // Process tagNames if provided
-    if ((transactionData as any).tagNames && Array.isArray((transactionData as any).tagNames)) {
+    if (
+      (transactionData as any).tagNames &&
+      Array.isArray((transactionData as any).tagNames)
+    ) {
       const tagNames = (transactionData as any).tagNames;
       const createdTags: Tag[] = [];
 
       for (const tagName of tagNames) {
-        const existingTag = await this.tagsService.findByName(
-          tagName,
-          userId,
-        );
+        const existingTag = await this.tagsService.findByName(tagName, userId);
         if (existingTag) {
           createdTags.push(existingTag);
         } else {
-          const newTag = await this.tagsService.create(
-            { name: tagName },
-            { id: userId } as any,
-          );
+          const newTag = await this.tagsService.create({ name: tagName }, {
+            id: userId,
+          } as any);
           createdTags.push(newTag);
         }
       }

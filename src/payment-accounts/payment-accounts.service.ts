@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentAccount } from './payment-account.entity';
@@ -157,9 +162,8 @@ export class PaymentAccountsService {
 
       // Get requisition details from GoCardless
       console.log('Fetching requisition from GoCardless...');
-      const requisition = await this.gocardlessService.getRequisition(
-        requisitionId,
-      );
+      const requisition =
+        await this.gocardlessService.getRequisition(requisitionId);
       console.log('Requisition fetched:', {
         id: requisition.id,
         institution_id: requisition.institution_id,
@@ -186,7 +190,10 @@ export class PaymentAccountsService {
         connectedAt: new Date().toISOString(),
       };
 
-      console.log('Updating payment account with config:', updatedProviderConfig);
+      console.log(
+        'Updating payment account with config:',
+        updatedProviderConfig,
+      );
       paymentAccount.providerConfig = updatedProviderConfig;
 
       const result = await this.paymentAccountRepository.save(paymentAccount);

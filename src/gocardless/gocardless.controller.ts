@@ -174,8 +174,12 @@ export class GocardlessController {
   ): Promise<TransactionsResponseDto> {
     const dateFrom = dateFromStr ? new Date(dateFromStr) : undefined;
     const dateTo = dateToStr ? new Date(dateToStr) : undefined;
-    
-    return this.gocardlessService.getAccountTransactions(accountId, dateFrom, dateTo);
+
+    return this.gocardlessService.getAccountTransactions(
+      accountId,
+      dateFrom,
+      dateTo,
+    );
   }
 
   @Post('flow/start')
@@ -207,8 +211,9 @@ export class GocardlessController {
   })
   async importAllConnectedAccounts(
     @CurrentUser() user: User,
-    @Body() options?: { 
-      skipDuplicateCheck?: boolean; 
+    @Body()
+    options?: {
+      skipDuplicateCheck?: boolean;
       createPendingForDuplicates?: boolean;
       dateFrom?: string;
       dateTo?: string;
@@ -229,8 +234,11 @@ export class GocardlessController {
       dateFrom: options?.dateFrom ? new Date(options.dateFrom) : undefined,
       dateTo: options?.dateTo ? new Date(options.dateTo) : undefined,
     };
-    
-    return this.gocardlessService.importAllConnectedAccounts(user.id, importOptions);
+
+    return this.gocardlessService.importAllConnectedAccounts(
+      user.id,
+      importOptions,
+    );
   }
 
   @Get('connected-accounts')

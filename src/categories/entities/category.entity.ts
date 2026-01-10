@@ -44,7 +44,7 @@ export class Category {
   @Column({
     type: 'enum',
     enum: ['primary', 'secondary', 'optional'],
-    default: 'optional'
+    default: 'optional',
   })
   budgetLevel: 'primary' | 'secondary' | 'optional';
 

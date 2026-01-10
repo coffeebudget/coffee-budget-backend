@@ -95,17 +95,18 @@ describe('ExpensePlanSuggestionsController', () => {
           discretionaryCount: 1,
         },
       };
-      suggestionGeneratorService.generateSuggestions.mockResolvedValue(mockResponse);
+      suggestionGeneratorService.generateSuggestions.mockResolvedValue(
+        mockResponse,
+      );
 
       // Act
       const result = await controller.generateSuggestions({}, mockUser);
 
       // Assert
       expect(result).toEqual(mockResponse);
-      expect(suggestionGeneratorService.generateSuggestions).toHaveBeenCalledWith(
-        mockUser.id,
-        {},
-      );
+      expect(
+        suggestionGeneratorService.generateSuggestions,
+      ).toHaveBeenCalledWith(mockUser.id, {});
     });
 
     it('should pass generation options to service', async () => {
@@ -134,10 +135,9 @@ describe('ExpensePlanSuggestionsController', () => {
       await controller.generateSuggestions(dto, mockUser);
 
       // Assert
-      expect(suggestionGeneratorService.generateSuggestions).toHaveBeenCalledWith(
-        mockUser.id,
-        dto,
-      );
+      expect(
+        suggestionGeneratorService.generateSuggestions,
+      ).toHaveBeenCalledWith(mockUser.id, dto);
     });
   });
 
@@ -232,7 +232,9 @@ describe('ExpensePlanSuggestionsController', () => {
   describe('getSuggestion', () => {
     it('should return a specific suggestion', async () => {
       // Arrange
-      suggestionGeneratorService.getSuggestionById.mockResolvedValue(mockSuggestionResponse);
+      suggestionGeneratorService.getSuggestionById.mockResolvedValue(
+        mockSuggestionResponse,
+      );
 
       // Act
       const result = await controller.getSuggestion(1, mockUser);
@@ -265,7 +267,9 @@ describe('ExpensePlanSuggestionsController', () => {
         expensePlanId: 10,
         message: 'Expense plan created successfully',
       };
-      suggestionGeneratorService.approveSuggestion.mockResolvedValue(mockResult);
+      suggestionGeneratorService.approveSuggestion.mockResolvedValue(
+        mockResult,
+      );
 
       // Act
       const result = await controller.approveSuggestion(1, {}, mockUser);

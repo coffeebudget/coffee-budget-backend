@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, LessThanOrEqual, MoreThanOrEqual, Not } from 'typeorm';
+import {
+  Repository,
+  IsNull,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  Not,
+} from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { User } from '../users/user.entity';
 import { TransactionCategorizationService } from './transaction-categorization.service';
@@ -38,7 +44,9 @@ export interface CategorizationQualityReport {
 
 @Injectable()
 export class TransactionCategorizationTestService {
-  private readonly logger = new Logger(TransactionCategorizationTestService.name);
+  private readonly logger = new Logger(
+    TransactionCategorizationTestService.name,
+  );
 
   constructor(
     @InjectRepository(Transaction)
@@ -52,14 +60,19 @@ export class TransactionCategorizationTestService {
    */
   async testCategorizationQuality(
     userId: number,
-    dryRun: boolean = true
+    dryRun: boolean = true,
   ): Promise<CategorizationQualityReport> {
-    this.logger.log(`Starting categorization quality test for user ${userId} (dryRun: ${dryRun})`);
+    this.logger.log(
+      `Starting categorization quality test for user ${userId} (dryRun: ${dryRun})`,
+    );
 
     // Get uncategorized transactions from the last 90 days
-    const uncategorizedTransactions = await this.getUncategorizedTransactions(userId);
-    
-    this.logger.log(`Found ${uncategorizedTransactions.length} uncategorized transactions`);
+    const uncategorizedTransactions =
+      await this.getUncategorizedTransactions(userId);
+
+    this.logger.log(
+      `Found ${uncategorizedTransactions.length} uncategorized transactions`,
+    );
 
     const results: CategorizationTestResult[] = [];
     let successfulCategorizations = 0;
@@ -75,7 +88,11 @@ export class TransactionCategorizationTestService {
 
     for (const transaction of uncategorizedTransactions) {
       try {
-        const result = await this.testTransactionCategorization(transaction, userId, dryRun);
+        const result = await this.testTransactionCategorization(
+          transaction,
+          userId,
+          dryRun,
+        );
         results.push(result);
 
         if (result.success) {
@@ -84,16 +101,22 @@ export class TransactionCategorizationTestService {
           confidenceCount++;
 
           // Update summary statistics
-          summary.bySource[result.categorizationSource] = (summary.bySource[result.categorizationSource] || 0) + 1;
-          summary.byMethod[result.categorizationMethod] = (summary.byMethod[result.categorizationMethod] || 0) + 1;
-          
+          summary.bySource[result.categorizationSource] =
+            (summary.bySource[result.categorizationSource] || 0) + 1;
+          summary.byMethod[result.categorizationMethod] =
+            (summary.byMethod[result.categorizationMethod] || 0) + 1;
+
           const confidenceRange = this.getConfidenceRange(result.confidence);
-          summary.byConfidenceRange[confidenceRange] = (summary.byConfidenceRange[confidenceRange] || 0) + 1;
+          summary.byConfidenceRange[confidenceRange] =
+            (summary.byConfidenceRange[confidenceRange] || 0) + 1;
         } else {
           failedCategorizations++;
         }
       } catch (error) {
-        this.logger.error(`Error testing transaction ${transaction.id}:`, error);
+        this.logger.error(
+          `Error testing transaction ${transaction.id}:`,
+          error,
+        );
         results.push({
           transactionId: transaction.id,
           description: transaction.description,
@@ -112,8 +135,12 @@ export class TransactionCategorizationTestService {
       }
     }
 
-    const averageConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
-    const successRate = uncategorizedTransactions.length > 0 ? (successfulCategorizations / uncategorizedTransactions.length) * 100 : 0;
+    const averageConfidence =
+      confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
+    const successRate =
+      uncategorizedTransactions.length > 0
+        ? (successfulCategorizations / uncategorizedTransactions.length) * 100
+        : 0;
 
     const report: CategorizationQualityReport = {
       totalTransactions: uncategorizedTransactions.length,
@@ -125,14 +152,18 @@ export class TransactionCategorizationTestService {
       summary,
     };
 
-    this.logger.log(`Categorization test completed. Success rate: ${successRate.toFixed(2)}%`);
+    this.logger.log(
+      `Categorization test completed. Success rate: ${successRate.toFixed(2)}%`,
+    );
     return report;
   }
 
   /**
    * Get uncategorized transactions from the last 90 days
    */
-  private async getUncategorizedTransactions(userId: number): Promise<Transaction[]> {
+  private async getUncategorizedTransactions(
+    userId: number,
+  ): Promise<Transaction[]> {
     const ninetyDaysAgo = new Date();
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
@@ -153,7 +184,7 @@ export class TransactionCategorizationTestService {
   private async testTransactionCategorization(
     transaction: Transaction,
     userId: number,
-    dryRun: boolean
+    dryRun: boolean,
   ): Promise<CategorizationTestResult> {
     const result: CategorizationTestResult = {
       transactionId: transaction.id,
@@ -171,19 +202,25 @@ export class TransactionCategorizationTestService {
 
     try {
       // Test the categorization
-      const categorizedTransaction = await this.transactionCategorizationService.categorizeTransactionByDescription(
-        transaction,
-        userId,
-        { enableMerchantAI: true }
-      );
+      const categorizedTransaction =
+        await this.transactionCategorizationService.categorizeTransactionByDescription(
+          transaction,
+          userId,
+          { enableMerchantAI: true },
+        );
 
       if (categorizedTransaction.category) {
         result.suggestedCategory = categorizedTransaction.category.name;
-        result.confidence = categorizedTransaction.categorizationConfidence || 0;
+        result.confidence =
+          categorizedTransaction.categorizationConfidence || 0;
         result.success = true;
 
         // Determine the source and method based on the categorization
-        if (transaction.merchantName && categorizedTransaction.categorizationConfidence && categorizedTransaction.categorizationConfidence >= 70) {
+        if (
+          transaction.merchantName &&
+          categorizedTransaction.categorizationConfidence &&
+          categorizedTransaction.categorizationConfidence >= 70
+        ) {
           result.categorizationSource = 'ai';
           result.categorizationMethod = 'merchant_ai';
         } else {
@@ -194,7 +231,9 @@ export class TransactionCategorizationTestService {
         // If not a dry run, save the categorization
         if (!dryRun) {
           await this.transactionRepository.save(categorizedTransaction);
-          this.logger.debug(`Categorized transaction ${transaction.id} with ${result.suggestedCategory} (${result.confidence}% confidence)`);
+          this.logger.debug(
+            `Categorized transaction ${transaction.id} with ${result.suggestedCategory} (${result.confidence}% confidence)`,
+          );
         }
       } else {
         result.success = false;
@@ -225,9 +264,11 @@ export class TransactionCategorizationTestService {
    */
   async testGoCardlessCategorization(
     userId: number,
-    dryRun: boolean = true
+    dryRun: boolean = true,
   ): Promise<CategorizationQualityReport> {
-    this.logger.log(`Testing GoCardless categorization for user ${userId} (dryRun: ${dryRun})`);
+    this.logger.log(
+      `Testing GoCardless categorization for user ${userId} (dryRun: ${dryRun})`,
+    );
 
     // Get GoCardless transactions (those with merchant data) from the last 90 days
     const ninetyDaysAgo = new Date();
@@ -243,7 +284,9 @@ export class TransactionCategorizationTestService {
       order: { executionDate: 'DESC' },
     });
 
-    this.logger.log(`Found ${goCardlessTransactions.length} GoCardless transactions`);
+    this.logger.log(
+      `Found ${goCardlessTransactions.length} GoCardless transactions`,
+    );
 
     const results: CategorizationTestResult[] = [];
     let successfulCategorizations = 0;
@@ -259,7 +302,11 @@ export class TransactionCategorizationTestService {
 
     for (const transaction of goCardlessTransactions) {
       try {
-        const result = await this.testTransactionCategorization(transaction, userId, dryRun);
+        const result = await this.testTransactionCategorization(
+          transaction,
+          userId,
+          dryRun,
+        );
         results.push(result);
 
         if (result.success) {
@@ -268,16 +315,22 @@ export class TransactionCategorizationTestService {
           confidenceCount++;
 
           // Update summary statistics
-          summary.bySource[result.categorizationSource] = (summary.bySource[result.categorizationSource] || 0) + 1;
-          summary.byMethod[result.categorizationMethod] = (summary.byMethod[result.categorizationMethod] || 0) + 1;
-          
+          summary.bySource[result.categorizationSource] =
+            (summary.bySource[result.categorizationSource] || 0) + 1;
+          summary.byMethod[result.categorizationMethod] =
+            (summary.byMethod[result.categorizationMethod] || 0) + 1;
+
           const confidenceRange = this.getConfidenceRange(result.confidence);
-          summary.byConfidenceRange[confidenceRange] = (summary.byConfidenceRange[confidenceRange] || 0) + 1;
+          summary.byConfidenceRange[confidenceRange] =
+            (summary.byConfidenceRange[confidenceRange] || 0) + 1;
         } else {
           failedCategorizations++;
         }
       } catch (error) {
-        this.logger.error(`Error testing GoCardless transaction ${transaction.id}:`, error);
+        this.logger.error(
+          `Error testing GoCardless transaction ${transaction.id}:`,
+          error,
+        );
         results.push({
           transactionId: transaction.id,
           description: transaction.description,
@@ -296,8 +349,12 @@ export class TransactionCategorizationTestService {
       }
     }
 
-    const averageConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
-    const successRate = goCardlessTransactions.length > 0 ? (successfulCategorizations / goCardlessTransactions.length) * 100 : 0;
+    const averageConfidence =
+      confidenceCount > 0 ? totalConfidence / confidenceCount : 0;
+    const successRate =
+      goCardlessTransactions.length > 0
+        ? (successfulCategorizations / goCardlessTransactions.length) * 100
+        : 0;
 
     const report: CategorizationQualityReport = {
       totalTransactions: goCardlessTransactions.length,
@@ -309,7 +366,9 @@ export class TransactionCategorizationTestService {
       summary,
     };
 
-    this.logger.log(`GoCardless categorization test completed. Success rate: ${successRate.toFixed(2)}%`);
+    this.logger.log(
+      `GoCardless categorization test completed. Success rate: ${successRate.toFixed(2)}%`,
+    );
     return report;
   }
 }

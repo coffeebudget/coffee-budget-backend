@@ -13,50 +13,51 @@ export class StandardizedTestSetup {
   static async createTestingModuleWithRepositories<T>(
     serviceClass: new (...args: any[]) => T,
     entities: Array<new () => any>,
-    additionalProviders: any[] = []
+    additionalProviders: any[] = [],
   ): Promise<TestingModule> {
-    const repositoryProviders = entities.map(entity => 
-      RepositoryMockFactory.createRepositoryProvider(entity)
+    const repositoryProviders = entities.map((entity) =>
+      RepositoryMockFactory.createRepositoryProvider(entity),
     );
 
     return Test.createTestingModule({
-      providers: [
-        serviceClass,
-        ...repositoryProviders,
-        ...additionalProviders,
-      ],
+      providers: [serviceClass, ...repositoryProviders, ...additionalProviders],
     }).compile();
   }
 
   /**
    * Sets up common mock return values for repositories
    */
-  static setupCommonMocks(module: TestingModule, entities: Array<new () => any>) {
-    entities.forEach(entity => {
-      const repository = module.get<Repository<any>>(getRepositoryToken(entity));
-      
+  static setupCommonMocks(
+    module: TestingModule,
+    entities: Array<new () => any>,
+  ) {
+    entities.forEach((entity) => {
+      const repository = module.get<Repository<any>>(
+        getRepositoryToken(entity),
+      );
+
       // Set up common mock behaviors - these are already Jest mocks from RepositoryMockFactory
       // Type assertion to avoid TypeScript issues with Jest mocks
       const mockRepository = repository as any;
-      
+
       if (mockRepository.save && mockRepository.save.mockImplementation) {
-        mockRepository.save.mockImplementation((entity: any) => 
-          Promise.resolve({ id: 1, ...entity })
+        mockRepository.save.mockImplementation((entity: any) =>
+          Promise.resolve({ id: 1, ...entity }),
         );
       }
-      
+
       if (mockRepository.create && mockRepository.create.mockImplementation) {
         mockRepository.create.mockImplementation((dto: any) => dto);
       }
-      
+
       if (mockRepository.find && mockRepository.find.mockResolvedValue) {
         mockRepository.find.mockResolvedValue([]);
       }
-      
+
       if (mockRepository.findOne && mockRepository.findOne.mockResolvedValue) {
         mockRepository.findOne.mockResolvedValue(null);
       }
-      
+
       if (mockRepository.count && mockRepository.count.mockResolvedValue) {
         mockRepository.count.mockResolvedValue(0);
       }
@@ -69,16 +70,16 @@ export class StandardizedTestSetup {
   static async createCompleteTestSetup<T>(
     serviceClass: new (...args: any[]) => T,
     entities: Array<new () => any>,
-    additionalProviders: any[] = []
+    additionalProviders: any[] = [],
   ) {
     const module = await this.createTestingModuleWithRepositories(
       serviceClass,
       entities,
-      additionalProviders
+      additionalProviders,
     );
-    
+
     this.setupCommonMocks(module, entities);
-    
+
     return module;
   }
 }

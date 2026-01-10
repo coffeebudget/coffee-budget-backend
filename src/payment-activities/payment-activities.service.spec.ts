@@ -46,7 +46,7 @@ describe('PaymentActivitiesService', () => {
   const mockTransaction = {
     id: 1,
     description: 'PayPal Transfer',
-    amount: 50.00,
+    amount: 50.0,
     executionDate: new Date('2024-01-15'),
   };
 
@@ -57,14 +57,14 @@ describe('PaymentActivitiesService', () => {
     merchantName: 'Starbucks',
     merchantCategory: 'Coffee Shops',
     merchantCategoryCode: '5814',
-    amount: 50.00,
+    amount: 50.0,
     executionDate: new Date('2024-01-15'),
     description: 'Coffee purchase',
     reconciledTransactionId: null,
     reconciliationStatus: 'pending',
     reconciliationConfidence: null,
     reconciledAt: null,
-    rawData: { paypal_fee: 1.50 },
+    rawData: { paypal_fee: 1.5 },
     paymentAccount: mockPaymentAccount,
     reconciledTransaction: null,
     createdAt: new Date('2024-01-15'),
@@ -116,7 +116,10 @@ describe('PaymentActivitiesService', () => {
       (repository.find as jest.Mock).mockResolvedValue(mockActivities);
 
       // Act
-      const result = await service.findAllByPaymentAccount(paymentAccountId, userId);
+      const result = await service.findAllByPaymentAccount(
+        paymentAccountId,
+        userId,
+      );
 
       // Assert
       expect(result).toEqual(mockActivities);
@@ -137,7 +140,10 @@ describe('PaymentActivitiesService', () => {
       (repository.find as jest.Mock).mockResolvedValue([]);
 
       // Act
-      const result = await service.findAllByPaymentAccount(paymentAccountId, userId);
+      const result = await service.findAllByPaymentAccount(
+        paymentAccountId,
+        userId,
+      );
 
       // Assert
       expect(result).toEqual([]);
@@ -150,7 +156,10 @@ describe('PaymentActivitiesService', () => {
       (repository.find as jest.Mock).mockResolvedValue([]);
 
       // Act
-      const result = await service.findAllByPaymentAccount(paymentAccountId, userId);
+      const result = await service.findAllByPaymentAccount(
+        paymentAccountId,
+        userId,
+      );
 
       // Assert
       expect(repository.find).toHaveBeenCalledWith(
@@ -208,7 +217,9 @@ describe('PaymentActivitiesService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.findOne(id, userId)).rejects.toThrow(
         `Payment activity with ID ${id} not found for user`,
       );
@@ -221,7 +232,9 @@ describe('PaymentActivitiesService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should include relations for paymentAccount and reconciledTransaction', async () => {
@@ -259,7 +272,9 @@ describe('PaymentActivitiesService', () => {
       };
 
       // Mock payment account exists for user
-      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(mockPaymentAccount);
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockPaymentAccount,
+      );
       (repository.create as jest.Mock).mockReturnValue(mockPaymentActivity);
       (repository.save as jest.Mock).mockResolvedValue(mockPaymentActivity);
 
@@ -296,7 +311,9 @@ describe('PaymentActivitiesService', () => {
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.create(userId, createData)).rejects.toThrow(NotFoundException);
+      await expect(service.create(userId, createData)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.create(userId, createData)).rejects.toThrow(
         'Payment account not found for user',
       );
@@ -314,13 +331,15 @@ describe('PaymentActivitiesService', () => {
       const createData = {
         paymentAccountId: 1,
         externalId: 'PAYPAL-TX-789',
-        amount: 10.00,
+        amount: 10.0,
         executionDate: new Date('2024-01-21'),
         rawData: {},
       };
 
       // Mock payment account exists for user
-      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(mockPaymentAccount);
+      (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockPaymentAccount,
+      );
       (repository.create as jest.Mock).mockReturnValue(mockPaymentActivity);
       (repository.save as jest.Mock).mockResolvedValue(mockPaymentActivity);
 
@@ -500,7 +519,9 @@ describe('PaymentActivitiesService', () => {
         reconciliationStatus: 'reconciled' as const,
       };
       (repository.findOne as jest.Mock).mockResolvedValue(mockPaymentActivity);
-      (repository.save as jest.Mock).mockImplementation((activity) => Promise.resolve(activity));
+      (repository.save as jest.Mock).mockImplementation((activity) =>
+        Promise.resolve(activity),
+      );
 
       // Act
       const result = await service.updateReconciliation(id, userId, updateData);
@@ -520,9 +541,9 @@ describe('PaymentActivitiesService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.updateReconciliation(id, userId, updateData)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.updateReconciliation(id, userId, updateData),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should enrich transaction and update description with enhanced merchant name', async () => {
@@ -548,9 +569,15 @@ describe('PaymentActivitiesService', () => {
       };
 
       (repository.findOne as jest.Mock).mockResolvedValue(mockPaymentActivity);
-      (repository.save as jest.Mock).mockImplementation((activity) => Promise.resolve(activity));
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionToEnrich);
-      (transactionRepository.save as jest.Mock).mockImplementation((tx) => Promise.resolve(tx));
+      (repository.save as jest.Mock).mockImplementation((activity) =>
+        Promise.resolve(activity),
+      );
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionToEnrich,
+      );
+      (transactionRepository.save as jest.Mock).mockImplementation((tx) =>
+        Promise.resolve(tx),
+      );
 
       // Act
       await service.updateReconciliation(id, userId, updateData, true);
@@ -589,9 +616,15 @@ describe('PaymentActivitiesService', () => {
       };
 
       (repository.findOne as jest.Mock).mockResolvedValue(mockPaymentActivity);
-      (repository.save as jest.Mock).mockImplementation((activity) => Promise.resolve(activity));
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionToEnrich);
-      (transactionRepository.save as jest.Mock).mockImplementation((tx) => Promise.resolve(tx));
+      (repository.save as jest.Mock).mockImplementation((activity) =>
+        Promise.resolve(activity),
+      );
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionToEnrich,
+      );
+      (transactionRepository.save as jest.Mock).mockImplementation((tx) =>
+        Promise.resolve(tx),
+      );
 
       // Act
       await service.updateReconciliation(id, userId, updateData, true);
@@ -628,9 +661,9 @@ describe('PaymentActivitiesService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.markReconciliationFailed(id, userId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.markReconciliationFailed(id, userId),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -67,4 +67,3 @@ export class MerchantCategorization {
   @ManyToOne(() => User)
   user: User; // User-specific merchant categorizations
 }
-

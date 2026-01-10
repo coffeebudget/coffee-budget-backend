@@ -70,8 +70,12 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(mockTransaction);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        mockTransaction,
+      );
       (transactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         category: mockCategory,
@@ -81,10 +85,9 @@ describe('TransactionEnrichedEventHandler', () => {
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith(
-        'Starbucks Seattle',
-        1,
-      );
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Starbucks Seattle', 1);
       expect(transactionRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           category: mockCategory,
@@ -95,25 +98,41 @@ describe('TransactionEnrichedEventHandler', () => {
 
     it('should skip re-categorization when enhanced merchant name is empty', async () => {
       // Arrange
-      const event = new TransactionEnrichedEvent(mockTransaction, 123, '', 'PayPal', 1);
+      const event = new TransactionEnrichedEvent(
+        mockTransaction,
+        123,
+        '',
+        'PayPal',
+        1,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
     it('should skip re-categorization when enhanced merchant name is null', async () => {
       // Arrange
-      const event = new TransactionEnrichedEvent(mockTransaction, 123, null, 'PayPal', 1);
+      const event = new TransactionEnrichedEvent(
+        mockTransaction,
+        123,
+        null,
+        'PayPal',
+        1,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -137,7 +156,9 @@ describe('TransactionEnrichedEventHandler', () => {
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -159,14 +180,20 @@ describe('TransactionEnrichedEventHandler', () => {
       );
 
       const newCategory = { id: 2, name: 'Coffee Shops' };
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(newCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(autoCategorizedTransaction);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(newCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        autoCategorizedTransaction,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert - should attempt re-categorization since NULL confidence doesn't indicate manual
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('Starbucks Seattle', 1);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Starbucks Seattle', 1);
       expect(transactionRepository.save).toHaveBeenCalled();
     });
 
@@ -184,7 +211,9 @@ describe('TransactionEnrichedEventHandler', () => {
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -195,7 +224,7 @@ describe('TransactionEnrichedEventHandler', () => {
         mockTransaction,
         123,
         'Starbucks',
-        'Starbucks!',  // 9/10 = 90% overlap
+        'Starbucks!', // 9/10 = 90% overlap
         1,
       );
 
@@ -203,7 +232,9 @@ describe('TransactionEnrichedEventHandler', () => {
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -217,14 +248,20 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(null);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(mockTransaction);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(null);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        mockTransaction,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert - should attempt re-categorization because "Inc" indicates a real company
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('PayPal Inc', 1);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('PayPal Inc', 1);
     });
 
     it('should skip re-categorization when both names reference same generic provider', async () => {
@@ -241,7 +278,9 @@ describe('TransactionEnrichedEventHandler', () => {
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).not.toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).not.toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -255,14 +294,20 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(null);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(mockTransaction);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(null);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        mockTransaction,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('Starbucks', 1);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Starbucks', 1);
     });
 
     it('should skip update when suggested category is same as current', async () => {
@@ -281,14 +326,20 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionWithCategory);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionWithCategory,
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
 
       // Assert
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalled();
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalled();
       expect(transactionRepository.save).not.toHaveBeenCalled(); // Same category, skip save
     });
 
@@ -302,10 +353,14 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(null);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(null);
 
       // Act & Assert - should not throw
-      await expect(handler.handleTransactionEnriched(event)).resolves.not.toThrow();
+      await expect(
+        handler.handleTransactionEnriched(event),
+      ).resolves.not.toThrow();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -319,12 +374,14 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockRejectedValue(
-        new Error('Database error'),
-      );
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockRejectedValue(new Error('Database error'));
 
       // Act & Assert - should not throw, just log
-      await expect(handler.handleTransactionEnriched(event)).resolves.not.toThrow();
+      await expect(
+        handler.handleTransactionEnriched(event),
+      ).resolves.not.toThrow();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -347,9 +404,15 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionWithConfidence);
-      (transactionRepository.save as jest.Mock).mockImplementation((t) => Promise.resolve(t));
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionWithConfidence,
+      );
+      (transactionRepository.save as jest.Mock).mockImplementation((t) =>
+        Promise.resolve(t),
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
@@ -381,9 +444,15 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionWithoutConfidence);
-      (transactionRepository.save as jest.Mock).mockImplementation((t) => Promise.resolve(t));
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionWithoutConfidence,
+      );
+      (transactionRepository.save as jest.Mock).mockImplementation((t) =>
+        Promise.resolve(t),
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);
@@ -415,8 +484,12 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(testTransaction);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        testTransaction,
+      );
       (transactionRepository.save as jest.Mock).mockResolvedValue({
         ...testTransaction,
         category: mockCategory,
@@ -442,11 +515,15 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
       (transactionRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert - should not throw
-      await expect(handler.handleTransactionEnriched(event)).resolves.not.toThrow();
+      await expect(
+        handler.handleTransactionEnriched(event),
+      ).resolves.not.toThrow();
       expect(transactionRepository.save).not.toHaveBeenCalled();
     });
 
@@ -469,9 +546,15 @@ describe('TransactionEnrichedEventHandler', () => {
         1,
       );
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
-      (transactionRepository.findOne as jest.Mock).mockResolvedValue(transactionWithSuggestion);
-      (transactionRepository.save as jest.Mock).mockImplementation((t) => Promise.resolve(t));
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
+      (transactionRepository.findOne as jest.Mock).mockResolvedValue(
+        transactionWithSuggestion,
+      );
+      (transactionRepository.save as jest.Mock).mockImplementation((t) =>
+        Promise.resolve(t),
+      );
 
       // Act
       await handler.handleTransactionEnriched(event);

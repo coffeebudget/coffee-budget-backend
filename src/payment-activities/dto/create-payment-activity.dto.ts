@@ -57,7 +57,8 @@ export class CreatePaymentActivityDto {
   merchantCategoryCode?: string;
 
   @ApiProperty({
-    description: 'Transaction amount (negative for expenses, positive for income)',
+    description:
+      'Transaction amount (negative for expenses, positive for income)',
     example: -15.99,
   })
   @IsNumber({ maxDecimalPlaces: 2 })

@@ -76,7 +76,9 @@ describe('Transaction Update Validation (e2e)', () => {
         expect(res.status).not.toBe(400);
         // Could be 401 (unauthorized) or 404 (not found), but not validation error
         if (res.status === 400) {
-          expect(res.body.message).not.toContain('property id should not exist');
+          expect(res.body.message).not.toContain(
+            'property id should not exist',
+          );
         }
       });
   });

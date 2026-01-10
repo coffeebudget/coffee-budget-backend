@@ -18,10 +18,7 @@ import { SyncHistoryModule } from '../sync-history/sync-history.module';
     SyncHistoryModule,
   ],
   controllers: [GocardlessController, GocardlessCronController],
-  providers: [
-    GocardlessService,
-    GocardlessSchedulerService,
-  ],
+  providers: [GocardlessService, GocardlessSchedulerService],
   exports: [GocardlessService],
 })
 export class GocardlessModule {}

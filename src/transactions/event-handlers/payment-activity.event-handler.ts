@@ -127,7 +127,9 @@ export class PaymentActivityEventHandler {
         endDate,
       })
       .andWhere('transaction.enrichedFromPaymentActivityId IS NULL') // Not already enriched
-      .andWhere('transaction.source != :manualSource', { manualSource: 'manual' }); // Only imported transactions
+      .andWhere('transaction.source != :manualSource', {
+        manualSource: 'manual',
+      }); // Only imported transactions
 
     // Add provider-specific description matching
     const providerName = paymentAccount.provider.toLowerCase();
@@ -266,9 +268,7 @@ export class PaymentActivityEventHandler {
     }
 
     // Description/merchant similarity (30 points)
-    const transactionDesc = (
-      transaction.description || ''
-    ).toLowerCase();
+    const transactionDesc = (transaction.description || '').toLowerCase();
     const activityMerchant = (
       paymentActivity.merchantName ||
       paymentActivity.description ||

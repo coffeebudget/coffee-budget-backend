@@ -13,7 +13,11 @@ import { Transaction } from '../transactions/transaction.entity';
 import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
-import { BankAccountCreatedEvent, BankAccountUpdatedEvent, BankAccountDeletedEvent } from '../shared/events/bank-account.events';
+import {
+  BankAccountCreatedEvent,
+  BankAccountUpdatedEvent,
+  BankAccountDeletedEvent,
+} from '../shared/events/bank-account.events';
 
 @Injectable()
 export class BankAccountsService {
@@ -37,13 +41,14 @@ export class BankAccountsService {
       ...createBankAccountDto,
       user,
     });
-    
-    const savedBankAccount = await this.bankAccountsRepository.save(bankAccount);
+
+    const savedBankAccount =
+      await this.bankAccountsRepository.save(bankAccount);
 
     // Publish BankAccountCreatedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new BankAccountCreatedEvent(savedBankAccount, user.id)
+        new BankAccountCreatedEvent(savedBankAccount, user.id),
       );
     } catch (error) {
       // Log error but don't break the bank account creation flow
@@ -85,7 +90,7 @@ export class BankAccountsService {
     // Publish BankAccountUpdatedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new BankAccountUpdatedEvent(updatedBankAccount, userId)
+        new BankAccountUpdatedEvent(updatedBankAccount, userId),
       );
     } catch (error) {
       // Log error but don't break the bank account update flow
@@ -132,7 +137,7 @@ export class BankAccountsService {
     // Publish BankAccountDeletedEvent for event-driven processing
     try {
       await this.eventPublisher.publish(
-        new BankAccountDeletedEvent(id, userId)
+        new BankAccountDeletedEvent(id, userId),
       );
     } catch (error) {
       // Log error but don't break the bank account deletion flow

@@ -270,11 +270,12 @@ export class PaymentAccountsController {
     });
 
     try {
-      const result = await this.paymentAccountsService.completeGocardlessConnection(
-        user.id,
-        callbackData.paymentAccountId,
-        callbackData.requisitionId,
-      );
+      const result =
+        await this.paymentAccountsService.completeGocardlessConnection(
+          user.id,
+          callbackData.paymentAccountId,
+          callbackData.requisitionId,
+        );
       console.log('GoCardless connection completed successfully');
       return result;
     } catch (error) {

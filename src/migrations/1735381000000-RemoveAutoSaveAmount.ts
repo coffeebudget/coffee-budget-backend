@@ -11,7 +11,9 @@ export class RemoveAutoSaveAmount1735381000000 implements MigrationInterface {
     );
 
     if (hasColumn) {
-      await queryRunner.query(`ALTER TABLE "category" DROP COLUMN "autoSaveAmount"`);
+      await queryRunner.query(
+        `ALTER TABLE "category" DROP COLUMN "autoSaveAmount"`,
+      );
     }
   }
 
@@ -23,7 +25,9 @@ export class RemoveAutoSaveAmount1735381000000 implements MigrationInterface {
     );
 
     if (!hasColumn) {
-      await queryRunner.query(`ALTER TABLE "category" ADD "autoSaveAmount" numeric(10,2)`);
+      await queryRunner.query(
+        `ALTER TABLE "category" ADD "autoSaveAmount" numeric(10,2)`,
+      );
     }
   }
-} 
+}

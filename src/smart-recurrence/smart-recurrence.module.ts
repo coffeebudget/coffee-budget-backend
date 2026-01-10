@@ -14,7 +14,11 @@ import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Transaction, DetectedPattern, ExpensePlanSuggestion]),
+    TypeOrmModule.forFeature([
+      Transaction,
+      DetectedPattern,
+      ExpensePlanSuggestion,
+    ]),
     ConfigModule,
     ExpensePlansModule,
   ],

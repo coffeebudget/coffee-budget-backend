@@ -11,16 +11,16 @@ import { TagsService } from '../tags.service';
 export class TransactionEventHandler {
   private readonly logger = new Logger(TransactionEventHandler.name);
 
-  constructor(
-    private readonly tagsService: TagsService,
-  ) {}
+  constructor(private readonly tagsService: TagsService) {}
 
   /**
    * Handle TransactionCreatedEvent
    * Suggest tags for transaction when created
    */
   @OnEvent(TransactionCreatedEvent.name)
-  async handleTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
+  async handleTransactionCreated(
+    event: TransactionCreatedEvent,
+  ): Promise<void> {
     try {
       this.logger.debug('Handling TransactionCreatedEvent for tag suggestion', {
         transactionId: event.transaction.id,
@@ -40,13 +40,16 @@ export class TransactionEventHandler {
         transactionId: event.transaction.id,
       });
     } catch (error) {
-      this.logger.error('Failed to handle TransactionCreatedEvent for tag suggestion', {
-        error: error.message,
-        stack: error.stack,
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle TransactionCreatedEvent for tag suggestion',
+        {
+          error: error.message,
+          stack: error.stack,
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the transaction creation flow
-      }
+    }
   }
 }

@@ -61,7 +61,12 @@ import { TransactionMerchantEnrichmentController } from './transaction-merchant-
     GocardlessModule,
     MerchantCategorizationModule,
   ],
-  controllers: [TransactionsController, ImportLogsController, TransactionCategorizationTestController, TransactionMerchantEnrichmentController],
+  controllers: [
+    TransactionsController,
+    ImportLogsController,
+    TransactionCategorizationTestController,
+    TransactionMerchantEnrichmentController,
+  ],
   providers: [
     TransactionsService,
     ImportLogsService,

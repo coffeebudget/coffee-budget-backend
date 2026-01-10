@@ -118,8 +118,16 @@ describe('PaymentAccountsService', () => {
     it('should order results by createdAt DESC', async () => {
       // Arrange
       const userId = 1;
-      const account1 = { ...mockPaymentAccount, id: 1, createdAt: new Date('2024-01-01') };
-      const account2 = { ...mockPaymentAccount, id: 2, createdAt: new Date('2024-01-02') };
+      const account1 = {
+        ...mockPaymentAccount,
+        id: 1,
+        createdAt: new Date('2024-01-01'),
+      };
+      const account2 = {
+        ...mockPaymentAccount,
+        id: 2,
+        createdAt: new Date('2024-01-02'),
+      };
       (repository.find as jest.Mock).mockResolvedValue([account2, account1]);
 
       // Act
@@ -156,7 +164,9 @@ describe('PaymentAccountsService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.findOne(id, userId)).rejects.toThrow(
         `Payment account with ID ${id} not found for user`,
       );
@@ -169,7 +179,9 @@ describe('PaymentAccountsService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should include linkedBankAccount relation', async () => {
@@ -408,7 +420,9 @@ describe('PaymentAccountsService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.delete(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(repository.remove).not.toHaveBeenCalled();
     });
 
@@ -419,7 +433,9 @@ describe('PaymentAccountsService', () => {
       (repository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.delete(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(repository.remove).not.toHaveBeenCalled();
     });
   });

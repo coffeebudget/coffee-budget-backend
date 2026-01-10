@@ -182,7 +182,8 @@ export class TransactionsController {
         bankAccountId: importDto.bankAccountId,
         creditCardId: importDto.creditCardId,
         skipDuplicateCheck: importDto.skipDuplicateCheck || false,
-        createPendingForDuplicates: importDto.createPendingForDuplicates !== false, // Default to true
+        createPendingForDuplicates:
+          importDto.createPendingForDuplicates !== false, // Default to true
         dateFrom: importDto.dateFrom ? new Date(importDto.dateFrom) : undefined,
         dateTo: importDto.dateTo ? new Date(importDto.dateTo) : undefined,
       },

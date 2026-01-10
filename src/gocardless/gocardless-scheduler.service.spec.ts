@@ -118,8 +118,9 @@ describe('GocardlessSchedulerService', () => {
     it('should sync all users with GoCardless accounts', async () => {
       // Arrange
       (userRepository.find as jest.Mock).mockResolvedValue(mockUsers);
-      (gocardlessService.importAllConnectedAccounts as jest.Mock)
-        .mockResolvedValue(mockImportResult);
+      (
+        gocardlessService.importAllConnectedAccounts as jest.Mock
+      ).mockResolvedValue(mockImportResult);
       (syncHistoryService.createSyncReport as jest.Mock).mockResolvedValue(
         mockSyncReport,
       );
@@ -129,9 +130,9 @@ describe('GocardlessSchedulerService', () => {
 
       // Assert
       expect(userRepository.find).toHaveBeenCalled();
-      expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledTimes(
-        2,
-      );
+      expect(
+        gocardlessService.importAllConnectedAccounts,
+      ).toHaveBeenCalledTimes(2);
       // Verify both calls include dateFrom parameter (48 hours ago as Date object)
       expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledWith(
         1,
@@ -151,8 +152,9 @@ describe('GocardlessSchedulerService', () => {
     it('should create sync report for each user', async () => {
       // Arrange
       (userRepository.find as jest.Mock).mockResolvedValue([mockUsers[0]]);
-      (gocardlessService.importAllConnectedAccounts as jest.Mock)
-        .mockResolvedValue(mockImportResult);
+      (
+        gocardlessService.importAllConnectedAccounts as jest.Mock
+      ).mockResolvedValue(mockImportResult);
       (syncHistoryService.createSyncReport as jest.Mock).mockResolvedValue(
         mockSyncReport,
       );
@@ -192,8 +194,9 @@ describe('GocardlessSchedulerService', () => {
       // Arrange
       const importError = new Error('GoCardless API error');
       (userRepository.find as jest.Mock).mockResolvedValue([mockUsers[0]]);
-      (gocardlessService.importAllConnectedAccounts as jest.Mock)
-        .mockRejectedValue(importError);
+      (
+        gocardlessService.importAllConnectedAccounts as jest.Mock
+      ).mockRejectedValue(importError);
 
       // Act & Assert
       await expect(service.dailyBankSync()).resolves.not.toThrow();
@@ -214,9 +217,9 @@ describe('GocardlessSchedulerService', () => {
       await service.dailyBankSync();
 
       // Assert
-      expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledTimes(
-        2,
-      );
+      expect(
+        gocardlessService.importAllConnectedAccounts,
+      ).toHaveBeenCalledTimes(2);
       expect(syncHistoryService.createSyncReport).toHaveBeenCalledTimes(1); // Only for successful user
     });
 
@@ -224,8 +227,9 @@ describe('GocardlessSchedulerService', () => {
       // Arrange
       // The repository query filters isDemoUser: false, so it only returns non-demo users
       (userRepository.find as jest.Mock).mockResolvedValue(mockUsers);
-      (gocardlessService.importAllConnectedAccounts as jest.Mock)
-        .mockResolvedValue(mockImportResult);
+      (
+        gocardlessService.importAllConnectedAccounts as jest.Mock
+      ).mockResolvedValue(mockImportResult);
       (syncHistoryService.createSyncReport as jest.Mock).mockResolvedValue(
         mockSyncReport,
       );
@@ -234,9 +238,9 @@ describe('GocardlessSchedulerService', () => {
       await service.dailyBankSync();
 
       // Assert
-      expect(gocardlessService.importAllConnectedAccounts).toHaveBeenCalledTimes(
-        2,
-      ); // Only non-demo users
+      expect(
+        gocardlessService.importAllConnectedAccounts,
+      ).toHaveBeenCalledTimes(2); // Only non-demo users
       // Verify the repository was called with the correct filter
       expect(userRepository.find).toHaveBeenCalledWith({
         where: { isDemoUser: false },

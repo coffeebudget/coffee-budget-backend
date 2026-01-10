@@ -42,7 +42,7 @@ class MockBankParser {
 
     // If creditCardId is provided, set creditCard on transactions
     if (options.creditCardId) {
-      transactions.forEach(tx => {
+      transactions.forEach((tx) => {
         (tx as any).creditCard = { id: options.creditCardId };
       });
     }
@@ -203,7 +203,9 @@ describe('TransactionImportService', () => {
     categoriesService = module.get(CategoriesService);
     tagsService = module.get(TagsService);
     transactionOperationsService = module.get(TransactionOperationsService);
-    recurringPatternDetectorService = module.get(RecurringPatternDetectorService);
+    recurringPatternDetectorService = module.get(
+      RecurringPatternDetectorService,
+    );
     gocardlessService = module.get(GocardlessService);
   });
 
@@ -216,9 +218,15 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      jest.spyOn(BankFileParserFactory, 'getParser').mockReturnValue(new MockBankParser());
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      jest
+        .spyOn(BankFileParserFactory, 'getParser')
+        .mockReturnValue(new MockBankParser());
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction 1',
         amount: 100,
@@ -233,13 +241,16 @@ describe('TransactionImportService', () => {
       expect(result.transactions).toHaveLength(2);
       expect(result.status).toBe(ImportStatus.COMPLETED);
       expect(importLogsService.create).toHaveBeenCalled();
-      expect(transactionOperationsService.createAutomatedTransaction).toHaveBeenCalledTimes(2);
+      expect(
+        transactionOperationsService.createAutomatedTransaction,
+      ).toHaveBeenCalledTimes(2);
     });
 
     it('should import generic CSV format successfully', async () => {
       // Arrange
       const importDto: ImportTransactionDto = {
-        csvData: 'description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15',
+        csvData:
+          'description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15',
         columnMappings: {
           description: 'description',
           amount: 'amount',
@@ -251,8 +262,12 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction',
         amount: 100,
@@ -271,7 +286,9 @@ describe('TransactionImportService', () => {
 
     it('should handle base64 encoded CSV data', async () => {
       // Arrange
-      const csvData = Buffer.from('description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15').toString('base64');
+      const csvData = Buffer.from(
+        'description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15',
+      ).toString('base64');
       const importDto: ImportTransactionDto = {
         csvData,
         columnMappings: {
@@ -285,8 +302,12 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction',
         amount: 100,
@@ -299,7 +320,10 @@ describe('TransactionImportService', () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.transactions).toHaveLength(1);
-      expect(importLogsService.appendToLog).toHaveBeenCalledWith(expect.any(Number), 'Successfully decoded base64 CSV data');
+      expect(importLogsService.appendToLog).toHaveBeenCalledWith(
+        expect.any(Number),
+        'Successfully decoded base64 CSV data',
+      );
     });
 
     it('should throw error when CSV data is missing for generic import', async () => {
@@ -316,8 +340,9 @@ describe('TransactionImportService', () => {
       };
 
       // Act & Assert
-      await expect(service.importTransactions(importDto, mockUser.id))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.importTransactions(importDto, mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should handle import errors gracefully', async () => {
@@ -332,8 +357,9 @@ describe('TransactionImportService', () => {
       });
 
       // Act & Assert
-      await expect(service.importTransactions(importDto, mockUser.id))
-        .rejects.toThrow(BadRequestException);
+      await expect(
+        service.importTransactions(importDto, mockUser.id),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -346,9 +372,15 @@ describe('TransactionImportService', () => {
         creditCardId: 1,
       };
 
-      jest.spyOn(BankFileParserFactory, 'getParser').mockReturnValue(new MockBankParser());
-      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(mockCreditCard);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      jest
+        .spyOn(BankFileParserFactory, 'getParser')
+        .mockReturnValue(new MockBankParser());
+      (creditCardRepository.findOne as jest.Mock).mockResolvedValue(
+        mockCreditCard,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction',
         amount: 100,
@@ -356,7 +388,11 @@ describe('TransactionImportService', () => {
       } as Transaction);
 
       // Act
-      const result = await service.processBankSpecificImport(importDto, mockUser.id, 1);
+      const result = await service.processBankSpecificImport(
+        importDto,
+        mockUser.id,
+        1,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -372,9 +408,15 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      jest.spyOn(BankFileParserFactory, 'getParser').mockReturnValue(new MockBankParser());
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      jest
+        .spyOn(BankFileParserFactory, 'getParser')
+        .mockReturnValue(new MockBankParser());
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction',
         amount: 100,
@@ -382,7 +424,11 @@ describe('TransactionImportService', () => {
       } as Transaction);
 
       // Act
-      const result = await service.processBankSpecificImport(importDto, mockUser.id, 1);
+      const result = await service.processBankSpecificImport(
+        importDto,
+        mockUser.id,
+        1,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -396,7 +442,8 @@ describe('TransactionImportService', () => {
     it('should process generic CSV import successfully', async () => {
       // Arrange
       const importDto: ImportTransactionDto = {
-        csvData: 'description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15',
+        csvData:
+          'description,amount,type,executionDate\nTest Transaction,100,expense,2024-01-15',
         columnMappings: {
           description: 'description',
           amount: 'amount',
@@ -408,8 +455,12 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
-      (transactionOperationsService.createAutomatedTransaction as jest.Mock).mockResolvedValue({
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
+      (
+        transactionOperationsService.createAutomatedTransaction as jest.Mock
+      ).mockResolvedValue({
         id: 1,
         description: 'Test Transaction',
         amount: 100,
@@ -417,7 +468,11 @@ describe('TransactionImportService', () => {
       } as Transaction);
 
       // Act
-      const result = await service.processGenericImport(importDto, mockUser.id, 1);
+      const result = await service.processGenericImport(
+        importDto,
+        mockUser.id,
+        1,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -439,7 +494,11 @@ describe('TransactionImportService', () => {
       };
 
       // Act
-      const result = await service.processGenericImport(importDto, mockUser.id, 1);
+      const result = await service.processGenericImport(
+        importDto,
+        mockUser.id,
+        1,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -450,7 +509,8 @@ describe('TransactionImportService', () => {
     it('should handle invalid amount format', async () => {
       // Arrange
       const importDto: ImportTransactionDto = {
-        csvData: 'description,amount,type,executionDate\nTest Transaction,invalid,expense,2024-01-15',
+        csvData:
+          'description,amount,type,executionDate\nTest Transaction,invalid,expense,2024-01-15',
         columnMappings: {
           description: 'description',
           amount: 'amount',
@@ -462,10 +522,16 @@ describe('TransactionImportService', () => {
         bankAccountId: 1,
       };
 
-      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(mockBankAccount);
+      (bankAccountRepository.findOne as jest.Mock).mockResolvedValue(
+        mockBankAccount,
+      );
 
       // Act
-      const result = await service.processGenericImport(importDto, mockUser.id, 1);
+      const result = await service.processGenericImport(
+        importDto,
+        mockUser.id,
+        1,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -485,15 +551,22 @@ describe('TransactionImportService', () => {
         bankAccount: { id: 1 } as any,
       };
 
-      (categoriesService.suggestCategoryForDescription as jest.Mock).mockResolvedValue(mockCategory);
+      (
+        categoriesService.suggestCategoryForDescription as jest.Mock
+      ).mockResolvedValue(mockCategory);
 
       // Act
-      const result = await service.processTransactionData(transactionData, mockUser.id);
+      const result = await service.processTransactionData(
+        transactionData,
+        mockUser.id,
+      );
 
       // Assert
       expect(result).toBeDefined();
       expect(result.category).toBe(mockCategory);
-      expect(categoriesService.suggestCategoryForDescription).toHaveBeenCalledWith('Test Transaction', mockUser.id);
+      expect(
+        categoriesService.suggestCategoryForDescription,
+      ).toHaveBeenCalledWith('Test Transaction', mockUser.id);
     });
 
     it('should process transaction data with tag creation', async () => {
@@ -511,7 +584,10 @@ describe('TransactionImportService', () => {
       (tagsService.create as jest.Mock).mockResolvedValue(mockTag);
 
       // Act
-      const result = await service.processTransactionData(transactionData, mockUser.id);
+      const result = await service.processTransactionData(
+        transactionData,
+        mockUser.id,
+      );
 
       // Assert
       expect(result).toBeDefined();
@@ -558,20 +634,26 @@ describe('TransactionImportService', () => {
         { id: 2, description: 'Test Transaction 2' },
       ] as Transaction[];
 
-      (recurringPatternDetectorService.detectAllRecurringPatterns as jest.Mock).mockResolvedValue([]);
+      (
+        recurringPatternDetectorService.detectAllRecurringPatterns as jest.Mock
+      ).mockResolvedValue([]);
 
       // Act
       await service.processForRecurringPatterns(transactions, mockUser.id);
 
       // Assert
-      expect(recurringPatternDetectorService.detectAllRecurringPatterns).toHaveBeenCalledWith(mockUser.id);
+      expect(
+        recurringPatternDetectorService.detectAllRecurringPatterns,
+      ).toHaveBeenCalledWith(mockUser.id);
     });
   });
 
   describe('isBase64', () => {
     it('should detect base64 encoded string', () => {
       // Arrange
-      const base64String = Buffer.from('test data that is long enough to pass the base64 detection').toString('base64');
+      const base64String = Buffer.from(
+        'test data that is long enough to pass the base64 detection',
+      ).toString('base64');
 
       // Act
       const result = service.isBase64(base64String);

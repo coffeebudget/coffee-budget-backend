@@ -61,7 +61,7 @@ export class GocardlessParser extends BaseParser {
 
       // Extract merchant information
       const merchantName = this.extractMerchantName(tx, amount);
-      
+
       const transaction: Partial<Transaction> & { tagNames?: string[] } = {
         amount: Math.abs(amount),
         description: this.buildEnhancedDescription(tx),
@@ -126,7 +126,10 @@ export class GocardlessParser extends BaseParser {
     return cleaned.substring(0, 255); // Limit length
   }
 
-  private extractMerchantName(tx: TransactionDto, amount: number): string | null {
+  private extractMerchantName(
+    tx: TransactionDto,
+    amount: number,
+  ): string | null {
     // Get merchant name (creditor for expenses, debtor for income)
     if (amount < 0 && tx.creditorName) {
       // For expenses, use creditor name (who we paid to)

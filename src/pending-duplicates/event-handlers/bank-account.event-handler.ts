@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { BankAccountCreatedEvent, BankAccountUpdatedEvent, BankAccountDeletedEvent } from '../../shared/events/bank-account.events';
+import {
+  BankAccountCreatedEvent,
+  BankAccountUpdatedEvent,
+  BankAccountDeletedEvent,
+} from '../../shared/events/bank-account.events';
 import { PendingDuplicatesService } from '../pending-duplicates.service';
 
 /**
@@ -20,12 +24,17 @@ export class BankAccountEventHandler {
    * Initialize duplicate detection for the new bank account
    */
   @OnEvent(BankAccountCreatedEvent.name)
-  async handleBankAccountCreated(event: BankAccountCreatedEvent): Promise<void> {
+  async handleBankAccountCreated(
+    event: BankAccountCreatedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling BankAccountCreatedEvent for duplicate detection setup', {
-        bankAccountId: event.bankAccount.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling BankAccountCreatedEvent for duplicate detection setup',
+        {
+          bankAccountId: event.bankAccount.id,
+          userId: event.userId,
+        },
+      );
 
       // Initialize duplicate detection for the new bank account
       // This could include setting up duplicate detection rules or configurations
@@ -33,12 +42,15 @@ export class BankAccountEventHandler {
         bankAccountId: event.bankAccount.id,
       });
     } catch (error) {
-      this.logger.error('Failed to handle BankAccountCreatedEvent for duplicate detection setup', {
-        error: error.message,
-        stack: error.stack,
-        bankAccountId: event.bankAccount.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle BankAccountCreatedEvent for duplicate detection setup',
+        {
+          error: error.message,
+          stack: error.stack,
+          bankAccountId: event.bankAccount.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the bank account creation flow
     }
   }
@@ -48,12 +60,17 @@ export class BankAccountEventHandler {
    * Update duplicate detection when bank account is modified
    */
   @OnEvent(BankAccountUpdatedEvent.name)
-  async handleBankAccountUpdated(event: BankAccountUpdatedEvent): Promise<void> {
+  async handleBankAccountUpdated(
+    event: BankAccountUpdatedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling BankAccountUpdatedEvent for duplicate detection update', {
-        bankAccountId: event.bankAccount.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling BankAccountUpdatedEvent for duplicate detection update',
+        {
+          bankAccountId: event.bankAccount.id,
+          userId: event.userId,
+        },
+      );
 
       // Update duplicate detection when bank account is modified
       // This could include updating duplicate detection rules or configurations
@@ -61,12 +78,15 @@ export class BankAccountEventHandler {
         bankAccountId: event.bankAccount.id,
       });
     } catch (error) {
-      this.logger.error('Failed to handle BankAccountUpdatedEvent for duplicate detection update', {
-        error: error.message,
-        stack: error.stack,
-        bankAccountId: event.bankAccount.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle BankAccountUpdatedEvent for duplicate detection update',
+        {
+          error: error.message,
+          stack: error.stack,
+          bankAccountId: event.bankAccount.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the bank account update flow
     }
   }
@@ -76,12 +96,17 @@ export class BankAccountEventHandler {
    * Clean up duplicate detection when bank account is deleted
    */
   @OnEvent(BankAccountDeletedEvent.name)
-  async handleBankAccountDeleted(event: BankAccountDeletedEvent): Promise<void> {
+  async handleBankAccountDeleted(
+    event: BankAccountDeletedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling BankAccountDeletedEvent for duplicate detection cleanup', {
-        bankAccountId: event.bankAccountId,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling BankAccountDeletedEvent for duplicate detection cleanup',
+        {
+          bankAccountId: event.bankAccountId,
+          userId: event.userId,
+        },
+      );
 
       // Clean up duplicate detection when bank account is deleted
       // This could include removing duplicate detection rules or archiving data
@@ -89,12 +114,15 @@ export class BankAccountEventHandler {
         bankAccountId: event.bankAccountId,
       });
     } catch (error) {
-      this.logger.error('Failed to handle BankAccountDeletedEvent for duplicate detection cleanup', {
-        error: error.message,
-        stack: error.stack,
-        bankAccountId: event.bankAccountId,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle BankAccountDeletedEvent for duplicate detection cleanup',
+        {
+          error: error.message,
+          stack: error.stack,
+          bankAccountId: event.bankAccountId,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the bank account deletion flow
     }
   }

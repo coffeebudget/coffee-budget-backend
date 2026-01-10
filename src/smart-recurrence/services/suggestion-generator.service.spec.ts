@@ -31,8 +31,18 @@ describe('SuggestionGeneratorService', () => {
       representativeDescription: 'Netflix subscription',
       averageAmount: 15.99,
       transactions: [
-        { id: 1, amount: -15.99, description: 'Netflix', transactionDate: new Date() } as any,
-        { id: 2, amount: -15.99, description: 'Netflix', transactionDate: new Date() } as any,
+        {
+          id: 1,
+          amount: -15.99,
+          description: 'Netflix',
+          transactionDate: new Date(),
+        } as any,
+        {
+          id: 2,
+          amount: -15.99,
+          description: 'Netflix',
+          transactionDate: new Date(),
+        } as any,
       ],
     },
     frequency: {
@@ -90,8 +100,12 @@ describe('SuggestionGeneratorService', () => {
       ],
     }).compile();
 
-    service = module.get<SuggestionGeneratorService>(SuggestionGeneratorService);
-    suggestionRepository = module.get(getRepositoryToken(ExpensePlanSuggestion));
+    service = module.get<SuggestionGeneratorService>(
+      SuggestionGeneratorService,
+    );
+    suggestionRepository = module.get(
+      getRepositoryToken(ExpensePlanSuggestion),
+    );
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
     patternDetectionService = module.get(PatternDetectionService);
     patternClassificationService = module.get(PatternClassificationService);
@@ -132,7 +146,9 @@ describe('SuggestionGeneratorService', () => {
         .mockResolvedValueOnce([savedSuggestion]); // getPendingSuggestions after save
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act
@@ -191,7 +207,9 @@ describe('SuggestionGeneratorService', () => {
       });
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act
@@ -214,7 +232,9 @@ describe('SuggestionGeneratorService', () => {
       // Assert
       expect(result.totalFound).toBe(0);
       expect(result.newSuggestions).toBe(0);
-      expect(patternClassificationService.classifyPatterns).not.toHaveBeenCalled();
+      expect(
+        patternClassificationService.classifyPatterns,
+      ).not.toHaveBeenCalled();
     });
 
     it('should filter out suggestions that match existing expense plans', async () => {
@@ -245,10 +265,12 @@ describe('SuggestionGeneratorService', () => {
     it('should calculate overall confidence as weighted average', async () => {
       // Arrange
       const mockPatterns = [createMockPattern()];
-      const mockClassifications = [{
-        ...createMockClassification('pattern-1'),
-        confidence: 80, // Classification confidence
-      }];
+      const mockClassifications = [
+        {
+          ...createMockClassification('pattern-1'),
+          confidence: 80, // Classification confidence
+        },
+      ];
 
       suggestionRepository.find.mockResolvedValue([]);
       patternDetectionService.detectPatterns.mockResolvedValue(mockPatterns);
@@ -264,7 +286,9 @@ describe('SuggestionGeneratorService', () => {
         // 92 * 0.6 + 80 * 0.4 = 55.2 + 32 = 87.2 ≈ 87
         const entity = entities[0];
         expect(entity.overallConfidence).toBe(87);
-        return Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 })));
+        return Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        );
       });
 
       // Act
@@ -276,8 +300,18 @@ describe('SuggestionGeneratorService', () => {
     it('should return all suggestions for user', async () => {
       // Arrange
       const mockSuggestions = [
-        { id: 1, suggestedName: 'Netflix', status: 'pending', overallConfidence: 85 },
-        { id: 2, suggestedName: 'Spotify', status: 'approved', overallConfidence: 80 },
+        {
+          id: 1,
+          suggestedName: 'Netflix',
+          status: 'pending',
+          overallConfidence: 85,
+        },
+        {
+          id: 2,
+          suggestedName: 'Spotify',
+          status: 'approved',
+          overallConfidence: 80,
+        },
       ];
 
       const queryBuilder = {
@@ -390,8 +424,14 @@ describe('SuggestionGeneratorService', () => {
 
       suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
       expensePlanRepository.create.mockImplementation((data) => data);
-      expensePlanRepository.save.mockResolvedValue({ ...mockSuggestion, id: 10 });
-      suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'approved' });
+      expensePlanRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        id: 10,
+      });
+      suggestionRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        status: 'approved',
+      });
 
       // Act
       const result = await service.approveSuggestion(mockUserId, 1);
@@ -423,7 +463,10 @@ describe('SuggestionGeneratorService', () => {
       suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
       expensePlanRepository.create.mockImplementation((data) => data);
       expensePlanRepository.save.mockResolvedValue({ id: 10 });
-      suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'approved' });
+      suggestionRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        status: 'approved',
+      });
 
       // Act
       await service.approveSuggestion(mockUserId, 1, {
@@ -451,11 +494,20 @@ describe('SuggestionGeneratorService', () => {
     it('should map expense types correctly to plan types', async () => {
       // Arrange
       const testCases = [
-        { expenseType: ExpenseType.SUBSCRIPTION, expectedPlanType: 'fixed_monthly' },
+        {
+          expenseType: ExpenseType.SUBSCRIPTION,
+          expectedPlanType: 'fixed_monthly',
+        },
         { expenseType: ExpenseType.UTILITY, expectedPlanType: 'fixed_monthly' },
-        { expenseType: ExpenseType.INSURANCE, expectedPlanType: 'yearly_fixed' },
+        {
+          expenseType: ExpenseType.INSURANCE,
+          expectedPlanType: 'yearly_fixed',
+        },
         { expenseType: ExpenseType.TAX, expectedPlanType: 'yearly_fixed' },
-        { expenseType: ExpenseType.VARIABLE, expectedPlanType: 'yearly_variable' },
+        {
+          expenseType: ExpenseType.VARIABLE,
+          expectedPlanType: 'yearly_variable',
+        },
       ];
 
       for (const { expenseType, expectedPlanType } of testCases) {
@@ -471,7 +523,10 @@ describe('SuggestionGeneratorService', () => {
         suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
         expensePlanRepository.create.mockImplementation((data) => data);
         expensePlanRepository.save.mockResolvedValue({ id: 10 });
-        suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'approved' });
+        suggestionRepository.save.mockResolvedValue({
+          ...mockSuggestion,
+          status: 'approved',
+        });
 
         // Act
         await service.approveSuggestion(mockUserId, 1);
@@ -497,7 +552,10 @@ describe('SuggestionGeneratorService', () => {
       suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
       expensePlanRepository.create.mockImplementation((data) => data);
       expensePlanRepository.save.mockResolvedValue({ id: 10 });
-      suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'approved' });
+      suggestionRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        status: 'approved',
+      });
 
       // Act
       await service.approveSuggestion(mockUserId, 1);
@@ -518,7 +576,10 @@ describe('SuggestionGeneratorService', () => {
         status: 'pending',
       };
       suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
-      suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'rejected' });
+      suggestionRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        status: 'rejected',
+      });
 
       // Act
       const result = await service.rejectSuggestion(mockUserId, 1);
@@ -538,7 +599,10 @@ describe('SuggestionGeneratorService', () => {
         status: 'pending',
       };
       suggestionRepository.findOne.mockResolvedValue(mockSuggestion);
-      suggestionRepository.save.mockResolvedValue({ ...mockSuggestion, status: 'rejected' });
+      suggestionRepository.save.mockResolvedValue({
+        ...mockSuggestion,
+        status: 'rejected',
+      });
 
       // Act
       await service.rejectSuggestion(mockUserId, 1, { reason: 'Not relevant' });
@@ -564,8 +628,18 @@ describe('SuggestionGeneratorService', () => {
   describe('bulkApprove', () => {
     it('should approve multiple suggestions', async () => {
       // Arrange
-      const mockSuggestion1 = { id: 1, userId: mockUserId, status: 'pending', expenseType: ExpenseType.SUBSCRIPTION };
-      const mockSuggestion2 = { id: 2, userId: mockUserId, status: 'pending', expenseType: ExpenseType.UTILITY };
+      const mockSuggestion1 = {
+        id: 1,
+        userId: mockUserId,
+        status: 'pending',
+        expenseType: ExpenseType.SUBSCRIPTION,
+      };
+      const mockSuggestion2 = {
+        id: 2,
+        userId: mockUserId,
+        status: 'pending',
+        expenseType: ExpenseType.UTILITY,
+      };
 
       suggestionRepository.findOne
         .mockResolvedValueOnce(mockSuggestion1)
@@ -587,7 +661,12 @@ describe('SuggestionGeneratorService', () => {
 
     it('should continue processing after individual failures', async () => {
       // Arrange
-      const mockSuggestion2 = { id: 2, userId: mockUserId, status: 'pending', expenseType: ExpenseType.SUBSCRIPTION };
+      const mockSuggestion2 = {
+        id: 2,
+        userId: mockUserId,
+        status: 'pending',
+        expenseType: ExpenseType.SUBSCRIPTION,
+      };
 
       suggestionRepository.findOne
         .mockResolvedValueOnce(null) // First one not found

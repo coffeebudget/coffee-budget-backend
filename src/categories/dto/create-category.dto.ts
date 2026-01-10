@@ -35,35 +35,47 @@ export class CreateCategoryDto {
   analyticsExclusionReason?: string;
 
   // 🎯 Budget Management Fields
-  @ApiProperty({ 
+  @ApiProperty({
     description: 'Budget level for intelligent categorization',
     enum: ['primary', 'secondary', 'optional'],
     required: false,
-    default: 'optional'
+    default: 'optional',
   })
   @IsOptional()
   @IsEnum(['primary', 'secondary', 'optional'])
   budgetLevel?: 'primary' | 'secondary' | 'optional';
 
-  @ApiProperty({ description: 'Monthly budget for this category', required: false })
+  @ApiProperty({
+    description: 'Monthly budget for this category',
+    required: false,
+  })
   @IsOptional()
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)
   monthlyBudget?: number;
 
-  @ApiProperty({ description: 'Yearly budget for this category', required: false })
+  @ApiProperty({
+    description: 'Yearly budget for this category',
+    required: false,
+  })
   @IsOptional()
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)
   yearlyBudget?: number;
 
-  @ApiProperty({ description: 'Maximum threshold (for secondary categories)', required: false })
+  @ApiProperty({
+    description: 'Maximum threshold (for secondary categories)',
+    required: false,
+  })
   @IsOptional()
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)
   maxThreshold?: number;
 
-  @ApiProperty({ description: 'Warning threshold (percentage of budget)', required: false })
+  @ApiProperty({
+    description: 'Warning threshold (percentage of budget)',
+    required: false,
+  })
   @IsOptional()
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)

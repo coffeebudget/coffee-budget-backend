@@ -23,9 +23,7 @@ describe('FrequencyAnalyzerService', () => {
   describe('analyzeFrequency', () => {
     it('should throw error with less than 2 transactions', () => {
       // Arrange
-      const transactions = [
-        { executionDate: new Date() } as Transaction,
-      ];
+      const transactions = [{ executionDate: new Date() } as Transaction];
 
       // Act & Assert
       expect(() => service.analyzeFrequency(transactions)).toThrow(
@@ -200,9 +198,21 @@ describe('FrequencyAnalyzerService', () => {
       // Arrange
       const baseDate = new Date('2024-01-01');
       const transactions = [
-        { id: 1, executionDate: undefined, createdAt: baseDate } as Partial<Transaction> as Transaction,
-        { id: 2, executionDate: undefined, createdAt: addDays(baseDate, 7) } as Partial<Transaction> as Transaction,
-        { id: 3, executionDate: undefined, createdAt: addDays(baseDate, 14) } as Partial<Transaction> as Transaction,
+        {
+          id: 1,
+          executionDate: undefined,
+          createdAt: baseDate,
+        } as Partial<Transaction> as Transaction,
+        {
+          id: 2,
+          executionDate: undefined,
+          createdAt: addDays(baseDate, 7),
+        } as Partial<Transaction> as Transaction,
+        {
+          id: 3,
+          executionDate: undefined,
+          createdAt: addDays(baseDate, 14),
+        } as Partial<Transaction> as Transaction,
       ];
 
       // Act

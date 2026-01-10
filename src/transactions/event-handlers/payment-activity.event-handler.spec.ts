@@ -100,10 +100,7 @@ describe('PaymentActivityEventHandler', () => {
   describe('handlePaymentActivityCreated - Event Publishing', () => {
     it('should publish TransactionEnrichedEvent after successful automatic reconciliation', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -130,15 +127,17 @@ describe('PaymentActivityEventHandler', () => {
         enhancedCategoryConfidence: 85.0,
       });
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        mockPaymentActivity,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(mockPaymentActivity);
 
       // Act
       await handler.handlePaymentActivityCreated(event);
 
       // Assert
-      expect(paymentActivitiesService.updateReconciliation).toHaveBeenCalledWith(
+      expect(
+        paymentActivitiesService.updateReconciliation,
+      ).toHaveBeenCalledWith(
         123,
         1,
         expect.objectContaining({
@@ -159,16 +158,14 @@ describe('PaymentActivityEventHandler', () => {
       );
 
       // Verify it's a TransactionEnrichedEvent
-      const publishedEvent = (eventPublisher.publish as jest.Mock).mock.calls[0][0];
+      const publishedEvent = (eventPublisher.publish as jest.Mock).mock
+        .calls[0][0];
       expect(publishedEvent).toBeInstanceOf(TransactionEnrichedEvent);
     });
 
     it('should not publish event if no matching transaction found', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -191,19 +188,15 @@ describe('PaymentActivityEventHandler', () => {
       await handler.handlePaymentActivityCreated(event);
 
       // Assert
-      expect(paymentActivitiesService.markReconciliationFailed).toHaveBeenCalledWith(
-        123,
-        1,
-      );
+      expect(
+        paymentActivitiesService.markReconciliationFailed,
+      ).toHaveBeenCalledWith(123, 1);
       expect(eventPublisher.publish).not.toHaveBeenCalled();
     });
 
     it('should not fail reconciliation if event publishing fails', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -226,9 +219,9 @@ describe('PaymentActivityEventHandler', () => {
         enrichedFromPaymentActivityId: 123,
       });
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        mockPaymentActivity,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(mockPaymentActivity);
 
       // Mock event publishing to throw error
       (eventPublisher.publish as jest.Mock).mockImplementation(() => {
@@ -246,10 +239,7 @@ describe('PaymentActivityEventHandler', () => {
 
     it('should pass publishEvent: false to updateReconciliation to avoid duplicate events', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -274,15 +264,17 @@ describe('PaymentActivityEventHandler', () => {
         enhancedMerchantName: 'Starbucks Seattle',
       });
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        mockPaymentActivity,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(mockPaymentActivity);
 
       // Act
       await handler.handlePaymentActivityCreated(event);
 
       // Assert - verify 4th parameter is false
-      expect(paymentActivitiesService.updateReconciliation).toHaveBeenCalledWith(
+      expect(
+        paymentActivitiesService.updateReconciliation,
+      ).toHaveBeenCalledWith(
         expect.any(Number),
         expect.any(Number),
         expect.any(Object),
@@ -292,10 +284,7 @@ describe('PaymentActivityEventHandler', () => {
 
     it('should use saved transaction data for event publishing', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -325,9 +314,9 @@ describe('PaymentActivityEventHandler', () => {
         savedTransaction,
       );
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        mockPaymentActivity,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(mockPaymentActivity);
 
       // Act
       await handler.handlePaymentActivityCreated(event);
@@ -344,10 +333,7 @@ describe('PaymentActivityEventHandler', () => {
 
     it('should update transaction description with enhanced merchant name', async () => {
       // Arrange
-      const event = new PaymentActivityCreatedEvent(
-        mockPaymentActivity,
-        1,
-      );
+      const event = new PaymentActivityCreatedEvent(mockPaymentActivity, 1);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -369,9 +355,9 @@ describe('PaymentActivityEventHandler', () => {
         Promise.resolve(tx),
       );
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        mockPaymentActivity,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(mockPaymentActivity);
 
       // Act
       await handler.handlePaymentActivityCreated(event);
@@ -393,10 +379,7 @@ describe('PaymentActivityEventHandler', () => {
         paymentAccount: { userId: 42 } as any,
       } as unknown as any;
 
-      const event = new PaymentActivityCreatedEvent(
-        activityWithNestedUser,
-        42,
-      );
+      const event = new PaymentActivityCreatedEvent(activityWithNestedUser, 42);
 
       (paymentAccountRepository.findOne as jest.Mock).mockResolvedValue(
         mockPaymentAccount,
@@ -419,9 +402,9 @@ describe('PaymentActivityEventHandler', () => {
         enrichedFromPaymentActivityId: 123,
       });
 
-      (paymentActivitiesService.updateReconciliation as jest.Mock).mockResolvedValue(
-        activityWithNestedUser,
-      );
+      (
+        paymentActivitiesService.updateReconciliation as jest.Mock
+      ).mockResolvedValue(activityWithNestedUser);
 
       // Act
       await handler.handlePaymentActivityCreated(event);

@@ -31,7 +31,9 @@ describe('DuplicateDetectionService', () => {
 
     service = module.get<DuplicateDetectionService>(DuplicateDetectionService);
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    pendingDuplicateRepository = module.get(getRepositoryToken(PendingDuplicate));
+    pendingDuplicateRepository = module.get(
+      getRepositoryToken(PendingDuplicate),
+    );
     userRepository = module.get(getRepositoryToken(User));
   });
 
@@ -203,7 +205,7 @@ describe('DuplicateDetectionService', () => {
         const existingTransaction = {
           id: 1,
           description: 'ATM Withdrawal',
-          amount: 50.00,
+          amount: 50.0,
           type: 'expense',
           executionDate: new Date('2023-12-21'), // 647 days before
           source: 'gocardless',
@@ -214,7 +216,7 @@ describe('DuplicateDetectionService', () => {
 
         const newTransactionData = {
           description: 'ATM Withdrawal',
-          amount: 50.00,
+          amount: 50.0,
           type: 'expense' as const,
           executionDate: new Date('2025-09-29'),
           source: 'gocardless',
@@ -304,7 +306,7 @@ describe('DuplicateDetectionService', () => {
         const existingTransaction = {
           id: 1,
           description: 'Netflix Subscription',
-          amount: 15.50, // $0.49 difference
+          amount: 15.5, // $0.49 difference
           type: 'expense',
           executionDate: new Date('2025-01-15'),
           source: 'gocardless',

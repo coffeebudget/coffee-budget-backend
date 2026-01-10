@@ -1,8 +1,11 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey,
+} from 'typeorm';
 
-export class CreateSyncReportsTable1749999999999
-  implements MigrationInterface
-{
+export class CreateSyncReportsTable1749999999999 implements MigrationInterface {
   name = 'CreateSyncReportsTable1749999999999';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

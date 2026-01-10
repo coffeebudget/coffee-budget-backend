@@ -43,7 +43,12 @@ export class ExpensePlanSuggestion {
   // PATTERN SOURCE DATA
   // ─────────────────────────────────────────────────────────────
 
-  @Column({ type: 'varchar', length: 255, nullable: true, name: 'merchant_name' })
+  @Column({
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+    name: 'merchant_name',
+  })
   merchantName: string | null;
 
   @Column({ type: 'text', name: 'representative_description' })
@@ -56,7 +61,12 @@ export class ExpensePlanSuggestion {
   @JoinColumn({ name: 'category_id' })
   category: Category | null;
 
-  @Column({ type: 'varchar', length: 100, nullable: true, name: 'category_name' })
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+    name: 'category_name',
+  })
   categoryName: string | null;
 
   // ─────────────────────────────────────────────────────────────
@@ -66,7 +76,12 @@ export class ExpensePlanSuggestion {
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'average_amount' })
   averageAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, name: 'monthly_contribution' })
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    name: 'monthly_contribution',
+  })
   monthlyContribution: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, name: 'yearly_total' })

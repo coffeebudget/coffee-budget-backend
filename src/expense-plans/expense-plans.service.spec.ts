@@ -114,7 +114,9 @@ describe('ExpensePlansService', () => {
 
     service = module.get<ExpensePlansService>(ExpensePlansService);
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
-    expensePlanTransactionRepository = module.get(getRepositoryToken(ExpensePlanTransaction));
+    expensePlanTransactionRepository = module.get(
+      getRepositoryToken(ExpensePlanTransaction),
+    );
   });
 
   afterEach(async () => {
@@ -159,10 +161,29 @@ describe('ExpensePlansService', () => {
     it('should order by priority (essential first) then by name', async () => {
       // Arrange
       const userId = 1;
-      const essentialPlan = { ...mockExpensePlan, id: 1, priority: 'essential', name: 'B Plan' };
-      const importantPlan = { ...mockExpensePlan, id: 2, priority: 'important', name: 'A Plan' };
-      const discretionaryPlan = { ...mockExpensePlan, id: 3, priority: 'discretionary', name: 'C Plan' };
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([essentialPlan, importantPlan, discretionaryPlan]);
+      const essentialPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        priority: 'essential',
+        name: 'B Plan',
+      };
+      const importantPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        priority: 'important',
+        name: 'A Plan',
+      };
+      const discretionaryPlan = {
+        ...mockExpensePlan,
+        id: 3,
+        priority: 'discretionary',
+        name: 'C Plan',
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        essentialPlan,
+        importantPlan,
+        discretionaryPlan,
+      ]);
 
       // Act
       const result = await service.findAllByUser(userId);
@@ -202,7 +223,9 @@ describe('ExpensePlansService', () => {
       // Arrange
       const id = 1;
       const userId = 1;
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       const result = await service.findOne(id, userId);
@@ -222,7 +245,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       await expect(service.findOne(id, userId)).rejects.toThrow(
         `Expense plan with ID ${id} not found`,
       );
@@ -235,7 +260,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.findOne(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -260,8 +287,12 @@ describe('ExpensePlansService', () => {
         frequency: 'yearly' as const,
         dueMonth: 6,
       };
-      (expensePlanRepository.create as jest.Mock).mockReturnValue(mockExpensePlan);
-      (expensePlanRepository.save as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.create as jest.Mock).mockReturnValue(
+        mockExpensePlan,
+      );
+      (expensePlanRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       const result = await service.create(userId, createData);
@@ -314,8 +345,12 @@ describe('ExpensePlansService', () => {
         monthlyContribution: 250,
         frequency: 'one_time' as const,
       };
-      (expensePlanRepository.create as jest.Mock).mockReturnValue(mockExpensePlan);
-      (expensePlanRepository.save as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.create as jest.Mock).mockReturnValue(
+        mockExpensePlan,
+      );
+      (expensePlanRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       await service.create(userId, createData);
@@ -336,8 +371,12 @@ describe('ExpensePlansService', () => {
         monthlyContribution: 167,
         frequency: 'yearly' as const,
       };
-      (expensePlanRepository.create as jest.Mock).mockReturnValue(mockExpensePlan);
-      (expensePlanRepository.save as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.create as jest.Mock).mockReturnValue(
+        mockExpensePlan,
+      );
+      (expensePlanRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       await service.create(userId, createData);
@@ -363,7 +402,9 @@ describe('ExpensePlansService', () => {
         targetAmount: 1500,
       };
       const updatedPlan = { ...mockExpensePlan, ...updateData };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue(updatedPlan);
 
       // Act
@@ -405,7 +446,9 @@ describe('ExpensePlansService', () => {
       const id = 1;
       const userId = 1;
       const updateData = { description: 'Updated description only' };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlan,
         description: 'Updated description only',
@@ -424,7 +467,9 @@ describe('ExpensePlansService', () => {
       const id = 1;
       const userId = 1;
       const updateData = { status: 'paused' as const };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlan,
         status: 'paused',
@@ -447,14 +492,20 @@ describe('ExpensePlansService', () => {
       // Arrange
       const id = 1;
       const userId = 1;
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
-      (expensePlanRepository.remove as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      (expensePlanRepository.remove as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       await service.delete(id, userId);
 
       // Assert
-      expect(expensePlanRepository.remove).toHaveBeenCalledWith(mockExpensePlan);
+      expect(expensePlanRepository.remove).toHaveBeenCalledWith(
+        mockExpensePlan,
+      );
     });
 
     it('should throw NotFoundException if expense plan does not exist', async () => {
@@ -464,7 +515,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.delete(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(expensePlanRepository.remove).not.toHaveBeenCalled();
     });
 
@@ -475,7 +528,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.delete(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.delete(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(expensePlanRepository.remove).not.toHaveBeenCalled();
     });
   });
@@ -491,8 +546,12 @@ describe('ExpensePlansService', () => {
       const userId = 1;
       const amount = 100;
       const note = 'Monthly contribution';
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
-      (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue(mockExpensePlanTransaction);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlanTransaction,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlan,
         currentBalance: 400,
@@ -516,7 +575,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.contribute(id, userId, 100)).rejects.toThrow(NotFoundException);
+      await expect(service.contribute(id, userId, 100)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should update lastFundedDate on contribution', async () => {
@@ -524,9 +585,15 @@ describe('ExpensePlansService', () => {
       const id = 1;
       const userId = 1;
       const amount = 100;
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
-      (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue(mockExpensePlanTransaction);
-      (expensePlanRepository.save as jest.Mock).mockResolvedValue(mockExpensePlan);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlanTransaction,
+      );
+      (expensePlanRepository.save as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
 
       // Act
       await service.contribute(id, userId, amount);
@@ -552,7 +619,9 @@ describe('ExpensePlansService', () => {
       const amount = 50;
       const note = 'Partial payment';
       const planWithBalance = { ...mockExpensePlan, currentBalance: 300 };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(planWithBalance);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        planWithBalance,
+      );
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
         type: 'withdrawal',
@@ -578,7 +647,9 @@ describe('ExpensePlansService', () => {
       const userId = 1;
       const amount = 500; // More than currentBalance of 300
       const planWithLowBalance = { ...mockExpensePlan, currentBalance: 300 };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(planWithLowBalance);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        planWithLowBalance,
+      );
 
       // Act & Assert
       await expect(service.withdraw(id, userId, amount)).rejects.toThrow(
@@ -591,7 +662,9 @@ describe('ExpensePlansService', () => {
       const id = 1;
       const userId = 1;
       const planWithBalance = { ...mockExpensePlan, currentBalance: 300 };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(planWithBalance);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        planWithBalance,
+      );
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
         type: 'withdrawal',
@@ -620,8 +693,12 @@ describe('ExpensePlansService', () => {
       // Arrange
       const id = 1;
       const userId = 1;
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(mockExpensePlan);
-      (expensePlanTransactionRepository.find as jest.Mock).mockResolvedValue([mockExpensePlanTransaction]);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      (expensePlanTransactionRepository.find as jest.Mock).mockResolvedValue([
+        mockExpensePlanTransaction,
+      ]);
 
       // Act
       const result = await service.getTransactions(id, userId);
@@ -642,7 +719,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.getTransactions(id, userId)).rejects.toThrow(NotFoundException);
+      await expect(service.getTransactions(id, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -656,7 +735,10 @@ describe('ExpensePlansService', () => {
       const userId = 1;
       const plan1 = { ...mockExpensePlan, id: 1, monthlyContribution: 100 };
       const plan2 = { ...mockExpensePlan, id: 2, monthlyContribution: 200 };
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan1, plan2]);
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        plan1,
+        plan2,
+      ]);
 
       // Act
       const result = await service.getMonthlyDepositSummary(userId);
@@ -669,9 +751,22 @@ describe('ExpensePlansService', () => {
     it('should group plans by type', async () => {
       // Arrange
       const userId = 1;
-      const yearlyPlan = { ...mockExpensePlan, id: 1, planType: 'yearly_fixed', monthlyContribution: 100 };
-      const emergencyPlan = { ...mockExpensePlan, id: 2, planType: 'emergency_fund', monthlyContribution: 200 };
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([yearlyPlan, emergencyPlan]);
+      const yearlyPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        planType: 'yearly_fixed',
+        monthlyContribution: 100,
+      };
+      const emergencyPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        planType: 'emergency_fund',
+        monthlyContribution: 200,
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        yearlyPlan,
+        emergencyPlan,
+      ]);
 
       // Act
       const result = await service.getMonthlyDepositSummary(userId);
@@ -703,7 +798,11 @@ describe('ExpensePlansService', () => {
   describe('calculateMonthlyContribution', () => {
     it('should return manual contribution when contributionSource is manual', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, contributionSource: 'manual', monthlyContribution: 150 };
+      const plan = {
+        ...mockExpensePlan,
+        contributionSource: 'manual',
+        monthlyContribution: 150,
+      };
 
       // Act
       const result = service.calculateMonthlyContribution(plan as ExpensePlan);
@@ -714,7 +813,12 @@ describe('ExpensePlansService', () => {
 
     it('should calculate monthly amount for monthly frequency', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, frequency: 'monthly', targetAmount: 100, contributionSource: 'calculated' };
+      const plan = {
+        ...mockExpensePlan,
+        frequency: 'monthly',
+        targetAmount: 100,
+        contributionSource: 'calculated',
+      };
 
       // Act
       const result = service.calculateMonthlyContribution(plan as ExpensePlan);
@@ -725,7 +829,12 @@ describe('ExpensePlansService', () => {
 
     it('should calculate monthly amount for quarterly frequency', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, frequency: 'quarterly', targetAmount: 300, contributionSource: 'calculated' };
+      const plan = {
+        ...mockExpensePlan,
+        frequency: 'quarterly',
+        targetAmount: 300,
+        contributionSource: 'calculated',
+      };
 
       // Act
       const result = service.calculateMonthlyContribution(plan as ExpensePlan);
@@ -736,7 +845,12 @@ describe('ExpensePlansService', () => {
 
     it('should calculate monthly amount for yearly frequency', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, frequency: 'yearly', targetAmount: 1200, contributionSource: 'calculated' };
+      const plan = {
+        ...mockExpensePlan,
+        frequency: 'yearly',
+        targetAmount: 1200,
+        contributionSource: 'calculated',
+      };
 
       // Act
       const result = service.calculateMonthlyContribution(plan as ExpensePlan);
@@ -877,7 +991,11 @@ describe('ExpensePlansService', () => {
   describe('calculateStatus', () => {
     it('should return funded when currentBalance >= targetAmount', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, currentBalance: 1200, targetAmount: 1200 };
+      const plan = {
+        ...mockExpensePlan,
+        currentBalance: 1200,
+        targetAmount: 1200,
+      };
 
       // Act
       const result = service.calculateStatus(plan as ExpensePlan);
@@ -888,7 +1006,11 @@ describe('ExpensePlansService', () => {
 
     it('should return almost_ready when progress >= 80%', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, currentBalance: 1000, targetAmount: 1200 };
+      const plan = {
+        ...mockExpensePlan,
+        currentBalance: 1000,
+        targetAmount: 1200,
+      };
 
       // Act
       const result = service.calculateStatus(plan as ExpensePlan);
@@ -977,7 +1099,13 @@ describe('ExpensePlansService', () => {
 
     it('should return true when no due date is set', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, nextDueDate: null, targetDate: null, dueMonth: null, dueDay: null };
+      const plan = {
+        ...mockExpensePlan,
+        nextDueDate: null,
+        targetDate: null,
+        dueMonth: null,
+        dueDay: null,
+      };
 
       // Act
       const result = service.isOnTrack(plan as ExpensePlan);
@@ -996,9 +1124,22 @@ describe('ExpensePlansService', () => {
       const plan2Date = new Date();
       plan2Date.setMonth(plan2Date.getMonth() + 1);
 
-      const plan1 = { ...mockExpensePlan, id: 1, name: 'Insurance', nextDueDate: plan1Date };
-      const plan2 = { ...mockExpensePlan, id: 2, name: 'Subscription', nextDueDate: plan2Date };
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan1, plan2]);
+      const plan1 = {
+        ...mockExpensePlan,
+        id: 1,
+        name: 'Insurance',
+        nextDueDate: plan1Date,
+      };
+      const plan2 = {
+        ...mockExpensePlan,
+        id: 2,
+        name: 'Subscription',
+        nextDueDate: plan2Date,
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        plan1,
+        plan2,
+      ]);
 
       // Act
       const result = await service.getTimelineView(userId, 12);
@@ -1042,7 +1183,13 @@ describe('ExpensePlansService', () => {
       const userId = 1;
       const futureDate = new Date();
       futureDate.setMonth(futureDate.getMonth() + 6);
-      const fundedPlan = { ...mockExpensePlan, id: 1, currentBalance: 1200, targetAmount: 1200, nextDueDate: futureDate };
+      const fundedPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        currentBalance: 1200,
+        targetAmount: 1200,
+        nextDueDate: futureDate,
+      };
       (expensePlanRepository.find as jest.Mock).mockResolvedValue([fundedPlan]);
 
       // Act
@@ -1061,7 +1208,9 @@ describe('ExpensePlansService', () => {
       const newBalance = 500;
       const note = 'Correction for missed tracking';
       const planWithOldBalance = { ...mockExpensePlan, currentBalance: 300 };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(planWithOldBalance);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        planWithOldBalance,
+      );
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
         type: 'adjustment',
@@ -1087,7 +1236,9 @@ describe('ExpensePlansService', () => {
       const userId = 1;
       const newBalance = 100;
       const planWithHighBalance = { ...mockExpensePlan, currentBalance: 300 };
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(planWithHighBalance);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        planWithHighBalance,
+      );
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
         type: 'adjustment',
@@ -1114,7 +1265,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.adjustBalance(id, userId, 500)).rejects.toThrow(NotFoundException);
+      await expect(service.adjustBalance(id, userId, 500)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -1133,7 +1286,12 @@ describe('ExpensePlansService', () => {
 
     it('should calculate next yearly due date', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, frequency: 'yearly', dueMonth: 6, dueDay: 15 };
+      const plan = {
+        ...mockExpensePlan,
+        frequency: 'yearly',
+        dueMonth: 6,
+        dueDay: 15,
+      };
 
       // Act
       const result = service.calculateNextDueDate(plan as ExpensePlan);
@@ -1169,7 +1327,13 @@ describe('ExpensePlansService', () => {
 
     it('should return null for plans without timing info', () => {
       // Arrange
-      const plan = { ...mockExpensePlan, frequency: 'yearly', dueMonth: null, dueDay: null, targetDate: null };
+      const plan = {
+        ...mockExpensePlan,
+        frequency: 'yearly',
+        dueMonth: null,
+        dueDay: null,
+        targetDate: null,
+      };
 
       // Act
       const result = service.calculateNextDueDate(plan as ExpensePlan);
@@ -1218,7 +1382,9 @@ describe('ExpensePlansService', () => {
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
 
       // Act & Assert
-      await expect(service.quickFund(999, 1)).rejects.toThrow(NotFoundException);
+      await expect(service.quickFund(999, 1)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -1227,7 +1393,11 @@ describe('ExpensePlansService', () => {
       // Arrange
       const id = 1;
       const userId = 1;
-      const plan = { ...mockExpensePlan, currentBalance: 300, targetAmount: 1200 };
+      const plan = {
+        ...mockExpensePlan,
+        currentBalance: 300,
+        targetAmount: 1200,
+      };
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(plan);
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
@@ -1250,7 +1420,11 @@ describe('ExpensePlansService', () => {
 
     it('should return null if already fully funded', async () => {
       // Arrange
-      const plan = { ...mockExpensePlan, currentBalance: 1200, targetAmount: 1200 };
+      const plan = {
+        ...mockExpensePlan,
+        currentBalance: 1200,
+        targetAmount: 1200,
+      };
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(plan);
 
       // Act
@@ -1262,7 +1436,11 @@ describe('ExpensePlansService', () => {
 
     it('should return null if over-funded', async () => {
       // Arrange
-      const plan = { ...mockExpensePlan, currentBalance: 1500, targetAmount: 1200 };
+      const plan = {
+        ...mockExpensePlan,
+        currentBalance: 1500,
+        targetAmount: 1200,
+      };
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(plan);
 
       // Act
@@ -1291,8 +1469,16 @@ describe('ExpensePlansService', () => {
         .mockResolvedValueOnce(plan2) // bulkFund existence check for plan2
         .mockResolvedValueOnce(plan2); // contribute's findOne for plan2
       (expensePlanTransactionRepository.save as jest.Mock)
-        .mockResolvedValueOnce({ ...mockExpensePlanTransaction, id: 1, amount: 100 })
-        .mockResolvedValueOnce({ ...mockExpensePlanTransaction, id: 2, amount: 200 });
+        .mockResolvedValueOnce({
+          ...mockExpensePlanTransaction,
+          id: 1,
+          amount: 100,
+        })
+        .mockResolvedValueOnce({
+          ...mockExpensePlanTransaction,
+          id: 2,
+          amount: 200,
+        });
       (expensePlanRepository.save as jest.Mock)
         .mockResolvedValueOnce({ ...plan1, currentBalance: 200 })
         .mockResolvedValueOnce({ ...plan2, currentBalance: 400 });
@@ -1321,7 +1507,9 @@ describe('ExpensePlansService', () => {
         .mockResolvedValueOnce(plan1) // bulkFund existence check for plan1
         .mockResolvedValueOnce(plan1) // contribute's findOne for plan1
         .mockResolvedValueOnce(null); // bulkFund existence check for plan2 (not found)
-      (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValueOnce({
+      (
+        expensePlanTransactionRepository.save as jest.Mock
+      ).mockResolvedValueOnce({
         ...mockExpensePlanTransaction,
         amount: 100,
       });
@@ -1358,7 +1546,10 @@ describe('ExpensePlansService', () => {
       const plan1 = { ...mockExpensePlan, id: 1, monthlyContribution: 100 };
       const plan2 = { ...mockExpensePlan, id: 2, monthlyContribution: 200 };
 
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan1, plan2]);
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        plan1,
+        plan2,
+      ]);
       // quickFund calls findOne, then contribute calls findOne again
       (expensePlanRepository.findOne as jest.Mock)
         .mockResolvedValueOnce(plan1) // quickFund's findOne for plan1
@@ -1383,11 +1574,25 @@ describe('ExpensePlansService', () => {
     it('should skip fully funded plans in bulk quick fund', async () => {
       // Arrange
       const userId = 1;
-      const fundedPlan = { ...mockExpensePlan, id: 1, currentBalance: 1200, targetAmount: 1200 };
-      const unfundedPlan = { ...mockExpensePlan, id: 2, monthlyContribution: 100 };
+      const fundedPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        currentBalance: 1200,
+        targetAmount: 1200,
+      };
+      const unfundedPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        monthlyContribution: 100,
+      };
 
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([fundedPlan, unfundedPlan]);
-      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(unfundedPlan);
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        fundedPlan,
+        unfundedPlan,
+      ]);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        unfundedPlan,
+      );
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...mockExpensePlanTransaction,
         amount: 100,
@@ -1416,7 +1621,9 @@ describe('ExpensePlansService', () => {
       const planTx = { ...mockExpensePlanTransaction, transactionId: null };
       const plan = { ...mockExpensePlan };
 
-      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(planTx);
+      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        planTx,
+      );
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(plan);
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...planTx,
@@ -1424,7 +1631,11 @@ describe('ExpensePlansService', () => {
       });
 
       // Act
-      const result = await service.linkTransaction(planTransactionId, transactionId, userId);
+      const result = await service.linkTransaction(
+        planTransactionId,
+        transactionId,
+        userId,
+      );
 
       // Assert
       expect(result.transactionId).toBe(100);
@@ -1432,20 +1643,28 @@ describe('ExpensePlansService', () => {
 
     it('should throw NotFoundException if plan transaction not found', async () => {
       // Arrange
-      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        null,
+      );
 
       // Act & Assert
-      await expect(service.linkTransaction(999, 100, 1)).rejects.toThrow(NotFoundException);
+      await expect(service.linkTransaction(999, 100, 1)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw error if plan transaction belongs to different user', async () => {
       // Arrange
       const planTx = { ...mockExpensePlanTransaction, expensePlanId: 1 };
-      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(planTx);
+      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        planTx,
+      );
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null); // Not found for this user
 
       // Act & Assert
-      await expect(service.linkTransaction(1, 100, 2)).rejects.toThrow(NotFoundException);
+      await expect(service.linkTransaction(1, 100, 2)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -1457,7 +1676,9 @@ describe('ExpensePlansService', () => {
       const planTx = { ...mockExpensePlanTransaction, transactionId: 100 };
       const plan = { ...mockExpensePlan };
 
-      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(planTx);
+      (expensePlanTransactionRepository.findOne as jest.Mock).mockResolvedValue(
+        planTx,
+      );
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(plan);
       (expensePlanTransactionRepository.save as jest.Mock).mockResolvedValue({
         ...planTx,

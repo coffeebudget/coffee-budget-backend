@@ -68,7 +68,10 @@ export class GocardlessCronController {
         status: 'success',
       };
     } catch (error) {
-      this.logger.error(`Daily bank sync failed: ${error.message}`, error.stack);
+      this.logger.error(
+        `Daily bank sync failed: ${error.message}`,
+        error.stack,
+      );
       return {
         message: `Daily bank sync failed: ${error.message}`,
         status: 'error',

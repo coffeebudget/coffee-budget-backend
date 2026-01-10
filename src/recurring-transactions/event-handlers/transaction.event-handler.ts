@@ -20,28 +20,39 @@ export class TransactionEventHandler {
    * Analyze transaction for recurring patterns when created
    */
   @OnEvent(TransactionCreatedEvent.name)
-  async handleTransactionCreated(event: TransactionCreatedEvent): Promise<void> {
+  async handleTransactionCreated(
+    event: TransactionCreatedEvent,
+  ): Promise<void> {
     try {
-      this.logger.debug('Handling TransactionCreatedEvent for recurring pattern analysis', {
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling TransactionCreatedEvent for recurring pattern analysis',
+        {
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
 
       // Analyze transaction for recurring patterns
       await this.recurringPatternDetectorService.detectPatternForTransaction(
         event.transaction,
       );
 
-      this.logger.debug('Recurring pattern analysis completed for transaction', {
-        transactionId: event.transaction.id,
-      });
+      this.logger.debug(
+        'Recurring pattern analysis completed for transaction',
+        {
+          transactionId: event.transaction.id,
+        },
+      );
     } catch (error) {
-      this.logger.error('Failed to handle TransactionCreatedEvent for recurring pattern analysis', {
-        error: error.message,
-        stack: error.stack,
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.error(
+        'Failed to handle TransactionCreatedEvent for recurring pattern analysis',
+        {
+          error: error.message,
+          stack: error.stack,
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
       // Don't re-throw to avoid breaking the transaction creation flow
     }
   }

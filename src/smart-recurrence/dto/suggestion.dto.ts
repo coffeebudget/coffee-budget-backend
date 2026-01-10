@@ -76,14 +76,16 @@ export class GenerateSuggestionsDto {
 
 export class ApproveSuggestionDto {
   @ApiPropertyOptional({
-    description: 'Custom name for the expense plan (uses suggestion name if not provided)',
+    description:
+      'Custom name for the expense plan (uses suggestion name if not provided)',
   })
   @IsOptional()
   @IsString()
   customName?: string;
 
   @ApiPropertyOptional({
-    description: 'Custom monthly contribution (uses suggested amount if not provided)',
+    description:
+      'Custom monthly contribution (uses suggested amount if not provided)',
   })
   @IsOptional()
   @IsNumber()
@@ -91,7 +93,8 @@ export class ApproveSuggestionDto {
   customMonthlyContribution?: number;
 
   @ApiPropertyOptional({
-    description: 'Category ID to assign (uses detected category if not provided)',
+    description:
+      'Category ID to assign (uses detected category if not provided)',
   })
   @IsOptional()
   @IsNumber()

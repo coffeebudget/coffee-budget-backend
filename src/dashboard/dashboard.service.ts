@@ -585,31 +585,47 @@ export class DashboardService {
       .addGroupBy('transaction.type')
       .getRawMany();
 
-    console.log('DEBUG Savings Plan - Raw transactions:', allTransactions.length);
-    console.log('DEBUG Savings Plan - Sample transactions:', allTransactions.slice(0, 5));
+    console.log(
+      'DEBUG Savings Plan - Raw transactions:',
+      allTransactions.length,
+    );
+    console.log(
+      'DEBUG Savings Plan - Sample transactions:',
+      allTransactions.slice(0, 5),
+    );
 
     // Calculate net per category
-    const categoryNets: Record<string, { income: number; expense: number; net: number }> = {};
-    
+    const categoryNets: Record<
+      string,
+      { income: number; expense: number; net: number }
+    > = {};
+
     allTransactions.forEach((item) => {
       const categoryName = item.categoryName || 'Uncategorized';
       const amount = Number(item.amount) || 0;
-      
+
       if (!categoryNets[categoryName]) {
         categoryNets[categoryName] = { income: 0, expense: 0, net: 0 };
       }
-      
+
       if (item.type === 'income') {
         categoryNets[categoryName].income += amount;
       } else {
         categoryNets[categoryName].expense += amount;
       }
-      
-      categoryNets[categoryName].net = categoryNets[categoryName].income - categoryNets[categoryName].expense;
+
+      categoryNets[categoryName].net =
+        categoryNets[categoryName].income - categoryNets[categoryName].expense;
     });
 
-    console.log('DEBUG Savings Plan - Category nets:', Object.keys(categoryNets).length);
-    console.log('DEBUG Savings Plan - Sample nets:', Object.entries(categoryNets).slice(0, 3));
+    console.log(
+      'DEBUG Savings Plan - Category nets:',
+      Object.keys(categoryNets).length,
+    );
+    console.log(
+      'DEBUG Savings Plan - Sample nets:',
+      Object.entries(categoryNets).slice(0, 3),
+    );
 
     // Only return categories with NET negative impact (where you spend more than you receive)
     const result = Object.entries(categoryNets)
@@ -621,8 +637,12 @@ export class DashboardService {
       }))
       .sort((a, b) => b.total - a.total);
 
-    console.log('DEBUG Savings Plan - Final result:', result.length, 'categories');
-    
+    console.log(
+      'DEBUG Savings Plan - Final result:',
+      result.length,
+      'categories',
+    );
+
     return result;
   }
 }

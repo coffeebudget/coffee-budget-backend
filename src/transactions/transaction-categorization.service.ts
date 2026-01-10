@@ -1,11 +1,18 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Transaction } from './transaction.entity';
 import { Category } from '../categories/entities/category.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
-import { EnhancedTransactionData, CategorizationOptions } from '../merchant-categorization/dto/merchant-categorization.dto';
+import {
+  EnhancedTransactionData,
+  CategorizationOptions,
+} from '../merchant-categorization/dto/merchant-categorization.dto';
 
 @Injectable()
 export class TransactionCategorizationService {
@@ -45,11 +52,12 @@ export class TransactionCategorizationService {
           enhancedDescription: transaction.description,
         };
 
-        const merchantResult = await this.merchantCategorizationService.categorizeByMerchant(
-          enhancedTransaction,
-          userId,
-          options,
-        );
+        const merchantResult =
+          await this.merchantCategorizationService.categorizeByMerchant(
+            enhancedTransaction,
+            userId,
+            options,
+          );
 
         if (merchantResult && merchantResult.confidence >= 70) {
           // Find the category by ID
@@ -73,14 +81,18 @@ export class TransactionCategorizationService {
         transaction.merchantCategoryCode,
       );
 
-      const suggestedCategory = await this.categoriesService.suggestCategoryForDescription(
-        enhancedDescription,
-        userId,
-      );
+      const suggestedCategory =
+        await this.categoriesService.suggestCategoryForDescription(
+          enhancedDescription,
+          userId,
+        );
 
       if (suggestedCategory) {
         transaction.category = suggestedCategory;
-        transaction.categorizationConfidence = this.calculateKeywordConfidence(enhancedDescription, suggestedCategory);
+        transaction.categorizationConfidence = this.calculateKeywordConfidence(
+          enhancedDescription,
+          suggestedCategory,
+        );
         await this.transactionRepository.save(transaction);
       }
 
@@ -248,14 +260,17 @@ export class TransactionCategorizationService {
   /**
    * Calculate confidence score for keyword-based categorization
    */
-  private calculateKeywordConfidence(description: string, category: Category): number {
+  private calculateKeywordConfidence(
+    description: string,
+    category: Category,
+  ): number {
     if (!category.keywords || category.keywords.length === 0) {
       return 50; // Base confidence for categories without keywords
     }
 
     const descriptionLower = description.toLowerCase();
-    const matchingKeywords = category.keywords.filter(keyword =>
-      descriptionLower.includes(keyword.toLowerCase())
+    const matchingKeywords = category.keywords.filter((keyword) =>
+      descriptionLower.includes(keyword.toLowerCase()),
     );
 
     if (matchingKeywords.length === 0) {
@@ -264,8 +279,8 @@ export class TransactionCategorizationService {
 
     // Calculate confidence based on keyword matches
     const matchRatio = matchingKeywords.length / category.keywords.length;
-    const baseConfidence = Math.min(95, 50 + (matchRatio * 45));
-    
+    const baseConfidence = Math.min(95, 50 + matchRatio * 45);
+
     return Math.round(baseConfidence);
   }
 }
