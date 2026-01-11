@@ -272,18 +272,23 @@ ${expenseTypes}
 For each pattern, determine:
 1. expenseType: The most appropriate type from the list above
 2. isEssential: true if this is a necessary expense (utilities, insurance, mortgage), false for discretionary
-3. suggestedPlanName: A clear, user-friendly name for the expense plan (e.g., "Netflix Subscription", "Home Insurance")
-4. monthlyContribution: The amount to save monthly for this expense (use averageAmount / frequency multiplier)
+3. suggestedPlanName: A clear, user-friendly name for the expense plan (e.g., "Netflix Subscription", "Home Insurance"). IMPORTANT: Make names unique - if you have multiple similar expenses (like multiple cafe visits), differentiate them by adding the merchant name or description.
+4. monthlyContribution: The CALCULATED numeric amount to save monthly. Calculate this yourself based on averageAmount and frequency. DO NOT write mathematical expressions - write the final calculated number only.
 5. confidence: 0-100 based on how certain you are about the classification
 6. reasoning: Brief explanation of your classification
 
-FREQUENCY MULTIPLIERS for monthlyContribution:
-- weekly: amount * 4.33
-- biweekly: amount * 2.17
-- monthly: amount * 1
-- quarterly: amount / 3
-- semiannual: amount / 6
-- annual: amount / 12
+FREQUENCY MULTIPLIERS for monthlyContribution (calculate the result, don't write the formula):
+- weekly: averageAmount multiplied by 4.33
+- biweekly: averageAmount multiplied by 2.17
+- monthly: use averageAmount as-is
+- quarterly: averageAmount divided by 3
+- semiannual: averageAmount divided by 6
+- annual: averageAmount divided by 12
+
+CRITICAL JSON FORMATTING RULES:
+- monthlyContribution MUST be a plain number (e.g., 99.15), NOT a mathematical expression (e.g., 22.90 * 4.33)
+- All numbers must be numeric values, not strings or formulas
+- The response must be valid JSON that can be parsed by JSON.parse()
 
 Respond with a JSON array in this exact format:
 [
@@ -292,7 +297,7 @@ Respond with a JSON array in this exact format:
     "expenseType": "<ExpenseType>",
     "isEssential": <boolean>,
     "suggestedPlanName": "<string>",
-    "monthlyContribution": <number>,
+    "monthlyContribution": <calculated_number>,
     "confidence": <number>,
     "reasoning": "<string>"
   }
@@ -308,10 +313,14 @@ Respond with a JSON array in this exact format:
   ): PatternClassificationResponse[] {
     try {
       // Clean the response - remove any markdown formatting
-      const cleanResponse = response
+      let cleanResponse = response
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
+
+      // Fix mathematical expressions in monthlyContribution that OpenAI sometimes returns
+      // e.g., "monthlyContribution": 22.90 * 4.33 → "monthlyContribution": 99.157
+      cleanResponse = this.fixMathExpressionsInJson(cleanResponse);
 
       const parsed = JSON.parse(cleanResponse);
 
@@ -344,6 +353,49 @@ Respond with a JSON array in this exact format:
       // Fallback to rule-based classification
       return patterns.map((p) => this.classifyWithRules(p));
     }
+  }
+
+  /**
+   * Fix mathematical expressions in JSON that OpenAI sometimes returns
+   * e.g., "monthlyContribution": 22.90 * 4.33 → "monthlyContribution": 99.157
+   */
+  private fixMathExpressionsInJson(jsonString: string): string {
+    // Match patterns like: "monthlyContribution": <number> <operator> <number>
+    // Operators: *, /, +, -
+    const mathExpressionPattern =
+      /"monthlyContribution"\s*:\s*([\d.]+)\s*([*\/+-])\s*([\d.]+)/g;
+
+    return jsonString.replace(mathExpressionPattern, (match, num1, operator, num2) => {
+      const a = parseFloat(num1);
+      const b = parseFloat(num2);
+      let result: number;
+
+      switch (operator) {
+        case '*':
+          result = a * b;
+          break;
+        case '/':
+          result = a / b;
+          break;
+        case '+':
+          result = a + b;
+          break;
+        case '-':
+          result = a - b;
+          break;
+        default:
+          result = a;
+      }
+
+      // Round to 2 decimal places
+      result = Math.round(result * 100) / 100;
+
+      this.logger.debug(
+        `Fixed math expression: ${num1} ${operator} ${num2} = ${result}`,
+      );
+
+      return `"monthlyContribution": ${result}`;
+    });
   }
 
   /**

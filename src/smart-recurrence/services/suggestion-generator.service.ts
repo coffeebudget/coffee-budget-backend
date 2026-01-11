@@ -496,7 +496,7 @@ export class SuggestionGeneratorService {
     // Get existing pending suggestions
     const existingSuggestions = await this.suggestionRepository.find({
       where: { userId, status: 'pending' },
-      select: ['merchantName', 'categoryId', 'frequencyType'],
+      select: ['merchantName', 'categoryId', 'frequencyType', 'suggestedName'],
     });
 
     const existingPlanNames = new Set(
@@ -510,9 +510,22 @@ export class SuggestionGeneratorService {
       ),
     );
 
+    // Also track existing suggested names to avoid duplicates
+    const existingSuggestedNames = new Set(
+      existingSuggestions.map((s) => s.suggestedName?.toLowerCase()),
+    );
+
+    // Track suggested names within the current batch to avoid duplicates
+    const seenSuggestedNames = new Set<string>();
+    // Track category+name combinations within current batch
+    const seenCategoryNameCombos = new Set<string>();
+
     return suggestions.filter((suggestion) => {
+      const suggestedNameLower = suggestion.suggestedName.toLowerCase();
+      const categoryNameCombo = `${suggestion.categoryId}|${suggestedNameLower}`;
+
       // Filter out if a plan with same name exists
-      if (existingPlanNames.has(suggestion.suggestedName.toLowerCase())) {
+      if (existingPlanNames.has(suggestedNameLower)) {
         return false;
       }
 
@@ -521,6 +534,25 @@ export class SuggestionGeneratorService {
       if (existingSuggestionKeys.has(suggestionKey)) {
         return false;
       }
+
+      // Filter out if same suggested name already exists in pending suggestions
+      if (existingSuggestedNames.has(suggestedNameLower)) {
+        return false;
+      }
+
+      // Filter out duplicates within the current batch (same name)
+      if (seenSuggestedNames.has(suggestedNameLower)) {
+        return false;
+      }
+
+      // Filter out duplicates within the current batch (same category + similar name)
+      if (seenCategoryNameCombos.has(categoryNameCombo)) {
+        return false;
+      }
+
+      // Mark as seen for current batch deduplication
+      seenSuggestedNames.add(suggestedNameLower);
+      seenCategoryNameCombos.add(categoryNameCombo);
 
       return true;
     });
