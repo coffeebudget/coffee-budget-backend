@@ -81,3 +81,6 @@ scripts/*-backup-*.json
 
 # Environment files
 .env.development
+
+# Database backups (sync-prod-db.sh)
+/db-backups
