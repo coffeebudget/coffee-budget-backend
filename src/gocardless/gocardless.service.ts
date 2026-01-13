@@ -133,6 +133,9 @@ export class GocardlessService {
   ): Promise<AccessTokenResponseDto> {
     try {
       this.logger.log('Creating access token...');
+      this.logger.log(
+        `Credentials: secret_id length=${createTokenDto.secret_id?.length || 0}, secret_key length=${createTokenDto.secret_key?.length || 0}`,
+      );
 
       const response = await this.httpClient.post<AccessTokenResponseDto>(
         '/token/new/',
@@ -373,21 +376,30 @@ export class GocardlessService {
       !this.tokenExpiry ||
       new Date() >= this.tokenExpiry
     ) {
+      this.logger.log('Token missing or expired, refreshing...');
+
       // Try to get credentials from environment
       const secretId = this.configService.get<string>('GOCARDLESS_SECRET_ID');
       const secretKey = this.configService.get<string>('GOCARDLESS_SECRET_KEY');
 
       if (!secretId || !secretKey) {
+        this.logger.error(
+          `GoCardless credentials missing - secretId: ${secretId ? 'SET' : 'MISSING'}, secretKey: ${secretKey ? 'SET' : 'MISSING'}`,
+        );
         throw new HttpException(
           'GoCardless credentials not configured. Please set GOCARDLESS_SECRET_ID and GOCARDLESS_SECRET_KEY environment variables.',
           HttpStatus.INTERNAL_SERVER_ERROR,
         );
       }
 
+      this.logger.log('Credentials found, requesting new access token...');
+
       await this.createAccessToken({
         secret_id: secretId,
         secret_key: secretKey,
       });
+
+      this.logger.log('Access token refreshed successfully');
     }
   }
 
