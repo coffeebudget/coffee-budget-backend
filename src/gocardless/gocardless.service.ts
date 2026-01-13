@@ -75,23 +75,6 @@ export class GocardlessService {
       },
     });
 
-    // Add request interceptor to automatically add auth token
-    this.httpClient.interceptors.request.use((config) => {
-      this.logger.log(
-        `Request interceptor: url=${config.url}, hasToken=${!!this.accessToken}, tokenLength=${this.accessToken?.length || 0}`,
-      );
-      if (config.url !== '/token/new/' && this.accessToken) {
-        if (!config.headers) {
-          config.headers = {};
-        }
-        config.headers.Authorization = `Bearer ${this.accessToken}`;
-        this.logger.log(`Added Authorization header with token length ${this.accessToken.length}`);
-      } else if (config.url !== '/token/new/') {
-        this.logger.warn(`No token available for request to ${config.url}`);
-      }
-      return config;
-    });
-
     // Add response interceptor for error handling
     this.httpClient.interceptors.response.use(
       (response) => response,
@@ -128,6 +111,21 @@ export class GocardlessService {
         );
       },
     );
+  }
+
+  /**
+   * Get authorization headers with the current access token.
+   * Call ensureValidToken() before using this method.
+   */
+  private getAuthHeaders(): Record<string, string> {
+    if (!this.accessToken) {
+      this.logger.warn('getAuthHeaders called but no token available');
+      return {};
+    }
+    this.logger.log(`getAuthHeaders: token length=${this.accessToken.length}`);
+    return {
+      Authorization: `Bearer ${this.accessToken}`,
+    };
   }
 
   /**
@@ -175,6 +173,7 @@ export class GocardlessService {
 
       const response = await this.httpClient.get<InstitutionDto[]>(
         `/institutions/?country=${countryCode.toLowerCase()}`,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log(`Found ${response.data.length} institutions`);
@@ -199,6 +198,7 @@ export class GocardlessService {
       const response = await this.httpClient.post<EndUserAgreementResponseDto>(
         '/agreements/enduser/',
         agreementDto,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log('End user agreement created successfully');
@@ -223,6 +223,7 @@ export class GocardlessService {
       const response = await this.httpClient.post<RequisitionResponseDto>(
         '/requisitions/',
         requisitionDto,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log('Requisition created successfully');
@@ -244,6 +245,7 @@ export class GocardlessService {
 
       const response = await this.httpClient.get<RequisitionResponseDto>(
         `/requisitions/${requisitionId}/`,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log('Requisition fetched successfully');
@@ -269,7 +271,7 @@ export class GocardlessService {
       // list all requisitions and find the one with matching reference
       const response = await this.httpClient.get<{
         results: RequisitionResponseDto[];
-      }>('/requisitions/');
+      }>('/requisitions/', { headers: this.getAuthHeaders() });
 
       const requisition = response.data.results.find(
         (req) => req.reference === reference,
@@ -303,6 +305,7 @@ export class GocardlessService {
 
       const response = await this.httpClient.get<AccountDetailsDto>(
         `/accounts/${accountId}/details/`,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log('Account details fetched successfully');
@@ -324,6 +327,7 @@ export class GocardlessService {
 
       const response = await this.httpClient.get<AccountBalancesDto>(
         `/accounts/${accountId}/balances/`,
+        { headers: this.getAuthHeaders() },
       );
 
       this.logger.log('Account balances fetched successfully');
@@ -363,7 +367,9 @@ export class GocardlessService {
 
       this.logger.log(`Fetching transactions with URL: ${url}`);
 
-      const response = await this.httpClient.get<TransactionsResponseDto>(url);
+      const response = await this.httpClient.get<TransactionsResponseDto>(url, {
+        headers: this.getAuthHeaders(),
+      });
 
       this.logger.log(
         `Fetched ${response.data.transactions.booked.length} booked transactions and ${response.data.transactions.pending.length} pending transactions`,
@@ -429,6 +435,7 @@ export class GocardlessService {
 
       const response = await this.httpClient.get<InstitutionDto>(
         `/institutions/${institutionId}/`,
+        { headers: this.getAuthHeaders() },
       );
 
       return response.data;
