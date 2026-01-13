@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GocardlessController } from './gocardless.controller';
 import { GocardlessService } from './gocardless.service';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 
 describe('GocardlessController', () => {
   let controller: GocardlessController;
@@ -32,6 +33,14 @@ describe('GocardlessController', () => {
           useValue: {
             dailyBankSync: jest.fn(),
             getUsersWithGocardlessAccounts: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessConnectionService,
+          useValue: {
+            getConnectionStatusSummary: jest.fn(),
+            getUserConnections: jest.fn(),
+            disconnectConnection: jest.fn(),
           },
         },
       ],

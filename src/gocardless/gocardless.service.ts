@@ -1,4 +1,11 @@
-import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  HttpException,
+  HttpStatus,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
@@ -18,6 +25,7 @@ import {
 } from './dto/gocardless.dto';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 
 interface ConnectedAccount {
   type: 'bank_account' | 'credit_card';
@@ -56,6 +64,8 @@ export class GocardlessService {
     @InjectRepository(CreditCard)
     private creditCardsRepository: Repository<CreditCard>,
     private moduleRef: ModuleRef,
+    @Inject(forwardRef(() => GocardlessConnectionService))
+    private connectionService: GocardlessConnectionService,
   ) {
     this.httpClient = axios.create({
       baseURL: this.baseUrl,
@@ -389,6 +399,26 @@ export class GocardlessService {
   }
 
   /**
+   * Get a single institution by ID
+   */
+  async getInstitutionById(institutionId: string): Promise<InstitutionDto | null> {
+    try {
+      await this.ensureValidToken();
+
+      this.logger.log(`Fetching institution: ${institutionId}`);
+
+      const response = await this.httpClient.get<InstitutionDto>(
+        `/institutions/${institutionId}/`,
+      );
+
+      return response.data;
+    } catch (error) {
+      this.logger.warn(`Failed to fetch institution ${institutionId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Helper method to extract current balance amount from GoCardless balance data
    */
   private getCurrentBalanceAmount(balances: AccountBalancesDto): number {
@@ -691,6 +721,23 @@ export class GocardlessService {
             gocardlessAccountId: account.gocardlessAccountId,
             ...result,
           });
+
+          // Update connection status on success
+          try {
+            const connection = await this.connectionService.findByAccountId(
+              account.gocardlessAccountId,
+            );
+            if (connection) {
+              await this.connectionService.updateConnectionAfterSync(
+                connection.id,
+                true,
+              );
+            }
+          } catch (connectionError) {
+            this.logger.warn(
+              `Failed to update connection status: ${connectionError.message}`,
+            );
+          }
         } catch (error) {
           this.logger.error(
             `Failed to import transactions for account ${account.gocardlessAccountId}: ${error.message}`,
@@ -702,6 +749,24 @@ export class GocardlessService {
             error: error.message,
             status: 'failed',
           });
+
+          // Update connection status on failure (detects expiration errors)
+          try {
+            const connection = await this.connectionService.findByAccountId(
+              account.gocardlessAccountId,
+            );
+            if (connection) {
+              await this.connectionService.updateConnectionAfterSync(
+                connection.id,
+                false,
+                error.message,
+              );
+            }
+          } catch (connectionError) {
+            this.logger.warn(
+              `Failed to update connection status: ${connectionError.message}`,
+            );
+          }
         }
       }
 

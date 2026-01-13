@@ -6,6 +6,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 import { GocardlessService } from '../gocardless/gocardless.service';
+import { GocardlessConnectionService } from '../gocardless/gocardless-connection.service';
 
 describe('PaymentAccountsService', () => {
   let service: PaymentAccountsService;
@@ -66,6 +67,15 @@ describe('PaymentAccountsService', () => {
           useValue: {
             createRequisition: jest.fn(),
             getRequisition: jest.fn(),
+            getInstitutionById: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessConnectionService,
+          useValue: {
+            createConnection: jest.fn(),
+            findByAccountId: jest.fn(),
+            updateConnectionAfterSync: jest.fn(),
           },
         },
       ],

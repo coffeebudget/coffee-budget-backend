@@ -8,6 +8,7 @@ import {
   UseGuards,
   Headers,
   UnauthorizedException,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
@@ -15,9 +16,11 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
+  ApiParam,
 } from '@nestjs/swagger';
 import { GocardlessService } from './gocardless.service';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 import { CurrentUser } from '../auth/user.decorator';
 import { User } from '../users/user.entity';
 import {
@@ -32,6 +35,11 @@ import {
   AccountDetailsDto,
   AccountBalancesDto,
 } from './dto/gocardless.dto';
+import {
+  ConnectionStatusSummaryDto,
+  GocardlessConnectionDto,
+} from './dto/connection.dto';
+import { GocardlessConnection } from './entities/gocardless-connection.entity';
 
 @ApiTags('gocardless')
 @ApiBearerAuth()
@@ -41,6 +49,7 @@ export class GocardlessController {
   constructor(
     private readonly gocardlessService: GocardlessService,
     private readonly schedulerService: GocardlessSchedulerService,
+    private readonly connectionService: GocardlessConnectionService,
   ) {}
 
   @Post('token')
@@ -274,5 +283,67 @@ export class GocardlessController {
     };
   }> {
     return this.gocardlessService.syncAccountBalances(user.id);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CONNECTION STATUS & EXPIRATION TRACKING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get('connection-status')
+  @ApiOperation({
+    summary: 'Get GoCardless connection status and expiration alerts',
+    description:
+      'Returns a summary of all connections with alerts for expiring or expired connections. Use this for dashboard indicators.',
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Connection status summary with alerts for expiring/expired connections',
+    type: ConnectionStatusSummaryDto,
+  })
+  async getConnectionStatus(
+    @CurrentUser() user: User,
+  ): Promise<ConnectionStatusSummaryDto> {
+    return this.connectionService.getConnectionStatusSummary(user.id);
+  }
+
+  @Get('connections')
+  @ApiOperation({
+    summary: 'Get all GoCardless connections for the user',
+    description:
+      'Returns detailed information about all bank connections including expiration dates and status.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of all user connections with status',
+    type: [GocardlessConnectionDto],
+  })
+  async getConnections(
+    @CurrentUser() user: User,
+  ): Promise<GocardlessConnection[]> {
+    return this.connectionService.getUserConnections(user.id);
+  }
+
+  @Post('connections/:id/disconnect')
+  @ApiOperation({
+    summary: 'Disconnect a GoCardless connection',
+    description:
+      'Marks a connection as disconnected. The user will need to re-authenticate to restore the connection.',
+  })
+  @ApiParam({ name: 'id', type: Number, description: 'Connection ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Connection disconnected successfully',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Connection not found',
+  })
+  async disconnectConnection(
+    @CurrentUser() user: User,
+    @Param('id', ParseIntPipe) connectionId: number,
+  ): Promise<{ success: boolean }> {
+    await this.connectionService.disconnectConnection(connectionId, user.id);
+    return { success: true };
   }
 }

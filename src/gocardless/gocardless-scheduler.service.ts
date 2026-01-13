@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/user.entity';
 import { GocardlessService } from './gocardless.service';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class GocardlessSchedulerService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly gocardlessService: GocardlessService,
+    private readonly connectionService: GocardlessConnectionService,
     private readonly syncHistoryService: SyncHistoryService,
   ) {}
 
@@ -23,6 +25,15 @@ export class GocardlessSchedulerService {
     const syncStartTime = new Date();
 
     try {
+      // Update connection expiration statuses BEFORE syncing (no extra API calls)
+      const statusUpdates =
+        await this.connectionService.updateExpirationStatuses();
+      if (statusUpdates > 0) {
+        this.logger.log(
+          `Updated ${statusUpdates} GoCardless connection expiration statuses`,
+        );
+      }
+
       const users = await this.getUsersWithGocardlessAccounts();
       this.logger.log(`Found ${users.length} users for sync`);
 

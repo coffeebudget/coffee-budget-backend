@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { GocardlessService } from './gocardless.service';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 
 describe('GocardlessService', () => {
   let service: GocardlessService;
@@ -48,6 +49,18 @@ describe('GocardlessService', () => {
             create: jest.fn(),
             update: jest.fn(),
             delete: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessConnectionService,
+          useValue: {
+            createConnection: jest.fn(),
+            findByAccountId: jest.fn(),
+            updateConnectionAfterSync: jest.fn(),
+            updateExpirationStatuses: jest.fn(),
+            getConnectionStatusSummary: jest.fn(),
+            getUserConnections: jest.fn(),
+            disconnectConnection: jest.fn(),
           },
         },
       ],

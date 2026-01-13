@@ -3,19 +3,25 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentAccount } from './payment-account.entity';
 import { GocardlessService } from '../gocardless/gocardless.service';
+import { GocardlessConnectionService } from '../gocardless/gocardless-connection.service';
 
 @Injectable()
 export class PaymentAccountsService {
+  private readonly logger = new Logger(PaymentAccountsService.name);
+
   constructor(
     @InjectRepository(PaymentAccount)
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
     @Inject(forwardRef(() => GocardlessService))
     private readonly gocardlessService: GocardlessService,
+    @Inject(forwardRef(() => GocardlessConnectionService))
+    private readonly connectionService: GocardlessConnectionService,
   ) {}
 
   /**
@@ -146,32 +152,24 @@ export class PaymentAccountsService {
     paymentAccountId: number,
     requisitionId: string,
   ): Promise<PaymentAccount> {
-    console.log('completeGocardlessConnection called:', {
-      userId,
-      paymentAccountId,
-      requisitionId,
-    });
+    this.logger.log(
+      `Completing GoCardless connection for user ${userId}, payment account ${paymentAccountId}`,
+    );
 
     try {
       // Verify payment account belongs to user
       const paymentAccount = await this.findOne(paymentAccountId, userId);
-      console.log('Payment account found:', {
-        id: paymentAccount.id,
-        provider: paymentAccount.provider,
-      });
+      this.logger.log(`Payment account found: ${paymentAccount.id}`);
 
       // Get requisition details from GoCardless
-      console.log('Fetching requisition from GoCardless...');
       const requisition =
         await this.gocardlessService.getRequisition(requisitionId);
-      console.log('Requisition fetched:', {
-        id: requisition.id,
-        institution_id: requisition.institution_id,
-        accounts: requisition.accounts,
-      });
+      this.logger.log(
+        `Requisition fetched: ${requisition.id}, institution: ${requisition.institution_id}, accounts: ${requisition.accounts?.length || 0}`,
+      );
 
       if (!requisition.accounts || requisition.accounts.length === 0) {
-        console.error('No accounts in requisition');
+        this.logger.error('No accounts in requisition');
         throw new NotFoundException(
           'No accounts found in requisition. OAuth flow may not have completed.',
         );
@@ -179,28 +177,53 @@ export class PaymentAccountsService {
 
       // Get the first account ID (payment providers typically have one account)
       const gocardlessAccountId = requisition.accounts[0];
-      console.log('Using GoCardless account ID:', gocardlessAccountId);
 
       // Update payment account with GoCardless details
+      const connectedAt = new Date();
       const updatedProviderConfig = {
         ...(paymentAccount.providerConfig || {}),
         gocardlessAccountId,
         gocardlessInstitutionId: requisition.institution_id,
         requisitionId: requisition.id,
-        connectedAt: new Date().toISOString(),
+        connectedAt: connectedAt.toISOString(),
       };
 
-      console.log(
-        'Updating payment account with config:',
-        updatedProviderConfig,
-      );
       paymentAccount.providerConfig = updatedProviderConfig;
-
       const result = await this.paymentAccountRepository.save(paymentAccount);
-      console.log('Payment account updated successfully');
+      this.logger.log('Payment account updated successfully');
+
+      // Create GocardlessConnection record for expiration tracking
+      try {
+        // Fetch institution details for name and logo
+        const institution = await this.gocardlessService.getInstitutionById(
+          requisition.institution_id,
+        );
+
+        await this.connectionService.createConnection({
+          userId,
+          requisitionId: requisition.id,
+          euaId: requisition.agreement || null,
+          institutionId: requisition.institution_id,
+          institutionName: institution?.name || null,
+          institutionLogo: institution?.logo || null,
+          connectedAt,
+          accessValidForDays: 90, // Default GoCardless EUA validity
+          linkedAccountIds: requisition.accounts,
+        });
+
+        this.logger.log(
+          `Created GocardlessConnection record for requisition ${requisition.id}`,
+        );
+      } catch (connectionError) {
+        // Log but don't fail the main flow - connection tracking is secondary
+        this.logger.warn(
+          `Failed to create GocardlessConnection record: ${connectionError.message}`,
+        );
+      }
+
       return result;
     } catch (error) {
-      console.error('Error in completeGocardlessConnection:', error);
+      this.logger.error(`Error in completeGocardlessConnection: ${error.message}`);
       throw error;
     }
   }

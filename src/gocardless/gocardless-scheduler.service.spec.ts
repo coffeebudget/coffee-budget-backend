@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GocardlessSchedulerService } from './gocardless-scheduler.service';
 import { GocardlessService } from './gocardless.service';
+import { GocardlessConnectionService } from './gocardless-connection.service';
 import { SyncHistoryService } from '../sync-history/sync-history.service';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -84,6 +85,12 @@ describe('GocardlessSchedulerService', () => {
           provide: GocardlessService,
           useValue: {
             importAllConnectedAccounts: jest.fn(),
+          },
+        },
+        {
+          provide: GocardlessConnectionService,
+          useValue: {
+            updateExpirationStatuses: jest.fn().mockResolvedValue(0),
           },
         },
         {
