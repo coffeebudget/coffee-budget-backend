@@ -9,7 +9,7 @@ import {
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
 import { Transaction } from '../../transactions/transaction.entity';
 import { User } from '../../users/user.entity';
-import { RecurringTransaction } from '../../recurring-transactions/entities/recurring-transaction.entity';
+
 @Entity()
 export class CreditCard {
   @PrimaryGeneratedColumn()
@@ -48,10 +48,4 @@ export class CreditCard {
 
   @ManyToOne(() => User, (user) => user.creditCards)
   user: User;
-
-  @OneToMany(
-    () => RecurringTransaction,
-    (recurringTransaction) => recurringTransaction.creditCard,
-  )
-  recurringTransactions: RecurringTransaction[];
 }

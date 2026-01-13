@@ -10,7 +10,6 @@ import { CreateTagDto } from './dto/create-tag.dto';
 import { Tag } from './entities/tag.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { User } from '../users/user.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 
 @Injectable()
 export class TagsService {
@@ -21,8 +20,6 @@ export class TagsService {
     private tagsRepository: Repository<Tag>,
     @InjectRepository(Transaction)
     private transactionsRepository: Repository<Transaction>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionsRepository: Repository<RecurringTransaction>,
   ) {}
 
   async create(createTagDto: CreateTagDto, user: User): Promise<Tag> {
@@ -294,34 +291,6 @@ export class TagsService {
       if (transactions.length > 0) {
         await this.transactionsRepository.save(transactions);
         totalTransactionsUpdated += transactions.length;
-      }
-
-      // Find recurring transactions using any of the duplicate tags
-      const recurringTransactions =
-        await this.recurringTransactionsRepository.find({
-          where: {
-            user: { id: userId },
-            tags: { id: In(duplicateIds) },
-          },
-          relations: ['tags'],
-        });
-
-      // Update each recurring transaction to use the primary tag instead of duplicates
-      for (const recurringTx of recurringTransactions) {
-        // Filter out the duplicate tags
-        recurringTx.tags = recurringTx.tags.filter(
-          (tag) => !duplicateIds.includes(tag.id),
-        );
-
-        // Add the primary tag if it's not already there
-        if (!recurringTx.tags.some((tag) => tag.id === primaryTag.id)) {
-          recurringTx.tags.push(primaryTag);
-        }
-      }
-
-      // Save all updated recurring transactions
-      if (recurringTransactions.length > 0) {
-        await this.recurringTransactionsRepository.save(recurringTransactions);
       }
 
       // Delete the duplicate tags

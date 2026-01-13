@@ -104,7 +104,6 @@ export const CommonEntities = {
   CreditCard: class CreditCard {},
   Category: class Category {},
   Tag: class Tag {},
-  RecurringTransaction: class RecurringTransaction {},
   PendingDuplicate: class PendingDuplicate {},
 } as const;
 
@@ -123,10 +122,6 @@ export const StandardRepositoryMocks = {
   Category: () =>
     RepositoryMockFactory.createRepositoryProvider(CommonEntities.Category),
   Tag: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.Tag),
-  RecurringTransaction: () =>
-    RepositoryMockFactory.createRepositoryProvider(
-      CommonEntities.RecurringTransaction,
-    ),
   PendingDuplicate: () =>
     RepositoryMockFactory.createRepositoryProvider(
       CommonEntities.PendingDuplicate,

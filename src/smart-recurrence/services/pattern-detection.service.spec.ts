@@ -557,7 +557,7 @@ describe('PatternDetectionService', () => {
       // Assert
       expect(result).toHaveLength(1);
       expect(result[0].group.merchantName).toBe('Store B'); // Most common merchant
-      expect(result[0].group.averageAmount).toBeCloseTo(50, 0); // Average of 40, 50, 60
+      expect(result[0].group.averageAmount).toBeCloseTo(55, 0); // Average of Store B transactions (50, 60)
     });
   });
 

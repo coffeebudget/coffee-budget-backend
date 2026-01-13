@@ -17,13 +17,11 @@ import { In } from 'typeorm';
 import { User } from '../users/user.entity';
 import { DuplicateTransactionChoice } from './dto/duplicate-transaction-choice.dto';
 import { PendingDuplicatesService } from '../pending-duplicates/pending-duplicates.service';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { ImportLogsService } from './import-logs.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
-import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { TransactionImportService } from '../transactions/transaction-import.service';
 import { TransactionCategorizationService } from '../transactions/transaction-categorization.service';
@@ -39,10 +37,8 @@ describe('TransactionsService', () => {
   let categoryRepository: Repository<Category>;
   let tagRepository: Repository<Tag>;
   let pendingDuplicatesService: PendingDuplicatesService;
-  let recurringTransactionRepository: Repository<RecurringTransaction>;
   let categoriesService: CategoriesService;
   let tagsService: TagsService;
-  let recurringPatternDetectorService: RecurringPatternDetectorService;
   let transactionOperationsService: TransactionOperationsService;
 
   const mockUser = { id: 1, email: 'test@example.com', auth0Id: 'auth123' };
@@ -63,10 +59,6 @@ describe('TransactionsService', () => {
 
     const mockTagsService = {
       findByIds: jest.fn(),
-    };
-
-    const mockRecurringPatternDetectorService = {
-      detectAndProcessRecurringTransaction: jest.fn(),
     };
 
     const mockTransactionOperationsService = {
@@ -103,13 +95,6 @@ describe('TransactionsService', () => {
       find: jest.fn(),
     };
 
-    const mockRecurringTransactionRepository = {
-      find: jest.fn(),
-      findOne: jest.fn(),
-      save: jest.fn(),
-      create: jest.fn(),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TransactionsService,
@@ -138,10 +123,6 @@ describe('TransactionsService', () => {
           useValue: mockPendingDuplicatesService,
         },
         {
-          provide: getRepositoryToken(RecurringTransaction),
-          useValue: mockRecurringTransactionRepository,
-        },
-        {
           provide: getRepositoryToken(PendingDuplicate),
           useValue: {
             find: jest.fn(),
@@ -157,10 +138,6 @@ describe('TransactionsService', () => {
         {
           provide: TagsService,
           useValue: mockTagsService,
-        },
-        {
-          provide: RecurringPatternDetectorService,
-          useValue: mockRecurringPatternDetectorService,
         },
         {
           provide: TransactionOperationsService,
@@ -274,15 +251,8 @@ describe('TransactionsService', () => {
     pendingDuplicatesService = module.get<PendingDuplicatesService>(
       PendingDuplicatesService,
     );
-    recurringTransactionRepository = module.get<
-      Repository<RecurringTransaction>
-    >(getRepositoryToken(RecurringTransaction));
     categoriesService = module.get<CategoriesService>(CategoriesService);
     tagsService = module.get<TagsService>(TagsService);
-    recurringPatternDetectorService =
-      module.get<RecurringPatternDetectorService>(
-        RecurringPatternDetectorService,
-      );
     transactionOperationsService = module.get<TransactionOperationsService>(
       TransactionOperationsService,
     );

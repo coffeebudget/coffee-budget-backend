@@ -4,7 +4,6 @@ import { BankAccountsService } from './bank-accounts.service';
 import { BankAccountsController } from './bank-accounts.controller';
 import { BankAccount } from './entities/bank-account.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Tag } from '../tags/entities/tag.entity';
@@ -17,7 +16,6 @@ import { SharedModule } from '../shared/shared.module';
     TypeOrmModule.forFeature([
       BankAccount,
       Transaction,
-      RecurringTransaction,
       CreditCard,
       Category,
       Tag,

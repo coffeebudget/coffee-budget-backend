@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
@@ -11,8 +11,6 @@ import {
   subMonths,
 } from 'date-fns';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
-import { RecurringTransactionGeneratorService } from '../recurring-transactions/recurring-transaction-generator.service';
 
 export interface MonthlyIncomeExpense {
   month: string;
@@ -23,6 +21,8 @@ export interface MonthlyIncomeExpense {
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private transactionsRepository: Repository<Transaction>,
@@ -30,9 +30,6 @@ export class DashboardService {
     private categoriesRepository: Repository<Category>,
     @InjectRepository(BankAccount)
     private bankAccountsRepository: Repository<BankAccount>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionRepository: Repository<RecurringTransaction>,
-    private generatorService: RecurringTransactionGeneratorService,
   ) {}
 
   /**
@@ -393,30 +390,22 @@ export class DashboardService {
     const startingBalance = (await this.getCurrentBalance(userId))
       .currentBalance;
 
-    console.log(
-      `Generating ${months} months cash flow forecast using ${mode} mode`,
+    // Note: 'recurring' mode is deprecated - all forecasts now use historical data
+    if (mode === 'recurring') {
+      this.logger.warn(
+        'Recurring mode is deprecated, falling back to historical mode',
+      );
+    }
+
+    this.logger.debug(
+      `Generating ${months} months cash flow forecast using historical mode`,
     );
 
-    let forecast;
-    if (mode === 'historical') {
-      forecast = await this.forecastFromHistoricalData(
-        userId,
-        months,
-        startingBalance,
-      );
-    } else {
-      forecast = await this.forecastFromRecurringTransactions(
-        userId,
-        months,
-        startingBalance,
-      );
-    }
-
-    // Log April 2025 forecast if it exists
-    const april2025 = forecast.find((f) => f.month === 'Apr 2025');
-    if (april2025) {
-      console.log('April 2025 forecast:', april2025);
-    }
+    const forecast = await this.forecastFromHistoricalData(
+      userId,
+      months,
+      startingBalance,
+    );
 
     return forecast;
   }
@@ -482,74 +471,6 @@ export class DashboardService {
       projectedBalance += income - expenses;
 
       forecast.push({ month, income, expenses, projectedBalance });
-    }
-
-    return forecast;
-  }
-
-  private async forecastFromRecurringTransactions(
-    userId: number,
-    months: number,
-    startingBalance: number,
-  ): Promise<
-    {
-      month: string;
-      income: number;
-      expenses: number;
-      projectedBalance: number;
-    }[]
-  > {
-    const today = new Date();
-    let projectedBalance = startingBalance;
-    const forecast: {
-      month: string;
-      income: number;
-      expenses: number;
-      projectedBalance: number;
-    }[] = [];
-
-    // Get recurring transactions that are scheduled and exclude those with categories marked excludeFromExpenseAnalytics
-    const recurringTransactions = await this.recurringTransactionRepository
-      .createQueryBuilder('recTransaction')
-      .leftJoinAndSelect('recTransaction.category', 'category')
-      .where('recTransaction.user.id = :userId', { userId })
-      .andWhere('recTransaction.status = :status', { status: 'SCHEDULED' })
-      .andWhere(
-        '(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)',
-      )
-      .getMany();
-
-    for (let i = 0; i < months; i++) {
-      const date = addMonths(today, i);
-      const start = startOfMonth(date);
-      const end = endOfMonth(date);
-
-      let totalIncome = 0;
-      let totalExpenses = 0;
-
-      for (const transaction of recurringTransactions) {
-        const executionDate = this.generatorService.calculateNextExecutionDate(
-          start,
-          transaction,
-        );
-
-        if (executionDate >= start && executionDate <= end) {
-          if (transaction.type === 'income') {
-            totalIncome += Number(transaction.amount);
-          } else {
-            totalExpenses += Math.abs(Number(transaction.amount));
-          }
-        }
-      }
-
-      projectedBalance += totalIncome - totalExpenses;
-
-      forecast.push({
-        month: format(date, 'MMM yyyy'),
-        income: totalIncome,
-        expenses: totalExpenses,
-        projectedBalance,
-      });
     }
 
     return forecast;

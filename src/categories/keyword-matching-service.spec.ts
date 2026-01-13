@@ -3,7 +3,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { CategoriesService } from './categories.service';
 import { Category } from './entities/category.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
@@ -38,10 +37,6 @@ describe('CategoriesService - Keyword Matching', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: transactionsRepositoryMock,
-        },
-        {
-          provide: getRepositoryToken(RecurringTransaction),
-          useValue: {},
         },
         {
           provide: TransactionOperationsService,

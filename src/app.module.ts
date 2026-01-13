@@ -10,7 +10,6 @@ import { CategoriesModule } from './categories/categories.module';
 import { TagsModule } from './tags/tags.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
-import { RecurringTransactionsModule } from './recurring-transactions/recurring-transactions.module';
 import { PendingDuplicatesModule } from './pending-duplicates/pending-duplicates.module';
 import { PreventedDuplicatesModule } from './prevented-duplicates/prevented-duplicates.module';
 import { SharedModule } from './shared/shared.module';
@@ -79,7 +78,6 @@ import databaseConfig from './config/database.config';
     TagsModule,
     BankAccountsModule,
     CreditCardsModule,
-    RecurringTransactionsModule,
     PendingDuplicatesModule,
     PreventedDuplicatesModule,
     SharedModule,

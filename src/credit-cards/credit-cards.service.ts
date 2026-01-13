@@ -13,7 +13,6 @@ import { CreditCard } from './entities/credit-card.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 
 @Injectable()
 export class CreditCardsService {
@@ -24,8 +23,6 @@ export class CreditCardsService {
     private bankAccountsRepository: Repository<BankAccount>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionRepository: Repository<RecurringTransaction>,
   ) {}
 
   async create(

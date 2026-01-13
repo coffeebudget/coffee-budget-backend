@@ -7,7 +7,6 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { User } from '../users/user.entity';
 import { Currency } from '../enums/currency.enum';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
@@ -16,9 +15,6 @@ describe('BankAccountsService', () => {
   let service: BankAccountsService;
   let bankAccountRepository: Repository<BankAccount>;
   let transactionRepository: jest.Mocked<Repository<Transaction>>;
-  let recurringTransactionRepository: jest.Mocked<
-    Repository<RecurringTransaction>
-  >;
   let creditCardRepository: jest.Mocked<Repository<CreditCard>>;
 
   const mockUser: User = {
@@ -46,7 +42,6 @@ describe('BankAccountsService', () => {
     currency: Currency.USD,
     transactions: [],
     creditCards: [],
-    recurringTransactions: [],
   };
 
   const mockBankAccountRepository = {
@@ -68,12 +63,6 @@ describe('BankAccountsService', () => {
         },
         {
           provide: getRepositoryToken(Transaction),
-          useValue: {
-            find: jest.fn().mockResolvedValue([]),
-          },
-        },
-        {
-          provide: getRepositoryToken(RecurringTransaction),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
           },
@@ -109,9 +98,6 @@ describe('BankAccountsService', () => {
       getRepositoryToken(BankAccount),
     );
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    recurringTransactionRepository = module.get(
-      getRepositoryToken(RecurringTransaction),
-    );
     creditCardRepository = module.get(getRepositoryToken(CreditCard));
   });
 
@@ -210,7 +196,6 @@ describe('BankAccountsService', () => {
         user: mockUser,
         currency: Currency.USD,
         creditCards: [],
-        recurringTransactions: [],
         transactions: [{ id: 101 }], // Simulating a linked transaction
       };
 
@@ -227,32 +212,6 @@ describe('BankAccountsService', () => {
       );
     });
 
-    it('should throw ForbiddenException if the bank account is linked to a recurring transaction', async () => {
-      const mockBankAccount = {
-        id: 1,
-        name: 'Test Account',
-        balance: 1000,
-        type: 'CHECKING',
-        user: mockUser,
-        currency: Currency.USD,
-        transactions: [],
-        creditCards: [],
-        recurringTransactions: [{ id: 201 }], // Simulating a linked recurring transaction
-      };
-
-      // Mock finding the existing bank account
-      mockBankAccountRepository.findOne.mockResolvedValue(mockBankAccount);
-
-      // Mock the recurring transaction repository to simulate that the bank account is linked to a recurring transaction
-      recurringTransactionRepository.find.mockResolvedValue([
-        { id: 201, bankAccount: { id: 1 } } as RecurringTransaction,
-      ]);
-
-      await expect(service.remove(1, mockUser.id)).rejects.toThrow(
-        ForbiddenException,
-      );
-    });
-
     it('should throw ForbiddenException if the bank account is linked to a credit card', async () => {
       const mockBankAccount = {
         id: 1,
@@ -261,7 +220,6 @@ describe('BankAccountsService', () => {
         type: 'CHECKING',
         user: mockUser,
         currency: Currency.USD,
-        recurringTransactions: [],
         transactions: [],
         creditCards: [{ id: 301 }], // Simulating a linked credit card
       };

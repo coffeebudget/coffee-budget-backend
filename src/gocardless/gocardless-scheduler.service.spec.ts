@@ -27,7 +27,6 @@ describe('GocardlessSchedulerService', () => {
       transactions: [],
       tags: [],
       categories: [],
-      recurringTransactions: [],
       paymentAccounts: [],
     },
     {
@@ -42,7 +41,6 @@ describe('GocardlessSchedulerService', () => {
       transactions: [],
       tags: [],
       categories: [],
-      recurringTransactions: [],
       paymentAccounts: [],
     },
   ];

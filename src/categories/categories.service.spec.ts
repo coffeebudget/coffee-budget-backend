@@ -4,7 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
 import { Repository, IsNull, Raw, FindManyOptions } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
@@ -16,7 +15,6 @@ describe('CategoriesService', () => {
   let service: CategoriesService;
   let transactionsRepository: jest.Mocked<Repository<Transaction>>;
   let categoriesRepository: jest.Mocked<Repository<Category>>;
-  let recurringTransactionRepository: Repository<RecurringTransaction>;
   let transactionOperationsService: TransactionOperationsService;
   let keywordExtractionService: KeywordExtractionService;
   let keywordStatsService: KeywordStatsService;
@@ -66,13 +64,6 @@ describe('CategoriesService', () => {
           },
         },
         {
-          provide: getRepositoryToken(RecurringTransaction),
-          useValue: {
-            find: jest.fn(),
-            findOne: jest.fn(),
-          },
-        },
-        {
           provide: getRepositoryToken(PendingDuplicate),
           useClass: Repository,
         },
@@ -102,9 +93,6 @@ describe('CategoriesService', () => {
     service = module.get<CategoriesService>(CategoriesService);
     transactionsRepository = module.get(getRepositoryToken(Transaction));
     categoriesRepository = module.get(getRepositoryToken(Category));
-    recurringTransactionRepository = module.get<
-      Repository<RecurringTransaction>
-    >(getRepositoryToken(RecurringTransaction));
     transactionOperationsService = module.get<TransactionOperationsService>(
       TransactionOperationsService,
     );

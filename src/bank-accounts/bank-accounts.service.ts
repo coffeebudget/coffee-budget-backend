@@ -10,7 +10,6 @@ import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 import { BankAccount } from './entities/bank-account.entity';
 import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import {
@@ -26,8 +25,6 @@ export class BankAccountsService {
     private bankAccountsRepository: Repository<BankAccount>,
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionRepository: Repository<RecurringTransaction>,
     @InjectRepository(CreditCard)
     private creditCardRepository: Repository<CreditCard>,
     private eventPublisher: EventPublisherService,
@@ -108,24 +105,14 @@ export class BankAccountsService {
       where: { bankAccount: { id } },
     });
 
-    // Check if the bank account is linked to any recurring transactions
-    const linkedRecurringTransactions =
-      await this.recurringTransactionRepository.find({
-        where: { bankAccount: { id } },
-      });
-
     // Check if the bank account is linked to any credit cards
     const linkedCreditCards = await this.creditCardRepository.find({
       where: { bankAccount: { id } },
     });
 
-    if (
-      linkedTransactions.length > 0 ||
-      linkedRecurringTransactions.length > 0 ||
-      linkedCreditCards.length > 0
-    ) {
+    if (linkedTransactions.length > 0 || linkedCreditCards.length > 0) {
       throw new ForbiddenException(
-        'Cannot delete bank account linked to transactions, recurring transactions, or credit cards',
+        'Cannot delete bank account linked to transactions or credit cards',
       );
     }
 

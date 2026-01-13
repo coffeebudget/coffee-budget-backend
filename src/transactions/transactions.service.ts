@@ -598,16 +598,6 @@ export class TransactionsService {
     return type === 'income' ? absAmount : -absAmount;
   }
 
-  async findByRecurringTransactionId(
-    recurringTransactionId: number,
-    userId: number,
-  ): Promise<Transaction[]> {
-    this.logger.warn(
-      'findByRecurringTransactionId is deprecated and returns an empty array',
-    );
-    return [];
-  }
-
   /**
    * Bulk categorize transactions by their IDs
    * @param transactionIds Array of transaction IDs to categorize

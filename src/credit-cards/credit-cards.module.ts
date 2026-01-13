@@ -6,16 +6,10 @@ import { CreditCard } from './entities/credit-card.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { SharedModule } from '../shared/shared.module';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      CreditCard,
-      BankAccount,
-      Transaction,
-      RecurringTransaction,
-    ]),
+    TypeOrmModule.forFeature([CreditCard, BankAccount, Transaction]),
     SharedModule,
   ],
   controllers: [CreditCardsController],

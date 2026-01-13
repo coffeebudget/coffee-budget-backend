@@ -94,6 +94,5 @@ export const TestEntities = {
   CreditCard: class CreditCard {},
   Category: class Category {},
   Tag: class Tag {},
-  RecurringTransaction: class RecurringTransaction {},
   PendingDuplicate: class PendingDuplicate {},
 } as const;

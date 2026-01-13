@@ -17,7 +17,6 @@ import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { CreditCard } from '../credit-cards/entities/credit-card.entity';
 import { PendingDuplicatesModule } from '../pending-duplicates/pending-duplicates.module';
 import { PreventedDuplicatesModule } from '../prevented-duplicates/prevented-duplicates.module';
-import { RecurringTransactionsModule } from '../recurring-transactions/recurring-transactions.module';
 import { GocardlessModule } from '../gocardless/gocardless.module';
 import { MerchantCategorizationModule } from '../merchant-categorization/merchant-categorization.module';
 import { TransactionOperationsService } from './transaction-operations.service';
@@ -53,7 +52,6 @@ import { TransactionMerchantEnrichmentController } from './transaction-merchant-
     TagsModule,
     PendingDuplicatesModule,
     PreventedDuplicatesModule,
-    RecurringTransactionsModule,
     PaymentActivitiesModule,
     SharedModule,
     BankAccountsModule,

@@ -4,7 +4,6 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { CreditCard } from './entities/credit-card.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { Repository } from 'typeorm';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
@@ -15,9 +14,6 @@ describe('CreditCardsService', () => {
   let mockCreditCardsRepository: Partial<Repository<CreditCard>>;
   let mockBankAccountsRepository: Partial<Repository<BankAccount>>;
   let mockTransactionRepository: Partial<Repository<Transaction>>;
-  let mockRecurringTransactionRepository: Partial<
-    Repository<RecurringTransaction>
-  >;
   let mockTransactionOperationsService: Partial<TransactionOperationsService>;
 
   const mockUser = { id: 1, email: 'test@example.com', auth0Id: 'auth0|123' };
@@ -42,11 +38,6 @@ describe('CreditCardsService', () => {
       findOne: jest.fn(),
     } as Partial<Repository<Transaction>>;
 
-    mockRecurringTransactionRepository = {
-      find: jest.fn(),
-      findOne: jest.fn(),
-    } as Partial<Repository<RecurringTransaction>>;
-
     mockTransactionOperationsService = {
       linkTransactionsToRecurring: jest.fn(),
       findMatchingTransactions: jest.fn(),
@@ -68,10 +59,6 @@ describe('CreditCardsService', () => {
         {
           provide: getRepositoryToken(Transaction),
           useValue: mockTransactionRepository,
-        },
-        {
-          provide: getRepositoryToken(RecurringTransaction),
-          useValue: mockRecurringTransactionRepository,
         },
         {
           provide: TransactionOperationsService,

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ExpensePlansService } from './expense-plans.service';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
+import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -77,6 +78,9 @@ describe('ExpensePlansService', () => {
     rolloverSurplus: true,
     initialBalanceSource: 'zero',
     initialBalanceCustom: null,
+    paymentAccountType: null,
+    paymentAccountId: null,
+    paymentAccount: null,
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     transactions: [],
@@ -103,6 +107,7 @@ describe('ExpensePlansService', () => {
         ExpensePlansService,
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlanTransaction),
+        RepositoryMockFactory.createRepositoryProvider(BankAccount),
         {
           provide: EventPublisherService,
           useValue: {
@@ -141,7 +146,7 @@ describe('ExpensePlansService', () => {
       expect(result).toEqual(mockPlans);
       expect(expensePlanRepository.find).toHaveBeenCalledWith({
         where: { userId },
-        relations: ['category'],
+        relations: ['category', 'paymentAccount'],
         order: { priority: 'ASC', name: 'ASC' },
       });
     });
@@ -208,7 +213,7 @@ describe('ExpensePlansService', () => {
       expect(result).toEqual([activePlan]);
       expect(expensePlanRepository.find).toHaveBeenCalledWith({
         where: { userId, status: 'active' },
-        relations: ['category'],
+        relations: ['category', 'paymentAccount'],
         order: { priority: 'ASC', name: 'ASC' },
       });
     });
@@ -234,7 +239,7 @@ describe('ExpensePlansService', () => {
       expect(result).toEqual(mockExpensePlan);
       expect(expensePlanRepository.findOne).toHaveBeenCalledWith({
         where: { id, userId },
-        relations: ['category'],
+        relations: ['category', 'paymentAccount'],
       });
     });
 

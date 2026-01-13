@@ -34,7 +34,6 @@ describe('SyncHistoryService', () => {
     transactions: [],
     tags: [],
     categories: [],
-    recurringTransactions: [],
     paymentAccounts: [],
   };
 

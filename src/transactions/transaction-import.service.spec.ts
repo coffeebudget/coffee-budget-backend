@@ -12,7 +12,6 @@ import { ImportLogsService } from './import-logs.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
 import { TransactionOperationsService } from './transaction-operations.service';
-import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
 import { BankFileParserFactory } from './parsers';
 import { ImportStatus } from './entities/import-log.entity';
@@ -62,7 +61,6 @@ describe('TransactionImportService', () => {
   let categoriesService: jest.Mocked<CategoriesService>;
   let tagsService: jest.Mocked<TagsService>;
   let transactionOperationsService: jest.Mocked<TransactionOperationsService>;
-  let recurringPatternDetectorService: jest.Mocked<RecurringPatternDetectorService>;
   let gocardlessService: jest.Mocked<GocardlessService>;
 
   const mockUser = {
@@ -77,7 +75,6 @@ describe('TransactionImportService', () => {
     transactions: [],
     tags: [],
     categories: [],
-    recurringTransactions: [],
     paymentAccounts: [],
   } as User;
 
@@ -91,7 +88,6 @@ describe('TransactionImportService', () => {
     currency: 'USD',
     transactions: [],
     creditCards: [],
-    recurringTransactions: [],
   } as BankAccount;
 
   const mockCreditCard = {
@@ -107,7 +103,6 @@ describe('TransactionImportService', () => {
     user: mockUser,
     bankAccount: mockBankAccount,
     transactions: [],
-    recurringTransactions: [],
   } as any;
 
   const mockCategory = {
@@ -116,7 +111,6 @@ describe('TransactionImportService', () => {
     user: mockUser,
     keywords: [],
     transactions: [],
-    recurringTransactions: [],
     excludeFromExpenseAnalytics: false,
     analyticsExclusionReason: '',
     budgetLevel: null,
@@ -133,7 +127,6 @@ describe('TransactionImportService', () => {
     name: 'Test Tag',
     user: mockUser,
     transactions: [],
-    recurringTransactions: [],
   } as any;
 
   beforeEach(async () => {
@@ -178,12 +171,6 @@ describe('TransactionImportService', () => {
           },
         },
         {
-          provide: RecurringPatternDetectorService,
-          useValue: {
-            detectAllRecurringPatterns: jest.fn(),
-          },
-        },
-        {
           provide: GocardlessService,
           useValue: {
             getTransactions: jest.fn(),
@@ -203,9 +190,6 @@ describe('TransactionImportService', () => {
     categoriesService = module.get(CategoriesService);
     tagsService = module.get(TagsService);
     transactionOperationsService = module.get(TransactionOperationsService);
-    recurringPatternDetectorService = module.get(
-      RecurringPatternDetectorService,
-    );
     gocardlessService = module.get(GocardlessService);
   });
 
@@ -627,24 +611,17 @@ describe('TransactionImportService', () => {
   });
 
   describe('processForRecurringPatterns', () => {
-    it('should process transactions for recurring patterns', async () => {
+    it('should be a no-op since recurring pattern detection was removed', async () => {
       // Arrange
       const transactions = [
         { id: 1, description: 'Test Transaction 1' },
         { id: 2, description: 'Test Transaction 2' },
       ] as Transaction[];
 
-      (
-        recurringPatternDetectorService.detectAllRecurringPatterns as jest.Mock
-      ).mockResolvedValue([]);
-
-      // Act
-      await service.processForRecurringPatterns(transactions, mockUser.id);
-
-      // Assert
-      expect(
-        recurringPatternDetectorService.detectAllRecurringPatterns,
-      ).toHaveBeenCalledWith(mockUser.id);
+      // Act & Assert - method should complete without error
+      await expect(
+        service.processForRecurringPatterns(transactions, mockUser.id),
+      ).resolves.not.toThrow();
     });
   });
 

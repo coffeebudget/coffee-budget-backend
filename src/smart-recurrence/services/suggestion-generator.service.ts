@@ -14,8 +14,10 @@ import {
 } from '../interfaces/pattern.interface';
 import {
   PatternClassificationRequest,
+  PatternClassificationResponse,
   ExpenseType,
 } from '../interfaces/classification.interface';
+import { CategoryAggregation } from '../interfaces/category-aggregation.interface';
 import {
   GenerateSuggestionsDto,
   GenerateSuggestionsResponseDto,
@@ -39,6 +41,214 @@ export class SuggestionGeneratorService {
     private readonly patternDetection: PatternDetectionService,
     private readonly patternClassification: PatternClassificationService,
   ) {}
+
+  // ─────────────────────────────────────────────────────────────
+  // CATEGORY AGGREGATION METHODS (v2)
+  // ─────────────────────────────────────────────────────────────
+
+  /**
+   * Calculate time-weighted monthly average
+   * Formula: totalAmount / spanMonths
+   */
+  private calculateWeightedMonthlyAverage(
+    totalAmount: number,
+    firstOccurrence: Date,
+    lastOccurrence: Date,
+  ): number {
+    const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000; // Average days per month
+    const spanMs = lastOccurrence.getTime() - firstOccurrence.getTime();
+    const spanMonths = Math.max(1, spanMs / MS_PER_MONTH);
+    return Math.round((totalAmount / spanMonths) * 100) / 100;
+  }
+
+  /**
+   * Aggregate patterns by category for unified suggestions
+   * Combines multiple merchants into single category-level suggestions
+   */
+  private aggregateByCategory(
+    patterns: DetectedPatternData[],
+    classifications: Map<string, PatternClassificationResponse>,
+  ): CategoryAggregation[] {
+    // Group patterns by categoryId
+    const categoryMap = new Map<number, DetectedPatternData[]>();
+
+    for (const pattern of patterns) {
+      if (pattern.group.categoryId === null) continue;
+
+      const existing = categoryMap.get(pattern.group.categoryId) || [];
+      existing.push(pattern);
+      categoryMap.set(pattern.group.categoryId, existing);
+    }
+
+    // Aggregate each category
+    const aggregations: CategoryAggregation[] = [];
+
+    for (const [categoryId, categoryPatterns] of categoryMap) {
+      // Collect all transactions across patterns
+      const allTransactions = categoryPatterns.flatMap(
+        (p) => p.group.transactions,
+      );
+      const totalAmount = allTransactions.reduce(
+        (sum, t) => sum + Math.abs(Number(t.amount)),
+        0,
+      );
+
+      // Find date range
+      const firstOccurrence = new Date(
+        Math.min(...categoryPatterns.map((p) => p.firstOccurrence.getTime())),
+      );
+      const lastOccurrence = new Date(
+        Math.max(...categoryPatterns.map((p) => p.lastOccurrence.getTime())),
+      );
+
+      // Calculate span in months
+      const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
+      const spanMs = lastOccurrence.getTime() - firstOccurrence.getTime();
+      const spanMonths = Math.max(1, spanMs / MS_PER_MONTH);
+
+      // Weighted monthly average
+      const weightedMonthlyAverage = this.calculateWeightedMonthlyAverage(
+        totalAmount,
+        firstOccurrence,
+        lastOccurrence,
+      );
+
+      // Collect unique merchants
+      const merchants = [
+        ...new Set(
+          categoryPatterns
+            .map((p) => p.group.merchantName)
+            .filter((m): m is string => m !== null),
+        ),
+      ];
+
+      // Find highest confidence pattern for representative data
+      const highestConfPattern = categoryPatterns.reduce((best, p) =>
+        p.confidence.overall > best.confidence.overall ? p : best,
+      );
+
+      // Get classifications and determine expense type
+      const classificationsList = categoryPatterns
+        .map((p) => classifications.get(p.group.id))
+        .filter(
+          (c): c is PatternClassificationResponse => c !== undefined,
+        );
+
+      // Use most common expense type, or from highest confidence
+      const expenseType =
+        classificationsList.length > 0
+          ? classificationsList[0].expenseType
+          : ExpenseType.OTHER_FIXED;
+
+      // isEssential if ANY pattern is essential
+      const isEssential = classificationsList.some((c) => c.isEssential);
+
+      // Average confidence
+      const averageConfidence = Math.round(
+        categoryPatterns.reduce((sum, p) => sum + p.confidence.overall, 0) /
+          categoryPatterns.length,
+      );
+
+      aggregations.push({
+        categoryId,
+        categoryName: highestConfPattern.group.categoryName || 'Unknown',
+        totalAmount,
+        transactionCount: allTransactions.length,
+        firstOccurrence,
+        lastOccurrence,
+        spanMonths: Math.round(spanMonths * 100) / 100,
+        weightedMonthlyAverage,
+        frequencyType: highestConfPattern.frequency.type,
+        merchants,
+        expenseType,
+        isEssential,
+        averageConfidence,
+        sourcePatterns: categoryPatterns,
+        representativeDescription:
+          highestConfPattern.group.representativeDescription,
+      });
+    }
+
+    // Sort by weighted monthly average (highest first)
+    return aggregations.sort(
+      (a, b) => b.weightedMonthlyAverage - a.weightedMonthlyAverage,
+    );
+  }
+
+  /**
+   * Create ExpensePlanSuggestion entities from category aggregations
+   */
+  private createSuggestionsFromAggregations(
+    userId: number,
+    aggregations: CategoryAggregation[],
+  ): ExpensePlanSuggestion[] {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    return aggregations.map((agg) => {
+      const suggestion = new ExpensePlanSuggestion();
+
+      suggestion.userId = userId;
+      suggestion.suggestedName = agg.categoryName.substring(0, 100);
+      suggestion.description =
+        agg.merchants.length > 0
+          ? `Aggregated from ${agg.merchants.length} merchant(s): ${agg.merchants.slice(0, 3).join(', ')}${agg.merchants.length > 3 ? '...' : ''}`
+          : 'Aggregated category expense';
+      suggestion.merchantName = agg.merchants[0]?.substring(0, 255) || null;
+      suggestion.representativeDescription = agg.representativeDescription;
+      suggestion.categoryId = agg.categoryId;
+      suggestion.categoryName = agg.categoryName.substring(0, 100);
+      suggestion.averageAmount =
+        Math.round((agg.totalAmount / agg.transactionCount) * 100) / 100;
+      suggestion.monthlyContribution = agg.weightedMonthlyAverage;
+      suggestion.yearlyTotal =
+        Math.round(agg.weightedMonthlyAverage * 12 * 100) / 100;
+      suggestion.expenseType = agg.expenseType;
+      suggestion.isEssential = agg.isEssential;
+      suggestion.frequencyType = agg.frequencyType;
+      suggestion.intervalDays =
+        agg.sourcePatterns[0]?.frequency.intervalDays || 30;
+      suggestion.patternConfidence = agg.averageConfidence;
+      suggestion.classificationConfidence = agg.averageConfidence;
+      suggestion.overallConfidence = agg.averageConfidence;
+      suggestion.classificationReasoning = `Category aggregation of ${agg.sourcePatterns.length} pattern(s)`;
+      suggestion.occurrenceCount = agg.transactionCount;
+      suggestion.firstOccurrence = agg.firstOccurrence;
+      suggestion.lastOccurrence = agg.lastOccurrence;
+      suggestion.nextExpectedDate =
+        agg.sourcePatterns[0]?.nextExpectedDate || new Date();
+      suggestion.status = 'pending';
+      suggestion.expiresAt = expiresAt;
+      suggestion.metadata = {
+        patternId: `category-${agg.categoryId}`,
+        transactionIds: agg.sourcePatterns.flatMap((p) =>
+          p.group.transactions.map((t) => t.id),
+        ),
+        amountRange: {
+          min: Math.min(
+            ...agg.sourcePatterns.flatMap((p) =>
+              p.group.transactions.map((t) => Math.abs(Number(t.amount))),
+            ),
+          ),
+          max: Math.max(
+            ...agg.sourcePatterns.flatMap((p) =>
+              p.group.transactions.map((t) => Math.abs(Number(t.amount))),
+            ),
+          ),
+        },
+        sourceVersion: '2.0',
+        merchants: agg.merchants,
+        spanMonths: agg.spanMonths,
+        aggregatedPatternCount: agg.sourcePatterns.length,
+      };
+
+      return suggestion;
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // PUBLIC API METHODS
+  // ─────────────────────────────────────────────────────────────
 
   /**
    * Generate expense plan suggestions for a user
@@ -104,14 +314,26 @@ export class SuggestionGeneratorService {
         `${classificationResult.tokensUsed} tokens used`,
     );
 
-    // Step 3: Create suggestion entities
-    const suggestions = await this.createSuggestions(
-      userId,
+    // Step 3: Aggregate patterns by category (v2)
+    const classificationMap = new Map(
+      classificationResult.classifications.map((c) => [c.patternId, c]),
+    );
+    const categoryAggregations = this.aggregateByCategory(
       patterns,
-      classificationResult.classifications,
+      classificationMap,
     );
 
-    // Step 4: Filter out duplicates (existing approved plans)
+    this.logger.log(
+      `Aggregated into ${categoryAggregations.length} category-level suggestions`,
+    );
+
+    // Step 4: Create suggestions from aggregations
+    const suggestions = this.createSuggestionsFromAggregations(
+      userId,
+      categoryAggregations,
+    );
+
+    // Step 5: Filter out duplicates (existing approved plans)
     const filteredSuggestions = await this.filterExistingSuggestions(
       userId,
       suggestions,
@@ -399,90 +621,6 @@ export class SuggestionGeneratorService {
     });
   }
 
-  private async createSuggestions(
-    userId: number,
-    patterns: DetectedPatternData[],
-    classifications: {
-      patternId: string;
-      expenseType: ExpenseType;
-      isEssential: boolean;
-      suggestedPlanName: string;
-      monthlyContribution: number;
-      confidence: number;
-      reasoning: string;
-    }[],
-  ): Promise<ExpensePlanSuggestion[]> {
-    const classificationMap = new Map(
-      classifications.map((c) => [c.patternId, c]),
-    );
-
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30); // Expire in 30 days
-
-    return patterns.map((pattern) => {
-      const classification = classificationMap.get(pattern.group.id);
-
-      const suggestion = new ExpensePlanSuggestion();
-      suggestion.userId = userId;
-      // Truncate to fit database column limits
-      const rawSuggestedName =
-        classification?.suggestedPlanName ||
-        pattern.group.merchantName ||
-        pattern.group.representativeDescription.substring(0, 50);
-      suggestion.suggestedName =
-        rawSuggestedName?.substring(0, 100) || 'Unnamed Expense';
-      suggestion.description = `Detected recurring ${pattern.frequency.type} expense`;
-      suggestion.merchantName =
-        pattern.group.merchantName?.substring(0, 255) || null;
-      suggestion.representativeDescription =
-        pattern.group.representativeDescription;
-      suggestion.categoryId = pattern.group.categoryId;
-      suggestion.categoryName =
-        pattern.group.categoryName?.substring(0, 100) || null;
-      suggestion.averageAmount = pattern.group.averageAmount;
-      suggestion.monthlyContribution =
-        classification?.monthlyContribution || pattern.group.averageAmount;
-      suggestion.yearlyTotal = suggestion.monthlyContribution * 12;
-      suggestion.expenseType =
-        classification?.expenseType || ExpenseType.OTHER_FIXED;
-      suggestion.isEssential = classification?.isEssential || false;
-      suggestion.frequencyType = pattern.frequency.type;
-      suggestion.intervalDays = pattern.frequency.intervalDays;
-      suggestion.patternConfidence = pattern.confidence.overall;
-      suggestion.classificationConfidence = classification?.confidence || 50;
-      suggestion.overallConfidence = Math.round(
-        pattern.confidence.overall * 0.6 +
-          (classification?.confidence || 50) * 0.4,
-      );
-      suggestion.classificationReasoning = classification?.reasoning || null;
-      suggestion.occurrenceCount = pattern.frequency.occurrenceCount;
-      suggestion.firstOccurrence = pattern.firstOccurrence;
-      suggestion.lastOccurrence = pattern.lastOccurrence;
-      suggestion.nextExpectedDate = pattern.nextExpectedDate;
-      suggestion.status = 'pending';
-      suggestion.expiresAt = expiresAt;
-      suggestion.metadata = {
-        patternId: pattern.group.id,
-        transactionIds: pattern.group.transactions.map((t) => t.id),
-        amountRange: {
-          min: Math.min(
-            ...pattern.group.transactions.map((t) =>
-              Math.abs(Number(t.amount)),
-            ),
-          ),
-          max: Math.max(
-            ...pattern.group.transactions.map((t) =>
-              Math.abs(Number(t.amount)),
-            ),
-          ),
-        },
-        sourceVersion: '1.0',
-      };
-
-      return suggestion;
-    });
-  }
-
   private async filterExistingSuggestions(
     userId: number,
     suggestions: ExpensePlanSuggestion[],
@@ -503,11 +641,18 @@ export class SuggestionGeneratorService {
       existingPlans.map((p) => p.name.toLowerCase()),
     );
 
-    const existingSuggestionKeys = new Set(
-      existingSuggestions.map(
-        (s) =>
-          `${s.merchantName?.toLowerCase()}|${s.categoryId}|${s.frequencyType}`,
-      ),
+    // v2: Use category-based deduplication key instead of merchant-based
+    const existingSuggestionCategoryIds = new Set(
+      existingSuggestions
+        .filter((s) => s.categoryId !== null)
+        .map((s) => s.categoryId),
+    );
+
+    // Also check existing plans by categoryId
+    const existingPlanCategoryIds = new Set(
+      existingPlans
+        .filter((p) => p.categoryId !== null && p.categoryId !== undefined)
+        .map((p) => p.categoryId),
     );
 
     // Also track existing suggested names to avoid duplicates
@@ -515,23 +660,30 @@ export class SuggestionGeneratorService {
       existingSuggestions.map((s) => s.suggestedName?.toLowerCase()),
     );
 
-    // Track suggested names within the current batch to avoid duplicates
-    const seenSuggestedNames = new Set<string>();
-    // Track category+name combinations within current batch
-    const seenCategoryNameCombos = new Set<string>();
+    // Track categoryIds within the current batch to avoid duplicates
+    const seenCategoryIds = new Set<number>();
 
     return suggestions.filter((suggestion) => {
       const suggestedNameLower = suggestion.suggestedName.toLowerCase();
-      const categoryNameCombo = `${suggestion.categoryId}|${suggestedNameLower}`;
 
       // Filter out if a plan with same name exists
       if (existingPlanNames.has(suggestedNameLower)) {
         return false;
       }
 
-      // Filter out if a pending suggestion with same key exists
-      const suggestionKey = `${suggestion.merchantName?.toLowerCase()}|${suggestion.categoryId}|${suggestion.frequencyType}`;
-      if (existingSuggestionKeys.has(suggestionKey)) {
+      // v2: Filter out if a plan exists for this category
+      if (
+        suggestion.categoryId !== null &&
+        existingPlanCategoryIds.has(suggestion.categoryId)
+      ) {
+        return false;
+      }
+
+      // v2: Filter out if a pending suggestion exists for this category
+      if (
+        suggestion.categoryId !== null &&
+        existingSuggestionCategoryIds.has(suggestion.categoryId)
+      ) {
         return false;
       }
 
@@ -540,19 +692,18 @@ export class SuggestionGeneratorService {
         return false;
       }
 
-      // Filter out duplicates within the current batch (same name)
-      if (seenSuggestedNames.has(suggestedNameLower)) {
-        return false;
-      }
-
-      // Filter out duplicates within the current batch (same category + similar name)
-      if (seenCategoryNameCombos.has(categoryNameCombo)) {
+      // v2: Filter out duplicates within the current batch (same category)
+      if (
+        suggestion.categoryId !== null &&
+        seenCategoryIds.has(suggestion.categoryId)
+      ) {
         return false;
       }
 
       // Mark as seen for current batch deduplication
-      seenSuggestedNames.add(suggestedNameLower);
-      seenCategoryNameCombos.add(categoryNameCombo);
+      if (suggestion.categoryId !== null) {
+        seenCategoryIds.add(suggestion.categoryId);
+      }
 
       return true;
     });

@@ -3,7 +3,6 @@ import { TagsService } from './tags.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tag } from './entities/tag.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
@@ -12,7 +11,6 @@ describe('TagsService', () => {
   let service: TagsService;
   let tagsRepository: any;
   let transactionsRepository: any;
-  let recurringTransactionsRepository: any;
   let transactionOperationsService: any;
 
   beforeEach(async () => {
@@ -59,11 +57,6 @@ describe('TagsService', () => {
       findOne: jest.fn().mockResolvedValue(null),
     };
 
-    const recurringTransactionsRepositoryMock = {
-      find: jest.fn().mockResolvedValue([]),
-      findOne: jest.fn().mockResolvedValue(null),
-    };
-
     const transactionOperationsServiceMock = {
       findMatchingTransactions: jest.fn(),
       handleDuplicateResolution: jest.fn(),
@@ -83,10 +76,6 @@ describe('TagsService', () => {
           useValue: transactionsRepositoryMock,
         },
         {
-          provide: getRepositoryToken(RecurringTransaction),
-          useValue: recurringTransactionsRepositoryMock,
-        },
-        {
           provide: getRepositoryToken(PendingDuplicate),
           useValue: {
             find: jest.fn().mockResolvedValue([]),
@@ -103,9 +92,6 @@ describe('TagsService', () => {
     service = module.get<TagsService>(TagsService);
     tagsRepository = module.get(getRepositoryToken(Tag));
     transactionsRepository = module.get(getRepositoryToken(Transaction));
-    recurringTransactionsRepository = module.get(
-      getRepositoryToken(RecurringTransaction),
-    );
     transactionOperationsService = module.get(TransactionOperationsService);
   });
 
@@ -138,7 +124,6 @@ describe('TagsService', () => {
 
     // Mock that there are no transactions using this tag
     transactionsRepository.find.mockResolvedValue([]);
-    recurringTransactionsRepository.find.mockResolvedValue([]);
 
     // Mock the query runner's manager.delete to return affected: 1
     const queryRunner = tagsRepository.manager.connection.createQueryRunner();

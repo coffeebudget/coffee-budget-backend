@@ -5,7 +5,6 @@ import { PendingDuplicate } from './entities/pending-duplicate.entity';
 import { Repository } from 'typeorm';
 import { Transaction } from '../transactions/transaction.entity';
 import { TransactionOperationsService } from '../transactions/transaction-operations.service';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { NotFoundException } from '@nestjs/common';
 import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transaction-choice.dto';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
@@ -22,7 +21,6 @@ describe('PendingDuplicatesService', () => {
         PendingDuplicatesService,
         RepositoryMockFactory.createRepositoryProvider(PendingDuplicate),
         RepositoryMockFactory.createRepositoryProvider(Transaction),
-        RepositoryMockFactory.createRepositoryProvider(RecurringTransaction),
         {
           provide: TransactionOperationsService,
           useValue: {

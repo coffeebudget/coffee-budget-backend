@@ -153,6 +153,10 @@ export class ExpensePlanSuggestion {
     patternId?: string;
     amountRange?: { min: number; max: number };
     sourceVersion?: string;
+    // v2: Category aggregation fields
+    merchants?: string[];
+    spanMonths?: number;
+    aggregatedPatternCount?: number;
   };
 
   // ─────────────────────────────────────────────────────────────

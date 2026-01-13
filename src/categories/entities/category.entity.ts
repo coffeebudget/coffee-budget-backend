@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Transaction } from '../../transactions/transaction.entity';
 import { User } from '../../users/user.entity';
-import { RecurringTransaction } from '../../recurring-transactions/entities/recurring-transaction.entity';
 
 @Entity()
 export class Category {
@@ -27,12 +26,6 @@ export class Category {
 
   @ManyToOne(() => User, (user) => user.categories)
   user: User;
-
-  @OneToMany(
-    () => RecurringTransaction,
-    (recurringTransaction) => recurringTransaction.category,
-  )
-  recurringTransactions: RecurringTransaction[];
 
   @Column({ default: false })
   excludeFromExpenseAnalytics: boolean;

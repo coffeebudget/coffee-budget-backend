@@ -4,7 +4,6 @@ import { CategoriesService } from './categories.service';
 import { CategoriesController } from './categories.controller';
 import { Category } from './entities/category.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { SharedModule } from '../shared/shared.module';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
@@ -17,12 +16,7 @@ import { TransactionEnrichedEventHandler } from './event-handlers/transaction-en
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Category,
-      Transaction,
-      RecurringTransaction,
-      KeywordStats,
-    ]),
+    TypeOrmModule.forFeature([Category, Transaction, KeywordStats]),
     SharedModule,
   ],
   controllers: [CategoriesController],

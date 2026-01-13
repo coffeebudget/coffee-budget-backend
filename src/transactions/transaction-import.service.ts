@@ -10,7 +10,6 @@ import { ImportLogsService } from './import-logs.service';
 import { CategoriesService } from '../categories/categories.service';
 import { TagsService } from '../tags/tags.service';
 import { TransactionOperationsService } from './transaction-operations.service';
-import { RecurringPatternDetectorService } from '../recurring-transactions/recurring-pattern-detector.service';
 import { GocardlessService } from '../gocardless/gocardless.service';
 import { BankFileParserFactory } from './parsers';
 import { ImportStatus } from './entities/import-log.entity';
@@ -38,7 +37,6 @@ export class TransactionImportService {
     private categoriesService: CategoriesService,
     private tagsService: TagsService,
     private transactionOperationsService: TransactionOperationsService,
-    private recurringPatternDetectorService: RecurringPatternDetectorService,
     private gocardlessService: GocardlessService,
   ) {}
 
@@ -712,16 +710,11 @@ export class TransactionImportService {
     transactions: Transaction[],
     userId: number,
   ): Promise<void> {
-    try {
-      // Only analyze patterns, don't create recurring transactions
-      await this.recurringPatternDetectorService.detectAllRecurringPatterns(
-        userId,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error processing recurring patterns: ${error.message}`,
-      );
-    }
+    // This method is now a no-op - recurring pattern detection has been removed
+    // Smart recurrence module now handles expense plan suggestions independently
+    this.logger.debug(
+      `Recurring pattern processing disabled for ${transactions.length} transactions`,
+    );
   }
 
   // Helper method to check if a string is base64 encoded

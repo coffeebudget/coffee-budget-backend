@@ -10,7 +10,6 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category } from './entities/category.entity';
 import { User } from '../users/user.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { RecurringTransaction } from '../recurring-transactions/entities/recurring-transaction.entity';
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
@@ -27,8 +26,6 @@ export class CategoriesService {
     private categoriesRepository: Repository<Category>,
     @InjectRepository(Transaction)
     private transactionsRepository: Repository<Transaction>,
-    @InjectRepository(RecurringTransaction)
-    private recurringTransactionsRepository: Repository<RecurringTransaction>,
     private keywordExtractionService: KeywordExtractionService,
     private keywordStatsService: KeywordStatsService,
     private eventPublisher: EventPublisherService,
