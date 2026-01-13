@@ -77,11 +77,17 @@ export class GocardlessService {
 
     // Add request interceptor to automatically add auth token
     this.httpClient.interceptors.request.use((config) => {
+      this.logger.log(
+        `Request interceptor: url=${config.url}, hasToken=${!!this.accessToken}, tokenLength=${this.accessToken?.length || 0}`,
+      );
       if (config.url !== '/token/new/' && this.accessToken) {
         if (!config.headers) {
           config.headers = {};
         }
         config.headers.Authorization = `Bearer ${this.accessToken}`;
+        this.logger.log(`Added Authorization header with token length ${this.accessToken.length}`);
+      } else if (config.url !== '/token/new/') {
+        this.logger.warn(`No token available for request to ${config.url}`);
       }
       return config;
     });
@@ -148,7 +154,9 @@ export class GocardlessService {
         Date.now() + response.data.access_expires * 1000,
       );
 
-      this.logger.log('Access token created successfully');
+      this.logger.log(
+        `Access token created successfully - token length: ${this.accessToken?.length || 0}, expires in: ${response.data.access_expires}s`,
+      );
       return response.data;
     } catch (error) {
       this.logger.error('Failed to create access token:', error);
