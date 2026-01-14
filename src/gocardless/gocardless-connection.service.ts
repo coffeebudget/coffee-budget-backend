@@ -102,11 +102,10 @@ export class GocardlessConnectionService {
   ): Promise<ConnectionStatusSummary> {
     const connections = await this.connectionRepository.find({
       where: { userId },
+      order: { connectedAt: 'DESC' }, // Most recent first
     });
 
     // Update status for each connection based on current date
-    const alerts: ConnectionAlert[] = [];
-
     for (const conn of connections) {
       const newStatus = this.calculateStatus(conn.expiresAt);
 
@@ -118,22 +117,50 @@ export class GocardlessConnectionService {
         await this.connectionRepository.update(conn.id, { status: newStatus });
         conn.status = newStatus;
       }
+    }
 
-      // Generate alert for expiring/expired connections
+    // Build a map of accountId -> most recent connection status
+    // This ensures we only alert for accounts that don't have an active newer connection
+    const accountToActiveConnection = new Map<string, number>();
+
+    // First pass: find accounts with active connections
+    for (const conn of connections) {
+      if (conn.status === GocardlessConnectionStatus.ACTIVE) {
+        for (const accountId of conn.linkedAccountIds) {
+          // Only set if not already set (first = most recent due to ordering)
+          if (!accountToActiveConnection.has(accountId)) {
+            accountToActiveConnection.set(accountId, conn.id);
+          }
+        }
+      }
+    }
+
+    // Generate alerts only for connections where accounts don't have a newer active connection
+    const alerts: ConnectionAlert[] = [];
+
+    for (const conn of connections) {
       if (
         conn.status === GocardlessConnectionStatus.EXPIRING_SOON ||
         conn.status === GocardlessConnectionStatus.EXPIRED
       ) {
-        const daysUntilExpiration = this.getDaysUntilExpiration(conn.expiresAt);
+        // Filter out accounts that have been reconnected (have active connection)
+        const accountsNeedingAlert = conn.linkedAccountIds.filter(
+          (accountId) => !accountToActiveConnection.has(accountId),
+        );
 
-        alerts.push({
-          connectionId: conn.id,
-          institutionName: conn.institutionName || conn.institutionId,
-          status: conn.status,
-          expiresAt: conn.expiresAt,
-          daysUntilExpiration,
-          linkedAccountIds: conn.linkedAccountIds,
-        });
+        // Only add alert if there are accounts that still need attention
+        if (accountsNeedingAlert.length > 0) {
+          const daysUntilExpiration = this.getDaysUntilExpiration(conn.expiresAt);
+
+          alerts.push({
+            connectionId: conn.id,
+            institutionName: conn.institutionName || conn.institutionId,
+            status: conn.status,
+            expiresAt: conn.expiresAt,
+            daysUntilExpiration,
+            linkedAccountIds: accountsNeedingAlert, // Only accounts that need attention
+          });
+        }
       }
     }
 

@@ -1,5 +1,51 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsArray, IsOptional } from 'class-validator';
 import { GocardlessConnectionStatus } from '../entities/gocardless-connection.entity';
+
+/**
+ * DTO for completing a GoCardless connection after OAuth callback
+ * This creates a GocardlessConnection record for tracking expiration
+ */
+export class CompleteConnectionDto {
+  @ApiProperty({
+    description: 'GoCardless requisition ID from OAuth callback',
+    example: 'REQUISITION_ABC123',
+  })
+  @IsString()
+  requisitionId: string;
+
+  @ApiProperty({
+    description: 'GoCardless institution ID',
+    example: 'SANDBOXFINANCE_SFIN0000',
+  })
+  @IsString()
+  institutionId: string;
+
+  @ApiProperty({
+    description: 'Array of GoCardless account IDs that were authorized',
+    example: ['account-uuid-1', 'account-uuid-2'],
+    type: [String],
+  })
+  @IsArray()
+  @IsString({ each: true })
+  linkedAccountIds: string[];
+
+  @ApiProperty({
+    description: 'Optional institution name for display',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  institutionName?: string;
+
+  @ApiProperty({
+    description: 'Optional institution logo URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  institutionLogo?: string;
+}
 
 export class ConnectionAlertDto {
   @ApiProperty({ description: 'Connection ID' })

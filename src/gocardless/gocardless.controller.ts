@@ -38,6 +38,7 @@ import {
 import {
   ConnectionStatusSummaryDto,
   GocardlessConnectionDto,
+  CompleteConnectionDto,
 } from './dto/connection.dto';
 import { GocardlessConnection } from './entities/gocardless-connection.entity';
 
@@ -322,6 +323,54 @@ export class GocardlessController {
     @CurrentUser() user: User,
   ): Promise<GocardlessConnection[]> {
     return this.connectionService.getUserConnections(user.id);
+  }
+
+  @Post('connections/complete')
+  @ApiOperation({
+    summary: 'Complete a GoCardless connection after OAuth callback',
+    description:
+      'Creates a GocardlessConnection record after the user completes bank authorization. This tracks the connection expiration (90 days) and enables status monitoring.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Connection created successfully',
+    type: GocardlessConnectionDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid request data',
+  })
+  async completeConnection(
+    @CurrentUser() user: User,
+    @Body() dto: CompleteConnectionDto,
+  ): Promise<GocardlessConnection> {
+    // Get institution details if not provided
+    let institutionName: string | null = dto.institutionName || null;
+    let institutionLogo: string | null = dto.institutionLogo || null;
+
+    if (!institutionName || !institutionLogo) {
+      try {
+        const institution = await this.gocardlessService.getInstitutionById(
+          dto.institutionId,
+        );
+        institutionName = institutionName || institution?.name || null;
+        institutionLogo = institutionLogo || institution?.logo || null;
+      } catch {
+        // Ignore - use null values
+      }
+    }
+
+    return this.connectionService.createConnection({
+      userId: user.id,
+      requisitionId: dto.requisitionId,
+      euaId: null, // EUA ID is not always available from requisition
+      institutionId: dto.institutionId,
+      institutionName,
+      institutionLogo,
+      connectedAt: new Date(),
+      accessValidForDays: 90, // Default GoCardless EUA validity
+      linkedAccountIds: dto.linkedAccountIds,
+    });
   }
 
   @Post('connections/:id/disconnect')
