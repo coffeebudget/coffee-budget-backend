@@ -170,9 +170,34 @@ export class ExpensePlansService {
   ): Promise<ExpensePlan> {
     const plan = await this.findOne(id, userId);
 
-    Object.assign(plan, dto);
+    // Handle paymentAccountId separately due to TypeORM relation management
+    // TypeORM manages the paymentAccountId through the paymentAccount relation,
+    // so we need to update it via the repository directly
+    const { paymentAccountId, paymentAccountType, ...restDto } = dto;
 
-    return this.expensePlanRepository.save(plan);
+    // Apply non-relation fields
+    Object.assign(plan, restDto);
+
+    // Handle payment account fields explicitly
+    if (paymentAccountId !== undefined) {
+      plan.paymentAccountId = paymentAccountId;
+    }
+    if (paymentAccountType !== undefined) {
+      plan.paymentAccountType = paymentAccountType;
+    }
+
+    // Use update instead of save for fields managed by relations
+    await this.expensePlanRepository.update(
+      { id, userId },
+      {
+        ...restDto,
+        ...(paymentAccountId !== undefined && { paymentAccountId }),
+        ...(paymentAccountType !== undefined && { paymentAccountType }),
+      },
+    );
+
+    // Return the updated plan
+    return this.findOne(id, userId);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -887,7 +912,7 @@ export class ExpensePlansService {
       if (accountPlans.length === 0) continue;
 
       const upcomingTotal = accountPlans.reduce(
-        (sum, p) => sum + Number(p.targetAmount),
+        (sum, p) => sum + this.getUpcomingAmount(p),
         0,
       );
       const currentBalance = Number(account.balance);
@@ -907,7 +932,7 @@ export class ExpensePlansService {
         ? sortedPlans.map((p) => ({
             id: p.id,
             name: p.name,
-            amount: Number(p.targetAmount),
+            amount: this.getUpcomingAmount(p),
             nextDueDate: p.nextDueDate
               ? new Date(p.nextDueDate).toISOString().split('T')[0]
               : null,
@@ -937,13 +962,13 @@ export class ExpensePlansService {
     const unassignedSummary: UnassignedPlanSummary = {
       count: unassignedPlans.length,
       totalAmount: unassignedPlans.reduce(
-        (sum, p) => sum + Number(p.targetAmount),
+        (sum, p) => sum + this.getUpcomingAmount(p),
         0,
       ),
       plans: unassignedPlans.map((p) => ({
         id: p.id,
         name: p.name,
-        amount: Number(p.targetAmount),
+        amount: this.getUpcomingAmount(p),
         nextDueDate: p.nextDueDate
           ? new Date(p.nextDueDate).toISOString().split('T')[0]
           : null,
@@ -999,6 +1024,27 @@ export class ExpensePlansService {
       (end.getFullYear() - start.getFullYear()) * 12 +
       (end.getMonth() - start.getMonth());
     return Math.max(1, months);
+  }
+
+  /**
+   * Get the upcoming amount due for a plan based on its frequency.
+   * For monthly plans, this is the monthlyContribution.
+   * For other frequencies, this is the targetAmount (what's due on the due date).
+   */
+  private getUpcomingAmount(plan: ExpensePlan): number {
+    switch (plan.frequency) {
+      case 'monthly':
+        // Monthly plans: the upcoming expense is the monthly contribution
+        return Number(plan.monthlyContribution);
+      case 'quarterly':
+      case 'yearly':
+      case 'multi_year':
+      case 'seasonal':
+      case 'one_time':
+      default:
+        // Other frequencies: the upcoming expense is the target amount
+        return Number(plan.targetAmount);
+    }
   }
 }
 

@@ -81,6 +81,11 @@ describe('ExpensePlansService', () => {
     paymentAccountType: null,
     paymentAccountId: null,
     paymentAccount: null,
+    suggestedMonthlyContribution: null,
+    suggestedAdjustmentPercent: null,
+    adjustmentReason: null,
+    adjustmentSuggestedAt: null,
+    adjustmentDismissedAt: null,
     createdAt: new Date('2024-01-01'),
     updatedAt: new Date('2024-01-01'),
     transactions: [],
@@ -485,6 +490,110 @@ describe('ExpensePlansService', () => {
 
       // Assert
       expect(result.status).toBe('paused');
+    });
+
+    it('should update payment account to a bank account', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      const updateData = {
+        paymentAccountType: 'bank_account' as const,
+        paymentAccountId: 5,
+      };
+      const updatedPlan = {
+        ...mockExpensePlan,
+        paymentAccountType: 'bank_account',
+        paymentAccountId: 5,
+      };
+      // First call for validation, second call to return updated plan
+      (expensePlanRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(mockExpensePlan)
+        .mockResolvedValueOnce(updatedPlan);
+      (expensePlanRepository.update as jest.Mock).mockResolvedValue({
+        affected: 1,
+      });
+
+      // Act
+      const result = await service.update(id, userId, updateData);
+
+      // Assert
+      expect(result.paymentAccountType).toBe('bank_account');
+      expect(result.paymentAccountId).toBe(5);
+      expect(expensePlanRepository.update).toHaveBeenCalledWith(
+        { id, userId },
+        expect.objectContaining({
+          paymentAccountType: 'bank_account',
+          paymentAccountId: 5,
+        }),
+      );
+    });
+
+    it('should update payment account to a different bank account', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      const updateData = {
+        paymentAccountType: 'bank_account' as const,
+        paymentAccountId: 10,
+      };
+      const existingPlan = {
+        ...mockExpensePlan,
+        paymentAccountType: 'bank_account',
+        paymentAccountId: 5,
+      };
+      const updatedPlan = {
+        ...mockExpensePlan,
+        paymentAccountType: 'bank_account',
+        paymentAccountId: 10,
+      };
+      // First call for validation, second call to return updated plan
+      (expensePlanRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(existingPlan)
+        .mockResolvedValueOnce(updatedPlan);
+      (expensePlanRepository.update as jest.Mock).mockResolvedValue({
+        affected: 1,
+      });
+
+      // Act
+      const result = await service.update(id, userId, updateData);
+
+      // Assert
+      expect(result.paymentAccountType).toBe('bank_account');
+      expect(result.paymentAccountId).toBe(10);
+    });
+
+    it('should preserve payment account when fields are not provided in update', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      const planWithPaymentAccount = {
+        ...mockExpensePlan,
+        paymentAccountType: 'bank_account' as const,
+        paymentAccountId: 5,
+      };
+      // The service should preserve existing values unless explicitly changed
+      const updateData = {
+        name: 'Updated Name',
+      };
+      const updatedPlan = {
+        ...planWithPaymentAccount,
+        name: 'Updated Name',
+      };
+      // First call for validation, second call to return updated plan
+      (expensePlanRepository.findOne as jest.Mock)
+        .mockResolvedValueOnce(planWithPaymentAccount)
+        .mockResolvedValueOnce(updatedPlan);
+      (expensePlanRepository.update as jest.Mock).mockResolvedValue({
+        affected: 1,
+      });
+
+      // Act
+      const result = await service.update(id, userId, updateData);
+
+      // Assert - payment account should be preserved when not explicitly updated
+      expect(result.name).toBe('Updated Name');
+      expect(result.paymentAccountType).toBe('bank_account');
+      expect(result.paymentAccountId).toBe(5);
     });
   });
 

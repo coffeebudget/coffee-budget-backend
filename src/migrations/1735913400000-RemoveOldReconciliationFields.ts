@@ -27,10 +27,10 @@ export class RemoveOldReconciliationFields1735913400000
       `ALTER TABLE "transaction" DROP COLUMN IF EXISTS "reconciliationStatus"`,
     );
 
-    // Drop enum type (only if not used elsewhere)
-    await queryRunner.query(
-      `DROP TYPE IF EXISTS "transaction_reconciliationstatus_enum"`,
-    );
+    // Note: Skipping DROP TYPE for 'transaction_reconciliationstatus_enum'
+    // The type may be owned by a different user or already dropped.
+    // PostgreSQL's DROP TYPE IF EXISTS still checks ownership before checking existence.
+    // Since the columns using this type are already dropped, leaving an orphan type is harmless.
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

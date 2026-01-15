@@ -8,6 +8,7 @@ import {
   SuggestionStatus,
 } from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
+import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
 import {
   PatternDetectionCriteria,
   DetectedPatternData,
@@ -40,6 +41,7 @@ export class SuggestionGeneratorService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     private readonly patternDetection: PatternDetectionService,
     private readonly patternClassification: PatternClassificationService,
+    private readonly expensePlanAdjustmentService: ExpensePlanAdjustmentService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────
@@ -251,6 +253,23 @@ export class SuggestionGeneratorService {
   // ─────────────────────────────────────────────────────────────
 
   /**
+   * Clear all pending suggestions for a user
+   * Called before regenerating to ensure fresh results
+   * Preserves approved and rejected suggestions for audit trail
+   */
+  async clearPendingSuggestions(userId: number): Promise<number> {
+    const result = await this.suggestionRepository.delete({
+      userId,
+      status: 'pending' as const,
+    });
+    const cleared = result.affected || 0;
+    if (cleared > 0) {
+      this.logger.log(`Cleared ${cleared} pending suggestions for user ${userId}`);
+    }
+    return cleared;
+  }
+
+  /**
    * Generate expense plan suggestions for a user
    * Orchestrates pattern detection and AI classification
    */
@@ -262,14 +281,19 @@ export class SuggestionGeneratorService {
 
     this.logger.log(`Generating suggestions for user ${userId}`);
 
+    // Clear existing pending suggestions before regenerating
+    // This ensures users get fresh results without accumulation
+    const clearedCount = await this.clearPendingSuggestions(userId);
+
     // Check for recent suggestions if not forcing regeneration
+    // Note: After clearing, this will return empty, so regeneration proceeds
     if (!options.forceRegenerate) {
       const recentSuggestions = await this.getRecentPendingSuggestions(userId);
       if (recentSuggestions.length > 0) {
         this.logger.log(
           `Found ${recentSuggestions.length} recent pending suggestions`,
         );
-        return this.buildResponse(recentSuggestions, 0, startTime);
+        return this.buildResponse(recentSuggestions, 0, startTime, clearedCount);
       }
     }
 
@@ -287,7 +311,7 @@ export class SuggestionGeneratorService {
     this.logger.log(`Detected ${patterns.length} patterns`);
 
     if (patterns.length === 0) {
-      return this.buildResponse([], 0, startTime);
+      return this.buildResponse([], 0, startTime, clearedCount);
     }
 
     // Step 2: Classify patterns using AI
@@ -348,10 +372,25 @@ export class SuggestionGeneratorService {
     const savedSuggestions =
       await this.suggestionRepository.save(filteredSuggestions);
 
+    // Step 6: Review existing expense plans for adjustment suggestions
+    // This detects when actual spending deviates from plan contributions
+    try {
+      const adjustmentReview =
+        await this.expensePlanAdjustmentService.reviewAllPlansForUser(userId);
+      this.logger.log(
+        `Adjustment review: ${adjustmentReview.plansReviewed} plans reviewed, ` +
+          `${adjustmentReview.newSuggestions} new suggestions`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to review expense plan adjustments: ${error.message}`,
+      );
+    }
+
     // Get all pending suggestions for response
     const allPending = await this.getPendingSuggestions(userId);
 
-    return this.buildResponse(allPending, savedSuggestions.length, startTime);
+    return this.buildResponse(allPending, savedSuggestions.length, startTime, clearedCount);
   }
 
   /**
@@ -713,6 +752,7 @@ export class SuggestionGeneratorService {
     suggestions: ExpensePlanSuggestion[],
     newCount: number,
     startTime: number,
+    clearedCount: number = 0,
   ): GenerateSuggestionsResponseDto {
     const byExpenseType: Record<string, number> = {};
     let totalMonthlyContribution = 0;
@@ -736,6 +776,7 @@ export class SuggestionGeneratorService {
       totalFound: suggestions.length,
       newSuggestions: newCount,
       existingSuggestions: suggestions.length - newCount,
+      clearedCount,
       processingTimeMs: Date.now() - startTime,
       summary: {
         byExpenseType,

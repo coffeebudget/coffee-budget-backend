@@ -22,15 +22,26 @@ export class SimilarityScorerService {
     weights: SimilarityWeights = DEFAULT_SIMILARITY_WEIGHTS,
   ): SimilarityScore {
     const categoryMatch = this.calculateCategoryMatch(t1, t2);
-    const merchantMatch = this.calculateMerchantMatch(t1, t2);
     const descriptionMatch = this.calculateDescriptionMatch(t1, t2);
     const amountSimilarity = this.calculateAmountSimilarity(t1, t2);
 
+    // Check if merchant matching is applicable (both transactions have merchantName)
+    const canMatchMerchant = this.canMatchMerchant(t1, t2);
+    const merchantMatch = canMatchMerchant
+      ? this.calculateMerchantMatch(t1, t2)
+      : 0;
+
+    // Calculate effective weights - redistribute merchant weight if not applicable
+    const effectiveWeights = this.calculateEffectiveWeights(
+      weights,
+      canMatchMerchant,
+    );
+
     const total =
-      categoryMatch * weights.category +
-      merchantMatch * weights.merchant +
-      descriptionMatch * weights.description +
-      amountSimilarity * weights.amount;
+      categoryMatch * effectiveWeights.category +
+      merchantMatch * effectiveWeights.merchant +
+      descriptionMatch * effectiveWeights.description +
+      amountSimilarity * effectiveWeights.amount;
 
     return {
       categoryMatch,
@@ -38,6 +49,44 @@ export class SimilarityScorerService {
       descriptionMatch,
       amountSimilarity,
       total: Math.round(total * 100) / 100, // Round to 2 decimals
+    };
+  }
+
+  /**
+   * Check if merchant matching is applicable for two transactions
+   * Both transactions must have a merchantName for meaningful comparison
+   */
+  private canMatchMerchant(t1: Transaction, t2: Transaction): boolean {
+    const merchant1 = this.normalizeMerchantName(t1.merchantName);
+    const merchant2 = this.normalizeMerchantName(t2.merchantName);
+    return !!(merchant1 && merchant2);
+  }
+
+  /**
+   * Calculate effective weights when merchant matching is not applicable.
+   * Uses balanced weights that require description/amount similarity in addition to category.
+   * - Category: 50% (important but not dominant)
+   * - Description: 35% (key differentiator within same category)
+   * - Amount: 15% (helps distinguish different payment types)
+   *
+   * This ensures transactions in the same category with very different
+   * descriptions/amounts form separate patterns (e.g., separate mortgage payments).
+   */
+  private calculateEffectiveWeights(
+    weights: SimilarityWeights,
+    canMatchMerchant: boolean,
+  ): SimilarityWeights {
+    if (canMatchMerchant) {
+      return weights; // Use original weights
+    }
+
+    // Use balanced weights when merchant is not available
+    // Requires some description/amount similarity to group together
+    return {
+      category: 0.5,
+      merchant: 0, // Not applicable
+      description: 0.35,
+      amount: 0.15,
     };
   }
 

@@ -37,27 +37,10 @@ export class DropRecurringTransactionsTable1768000000001
       DROP TABLE IF EXISTS "recurring_transaction" CASCADE
     `);
 
-    // Clean up any orphaned enum types from the recurring_transaction table
-    // These may exist if TypeORM created them during schema sync
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "recurring_transaction_frequencytype_enum" CASCADE
-    `);
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "recurring_transaction_status_enum" CASCADE
-    `);
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "recurring_transaction_type_enum" CASCADE
-    `);
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "recurring_transaction_source_enum" CASCADE
-    `);
-    // Also clean up any _old suffixed enums from previous migrations
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "frequency_type_enum_old" CASCADE
-    `);
-    await queryRunner.query(`
-      DROP TYPE IF EXISTS "recurring_transaction_frequencytype_enum_old" CASCADE
-    `);
+    // Note: Skipping DROP TYPE for orphaned enum types from recurring_transaction table
+    // PostgreSQL's DROP TYPE IF EXISTS checks ownership before checking existence,
+    // which can fail if the type was created by a different database user.
+    // Leaving orphan types is harmless since the tables using them are dropped.
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

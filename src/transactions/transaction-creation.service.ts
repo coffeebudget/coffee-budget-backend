@@ -146,9 +146,16 @@ export class TransactionCreationService {
       }
     }
 
+    // Normalize the amount based on transaction type
+    const normalizedAmount = this.normalizeAmount(
+      createTransactionDto.amount,
+      createTransactionDto.type,
+    );
+
     // Create the transaction
     const transaction = this.transactionsRepository.create({
       ...createTransactionDto,
+      amount: normalizedAmount,
       user: { id: userId },
       category: category || suggestedCategory || undefined,
       suggestedCategory: suggestedCategory || undefined,
@@ -280,5 +287,14 @@ export class TransactionCreationService {
     });
 
     return !!transaction;
+  }
+
+  /**
+   * Normalizes the amount based on transaction type.
+   * Expenses should be negative, income should be positive.
+   */
+  private normalizeAmount(amount: number, type: 'income' | 'expense'): number {
+    const absAmount = Math.abs(amount);
+    return type === 'income' ? absAmount : -absAmount;
   }
 }

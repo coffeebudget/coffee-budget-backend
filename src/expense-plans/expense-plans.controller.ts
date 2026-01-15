@@ -39,15 +39,20 @@ import {
   LinkTransactionDto,
   CoverageSummaryResponse,
 } from './dto';
+import { AcceptAdjustmentDto, ReviewSummaryDto } from './dto/adjustment-action.dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
+import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
 
 @ApiTags('Expense Plans')
 @ApiBearerAuth()
 @Controller('expense-plans')
 @UseGuards(AuthGuard('jwt'))
 export class ExpensePlansController {
-  constructor(private readonly expensePlansService: ExpensePlansService) {}
+  constructor(
+    private readonly expensePlansService: ExpensePlansService,
+    private readonly adjustmentService: ExpensePlanAdjustmentService,
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CRUD OPERATIONS
@@ -605,5 +610,96 @@ export class ExpensePlansController {
       planTransactionId,
       user.id,
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ADJUSTMENT SUGGESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Post(':id/accept-adjustment')
+  @ApiOperation({
+    summary: 'Accept adjustment suggestion',
+    description:
+      'Accept the suggested monthly contribution adjustment or provide a custom value',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Adjustment accepted successfully',
+    type: ExpensePlan,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Expense plan not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'No adjustment suggestion exists for this plan',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async acceptAdjustment(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AcceptAdjustmentDto,
+    @CurrentUser() user: any,
+  ): Promise<ExpensePlan> {
+    return this.adjustmentService.acceptAdjustment(id, user.id, dto.customAmount);
+  }
+
+  @Post(':id/dismiss-adjustment')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Dismiss adjustment suggestion',
+    description:
+      'Dismiss the adjustment suggestion. It will not be shown again for 30 days.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Adjustment dismissed successfully',
+    type: ExpensePlan,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Expense plan not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async dismissAdjustment(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ): Promise<ExpensePlan> {
+    return this.adjustmentService.dismissAdjustment(id, user.id);
+  }
+
+  @Post('review-adjustments')
+  @ApiOperation({
+    summary: 'Review all expense plans for adjustments',
+    description:
+      'Manually trigger a review of all active expense plans to detect if any need adjustment suggestions',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Review completed successfully',
+    type: ReviewSummaryDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async reviewAdjustments(@CurrentUser() user: any): Promise<ReviewSummaryDto> {
+    return this.adjustmentService.reviewAllPlansForUser(user.id);
   }
 }

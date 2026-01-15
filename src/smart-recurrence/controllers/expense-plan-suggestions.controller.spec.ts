@@ -87,6 +87,7 @@ describe('ExpensePlanSuggestionsController', () => {
         totalFound: 1,
         newSuggestions: 1,
         existingSuggestions: 0,
+        clearedCount: 0,
         processingTimeMs: 500,
         summary: {
           byExpenseType: { subscription: 1 },
@@ -122,6 +123,7 @@ describe('ExpensePlanSuggestionsController', () => {
         totalFound: 0,
         newSuggestions: 0,
         existingSuggestions: 0,
+        clearedCount: 0,
         processingTimeMs: 100,
         summary: {
           byExpenseType: {},

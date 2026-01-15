@@ -5,6 +5,7 @@ import { PatternDetectionService } from './pattern-detection.service';
 import { PatternClassificationService } from './pattern-classification.service';
 import { ExpensePlanSuggestion } from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
+import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
 import { RepositoryMockFactory } from '../../test/test-utils/repository-mocks';
 import { ExpenseType } from '../interfaces/classification.interface';
 import { FrequencyType } from '../interfaces/frequency.interface';
@@ -95,6 +96,16 @@ describe('SuggestionGeneratorService', () => {
           useValue: {
             classifyPatterns: jest.fn(),
             getApiUsageStats: jest.fn(),
+          },
+        },
+        {
+          provide: ExpensePlanAdjustmentService,
+          useValue: {
+            reviewAllPlansForUser: jest.fn().mockResolvedValue({
+              plansReviewed: 0,
+              newSuggestions: 0,
+              clearedSuggestions: 0,
+            }),
           },
         },
       ],
@@ -1195,6 +1206,7 @@ describe('SuggestionGeneratorService', () => {
         });
 
         suggestionRepository.find.mockResolvedValue([]);
+        suggestionRepository.delete.mockResolvedValue({ affected: 0 });
         patternDetectionService.detectPatterns.mockResolvedValue([mockPattern]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: [createMockClassification('p1')],
@@ -1223,6 +1235,7 @@ describe('SuggestionGeneratorService', () => {
           .mockResolvedValueOnce([]) // getRecentPendingSuggestions
           .mockResolvedValueOnce([{ id: 99, categoryId: 5, status: 'pending' }]) // filterExistingSuggestions
           .mockResolvedValueOnce([]); // getPendingSuggestions
+        suggestionRepository.delete.mockResolvedValue({ affected: 0 });
 
         patternDetectionService.detectPatterns.mockResolvedValue([mockPattern]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
@@ -1240,6 +1253,137 @@ describe('SuggestionGeneratorService', () => {
         // Assert - should have 0 new suggestions (filtered out)
         expect(result.newSuggestions).toBe(0);
       });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // CLEAR PENDING SUGGESTIONS TESTS (Refresh Feature)
+  // ─────────────────────────────────────────────────────────────
+
+  describe('clearPendingSuggestions', () => {
+    it('should delete all pending suggestions for a user', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 5 });
+
+      // Act
+      const result = await service.clearPendingSuggestions(mockUserId);
+
+      // Assert
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        userId: mockUserId,
+        status: 'pending',
+      });
+      expect(result).toBe(5);
+    });
+
+    it('should return 0 when no pending suggestions exist', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+
+      // Act
+      const result = await service.clearPendingSuggestions(mockUserId);
+
+      // Assert
+      expect(result).toBe(0);
+    });
+
+    it('should NOT delete approved suggestions', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 3 });
+
+      // Act
+      await service.clearPendingSuggestions(mockUserId);
+
+      // Assert - verify only 'pending' status is targeted
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        userId: mockUserId,
+        status: 'pending',
+      });
+      expect(suggestionRepository.delete).not.toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'approved' }),
+      );
+    });
+
+    it('should NOT delete rejected suggestions', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 3 });
+
+      // Act
+      await service.clearPendingSuggestions(mockUserId);
+
+      // Assert - verify only 'pending' status is targeted
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        userId: mockUserId,
+        status: 'pending',
+      });
+      expect(suggestionRepository.delete).not.toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'rejected' }),
+      );
+    });
+  });
+
+  describe('generateSuggestions with clear pending', () => {
+    it('should clear pending suggestions before generating new ones', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 5 });
+      suggestionRepository.find.mockResolvedValue([]);
+      patternDetectionService.detectPatterns.mockResolvedValue([]);
+
+      // Act
+      await service.generateSuggestions(mockUserId, { forceRegenerate: true });
+
+      // Assert - delete should be called with pending status
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        userId: mockUserId,
+        status: 'pending',
+      });
+    });
+
+    it('should include clearedCount in response', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 7 });
+      suggestionRepository.find.mockResolvedValue([]);
+      patternDetectionService.detectPatterns.mockResolvedValue([]);
+
+      // Act
+      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: true });
+
+      // Assert
+      expect(result.clearedCount).toBe(7);
+    });
+
+    it('should return clearedCount of 0 when no pending suggestions existed', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      suggestionRepository.find.mockResolvedValue([]);
+      patternDetectionService.detectPatterns.mockResolvedValue([]);
+
+      // Act
+      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: true });
+
+      // Assert
+      expect(result.clearedCount).toBe(0);
+    });
+
+    it('should clear pending even when returning cached suggestions', async () => {
+      // Arrange - existing suggestions within 24h window
+      const existingSuggestion = {
+        id: 1,
+        userId: mockUserId,
+        suggestedName: 'Netflix',
+        status: 'pending',
+        expenseType: ExpenseType.SUBSCRIPTION,
+        overallConfidence: 85,
+        createdAt: new Date(),
+      };
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      suggestionRepository.find.mockResolvedValue([existingSuggestion]);
+
+      // Act - NOT forcing regeneration, should return cached
+      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: false });
+
+      // Assert - clearedCount should still be in response
+      expect(result.clearedCount).toBe(0);
     });
   });
 });

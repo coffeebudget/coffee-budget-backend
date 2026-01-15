@@ -209,6 +209,11 @@ export class GenerateSuggestionsResponseDto {
   @ApiProperty()
   existingSuggestions: number;
 
+  @ApiProperty({
+    description: 'Number of pending suggestions cleared before regenerating',
+  })
+  clearedCount: number;
+
   @ApiProperty()
   processingTimeMs: number;
 

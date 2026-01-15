@@ -103,6 +103,124 @@ describe('SimilarityScorerService', () => {
       expect(result.total).toBeGreaterThan(0);
     });
 
+    it('should redistribute weights when merchant is null - reaching 100% for perfect matches', () => {
+      // Arrange
+      const category = { id: 1, name: 'Mortgage' } as Category;
+      const t1 = {
+        description: 'Rimborso finanziamento n. 1523129',
+        merchantName: null,
+        amount: -809.0,
+        category,
+      } as Transaction;
+      const t2 = {
+        description: 'Rimborso finanziamento n. 1523129',
+        merchantName: null,
+        amount: -809.0,
+        category,
+      } as Transaction;
+
+      // Act
+      const result = service.calculateSimilarity(t1, t2);
+
+      // Assert
+      // With weight redistribution, perfect matches should reach 100%
+      // even when merchant is null (before fix, max was 70%)
+      expect(result.merchantMatch).toBe(0);
+      expect(result.categoryMatch).toBe(100);
+      expect(result.descriptionMatch).toBe(100);
+      expect(result.amountSimilarity).toBe(100);
+      expect(result.total).toBe(100); // Key assertion: can reach 100%
+    });
+
+    it('should use balanced weights when merchant is null', () => {
+      // Arrange
+      const category1 = { id: 1, name: 'Mortgage' } as Category;
+      const category2 = { id: 2, name: 'Bills' } as Category;
+      const t1 = {
+        description: 'Payment',
+        merchantName: null,
+        amount: -100.0,
+        category: category1,
+      } as Transaction;
+      const t2 = {
+        description: 'Payment',
+        merchantName: null,
+        amount: -100.0,
+        category: category2, // Different category
+      } as Transaction;
+
+      // Act
+      const result = service.calculateSimilarity(t1, t2);
+
+      // Assert
+      // With balanced weights when merchant is null:
+      // - category: 50%
+      // - description: 35%
+      // - amount: 15%
+      // Category doesn't match (0), description matches (100), amount matches (100)
+      // Expected: 0 * 0.50 + 100 * 0.35 + 100 * 0.15 = 0 + 35 + 15 = 50
+      expect(result.categoryMatch).toBe(0);
+      expect(result.descriptionMatch).toBe(100);
+      expect(result.amountSimilarity).toBe(100);
+      expect(result.total).toBeCloseTo(50, 0); // 50% (description + amount only)
+    });
+
+    it('should separate different patterns within same category when merchant is null', () => {
+      // Arrange - simulating different Mortgage payment types
+      const category = { id: 1, name: 'Mortgage' } as Category;
+      const t1 = {
+        description: 'ADDEBITO DIRETTO SDD - SDD CORE: 585Q7448167320',
+        merchantName: null,
+        amount: -37.0, // SDD fee
+        category,
+      } as Transaction;
+      const t2 = {
+        description: 'Rimborso finanziamento n. 1523129',
+        merchantName: null,
+        amount: -809.0, // Loan payment - very different
+        category, // Same category
+      } as Transaction;
+
+      // Act
+      const result = service.calculateSimilarity(t1, t2);
+
+      // Assert
+      // Category matches (100 * 0.50 = 50%)
+      // Description is very different (low similarity)
+      // Amount is very different (37 vs 809 = ~4.5% similarity)
+      // Total should be below 60% threshold to keep them in separate groups
+      expect(result.categoryMatch).toBe(100);
+      expect(result.total).toBeLessThan(60); // Should NOT group together
+    });
+
+    it('should group similar patterns within same category when merchant is null', () => {
+      // Arrange - simulating same Mortgage payment type
+      const category = { id: 1, name: 'Mortgage' } as Category;
+      const t1 = {
+        description: 'Rimborso finanziamento n. 1523129',
+        merchantName: null,
+        amount: -809.76,
+        category,
+      } as Transaction;
+      const t2 = {
+        description: 'RIMBORSO FINANZIAMENTO N. 1523129', // Same pattern, different case
+        merchantName: null,
+        amount: -809.76, // Same amount
+        category,
+      } as Transaction;
+
+      // Act
+      const result = service.calculateSimilarity(t1, t2);
+
+      // Assert
+      // Category matches (100 * 0.50 = 50%)
+      // Description is very similar (~100%)
+      // Amount is identical (100%)
+      // Total should be above 60% threshold to group together
+      expect(result.categoryMatch).toBe(100);
+      expect(result.total).toBeGreaterThanOrEqual(60); // Should group together
+    });
+
     it('should handle transactions with different categories', () => {
       // Arrange
       const category1 = { id: 1, name: 'Groceries' } as Category;

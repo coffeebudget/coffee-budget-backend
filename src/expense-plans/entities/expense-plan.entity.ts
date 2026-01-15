@@ -159,6 +159,25 @@ export class ExpensePlan {
   rolloverSurplus: boolean;
 
   // ─────────────────────────────────────────────────────────────
+  // ADJUSTMENT SUGGESTIONS
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  suggestedMonthlyContribution: number | null;
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  suggestedAdjustmentPercent: number | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  adjustmentReason: 'spending_increased' | 'spending_decreased' | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  adjustmentSuggestedAt: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  adjustmentDismissedAt: Date | null;
+
+  // ─────────────────────────────────────────────────────────────
   // INITIALIZATION
   // ─────────────────────────────────────────────────────────────
 
