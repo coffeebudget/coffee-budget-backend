@@ -78,7 +78,7 @@ export class CreateMonthlyBudgetTable1768500000003
         foreignKeys: [
           {
             columnNames: ['userId'],
-            referencedTableName: 'users',
+            referencedTableName: 'user',
             referencedColumnNames: ['id'],
             onDelete: 'CASCADE',
           },
