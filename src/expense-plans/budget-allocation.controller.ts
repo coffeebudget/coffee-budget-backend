@@ -5,7 +5,6 @@ import {
   Body,
   Param,
   UseGuards,
-  Request,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
@@ -24,6 +23,7 @@ import {
   AutoAllocateResultDto,
   IncomeBreakdownDto,
 } from './dto/budget-allocation.dto';
+import { CurrentUser } from '../auth/user.decorator';
 
 @ApiTags('Budget Allocation')
 @ApiBearerAuth()
@@ -48,9 +48,9 @@ export class BudgetAllocationController {
   @ApiResponse({ status: 200, type: AllocationStateDto })
   async getAllocationState(
     @Param('month') month: string,
-    @Request() req,
+    @CurrentUser() user: any,
   ): Promise<AllocationStateDto> {
-    return this.budgetAllocationService.getAllocationState(req.user.id, month);
+    return this.budgetAllocationService.getAllocationState(user.id, month);
   }
 
   @Post(':month')
@@ -67,10 +67,10 @@ export class BudgetAllocationController {
   async saveAllocations(
     @Param('month') month: string,
     @Body() dto: SaveAllocationsDto,
-    @Request() req,
+    @CurrentUser() user: any,
   ): Promise<SaveAllocationsResultDto> {
     return this.budgetAllocationService.saveAllocations(
-      req.user.id,
+      user.id,
       month,
       dto,
     );
@@ -90,10 +90,10 @@ export class BudgetAllocationController {
   @ApiResponse({ status: 200, type: IncomeBreakdownDto })
   async getIncomeBreakdown(
     @Param('month') month: string,
-    @Request() req,
+    @CurrentUser() user: any,
   ): Promise<IncomeBreakdownDto> {
     const state = await this.budgetAllocationService.getAllocationState(
-      req.user.id,
+      user.id,
       month,
     );
     return state.income;
@@ -114,10 +114,10 @@ export class BudgetAllocationController {
   async setIncomeOverride(
     @Param('month') month: string,
     @Body() dto: SetIncomeOverrideDto,
-    @Request() req,
+    @CurrentUser() user: any,
   ): Promise<AllocationStateDto> {
     return this.budgetAllocationService.setIncomeOverride(
-      req.user.id,
+      user.id,
       month,
       dto,
     );
@@ -137,8 +137,8 @@ export class BudgetAllocationController {
   @ApiResponse({ status: 200, type: AutoAllocateResultDto })
   async autoAllocate(
     @Param('month') month: string,
-    @Request() req,
+    @CurrentUser() user: any,
   ): Promise<AutoAllocateResultDto> {
-    return this.budgetAllocationService.autoAllocate(req.user.id, month);
+    return this.budgetAllocationService.autoAllocate(user.id, month);
   }
 }
