@@ -108,13 +108,14 @@ export class PatternDetectionService {
 
   /**
    * Fetch transactions for the specified time period
+   * Excludes transactions with categories marked as excludeFromExpenseAnalytics
    */
   private async fetchTransactions(
     criteria: PatternDetectionCriteria,
   ): Promise<Transaction[]> {
     const startDate = subMonths(new Date(), criteria.monthsToAnalyze);
 
-    return this.transactionRepository.find({
+    const transactions = await this.transactionRepository.find({
       where: {
         user: { id: criteria.userId },
         executionDate: MoreThanOrEqual(startDate),
@@ -124,6 +125,20 @@ export class PatternDetectionService {
         executionDate: 'ASC',
       },
     });
+
+    // Filter out transactions with categories excluded from expense analytics
+    // Transactions without a category are included (they have no exclusion flag)
+    const filteredTransactions = transactions.filter(
+      (t) => !t.category?.excludeFromExpenseAnalytics,
+    );
+
+    if (transactions.length !== filteredTransactions.length) {
+      this.logger.log(
+        `Excluded ${transactions.length - filteredTransactions.length} transactions with excludeFromExpenseAnalytics categories`,
+      );
+    }
+
+    return filteredTransactions;
   }
 
   /**

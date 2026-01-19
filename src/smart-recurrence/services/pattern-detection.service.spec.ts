@@ -26,6 +26,13 @@ describe('PatternDetectionService', () => {
   const mockCategory = {
     id: 1,
     name: 'Subscriptions',
+    excludeFromExpenseAnalytics: false,
+  } as Category;
+
+  const mockExcludedCategory = {
+    id: 2,
+    name: 'Internal Transfers',
+    excludeFromExpenseAnalytics: true,
   } as Category;
 
   beforeEach(async () => {
@@ -78,6 +85,132 @@ describe('PatternDetectionService', () => {
         relations: ['category'],
         order: { executionDate: 'ASC' },
       });
+    });
+
+    it('should exclude transactions with categories marked excludeFromExpenseAnalytics', async () => {
+      // Arrange
+      const baseDate = new Date('2024-01-01');
+      const transactions = [
+        // These should be included (normal category)
+        {
+          id: 1,
+          description: 'Netflix Subscription',
+          merchantName: 'Netflix',
+          amount: -15.99,
+          category: mockCategory,
+          executionDate: baseDate,
+          createdAt: baseDate,
+        } as Transaction,
+        {
+          id: 2,
+          description: 'Netflix Subscription',
+          merchantName: 'Netflix',
+          amount: -15.99,
+          category: mockCategory,
+          executionDate: addDays(baseDate, 30),
+          createdAt: addDays(baseDate, 30),
+        } as Transaction,
+        // These should be excluded (excludeFromExpenseAnalytics = true)
+        {
+          id: 3,
+          description: 'Transfer to Savings',
+          merchantName: 'Bank Transfer',
+          amount: -500,
+          category: mockExcludedCategory,
+          executionDate: baseDate,
+          createdAt: baseDate,
+        } as Transaction,
+        {
+          id: 4,
+          description: 'Transfer to Savings',
+          merchantName: 'Bank Transfer',
+          amount: -500,
+          category: mockExcludedCategory,
+          executionDate: addDays(baseDate, 30),
+          createdAt: addDays(baseDate, 30),
+        } as Transaction,
+        {
+          id: 5,
+          description: 'Transfer to Savings',
+          merchantName: 'Bank Transfer',
+          amount: -500,
+          category: mockExcludedCategory,
+          executionDate: addDays(baseDate, 60),
+          createdAt: addDays(baseDate, 60),
+        } as Transaction,
+      ];
+
+      (repository.find as jest.Mock).mockResolvedValue(transactions);
+
+      const criteria = {
+        userId: 1,
+        monthsToAnalyze: 12,
+        minOccurrences: 2,
+        minConfidence: 60,
+        similarityThreshold: 60,
+      };
+
+      // Act
+      const result = await service.detectPatterns(criteria);
+
+      // Assert
+      // Only Netflix pattern should be detected, not the transfers
+      expect(result).toHaveLength(1);
+      expect(result[0].group.merchantName).toBe('Netflix');
+      expect(result[0].group.transactions).toHaveLength(2);
+    });
+
+    it('should include transactions without category (null category)', async () => {
+      // Arrange
+      const baseDate = new Date('2024-01-01');
+      const transactions = [
+        {
+          id: 1,
+          description: 'Uncategorized Purchase',
+          merchantName: 'Unknown Store',
+          amount: -25.0,
+          category: null as unknown as Category, // No category assigned
+          executionDate: baseDate,
+          createdAt: baseDate,
+        } as Transaction,
+        {
+          id: 2,
+          description: 'Uncategorized Purchase',
+          merchantName: 'Unknown Store',
+          amount: -25.0,
+          category: null as unknown as Category,
+          executionDate: addDays(baseDate, 30),
+          createdAt: addDays(baseDate, 30),
+        } as Transaction,
+        {
+          id: 3,
+          description: 'Uncategorized Purchase',
+          merchantName: 'Unknown Store',
+          amount: -25.0,
+          category: null as unknown as Category,
+          executionDate: addDays(baseDate, 60),
+          createdAt: addDays(baseDate, 60),
+        } as Transaction,
+      ];
+
+      (repository.find as jest.Mock).mockResolvedValue(transactions);
+
+      const criteria = {
+        userId: 1,
+        monthsToAnalyze: 12,
+        minOccurrences: 2,
+        minConfidence: 60,
+        similarityThreshold: 60,
+      };
+
+      // Act
+      const result = await service.detectPatterns(criteria);
+
+      // Assert
+      // Uncategorized transactions should still be included
+      expect(result).toHaveLength(1);
+      expect(result[0].group.merchantName).toBe('Unknown Store');
+      expect(result[0].group.transactions).toHaveLength(3);
     });
 
     it('should return empty array when transactions less than minOccurrences', async () => {
