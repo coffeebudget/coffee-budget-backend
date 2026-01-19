@@ -37,6 +37,7 @@ describe('ExpensePlanSuggestionsController', () => {
     firstOccurrence: new Date('2024-01-15'),
     lastOccurrence: new Date('2024-06-15'),
     nextExpectedDate: new Date('2024-07-15'),
+    suggestedPurpose: 'sinking_fund' as const,
     status: 'pending' as const,
     createdAt: new Date(),
   };

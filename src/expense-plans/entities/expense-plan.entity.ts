@@ -41,6 +41,14 @@ export type ContributionSource = 'calculated' | 'manual' | 'historical';
 
 export type InitialBalanceSource = 'zero' | 'historical' | 'custom';
 
+export type ExpensePlanPurpose = 'sinking_fund' | 'spending_budget';
+
+export interface AllocationHistoryEntry {
+  month: string; // "2026-01"
+  allocated: number;
+  spent: number;
+}
+
 @Entity('expense_plans')
 @Index(['userId', 'status'])
 export class ExpensePlan {
@@ -87,6 +95,9 @@ export class ExpensePlan {
   @Column({ default: false })
   autoTrackCategory: boolean;
 
+  @Column({ type: 'varchar', length: 20, default: 'sinking_fund' })
+  purpose: ExpensePlanPurpose;
+
   // ─────────────────────────────────────────────────────────────
   // PAYMENT SOURCE (Optional - for coverage tracking)
   // ─────────────────────────────────────────────────────────────
@@ -116,6 +127,19 @@ export class ExpensePlan {
 
   @Column({ type: 'varchar', length: 20, default: 'calculated' })
   contributionSource: ContributionSource;
+
+  // ─────────────────────────────────────────────────────────────
+  // SPENDING BUDGET TRACKING (for purpose = 'spending_budget')
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  spentThisMonth: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  allocatedThisMonth: number | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  allocationHistory: AllocationHistoryEntry[] | null;
 
   // ─────────────────────────────────────────────────────────────
   // TIMING

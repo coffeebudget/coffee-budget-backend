@@ -12,6 +12,7 @@ import { User } from '../../users/user.entity';
 import { Category } from '../../categories/entities/category.entity';
 import { ExpenseType } from '../interfaces/classification.interface';
 import { FrequencyType } from '../interfaces/frequency.interface';
+import { ExpensePlanPurpose } from '../../expense-plans/entities/expense-plan.entity';
 
 export type SuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 
@@ -110,6 +111,14 @@ export class ExpensePlanSuggestion {
 
   @Column({ type: 'int', name: 'interval_days' })
   intervalDays: number;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    name: 'suggested_purpose',
+  })
+  suggestedPurpose: ExpensePlanPurpose | null;
 
   // ─────────────────────────────────────────────────────────────
   // CONFIDENCE METRICS

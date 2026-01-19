@@ -7,7 +7,10 @@ import {
   ExpensePlanSuggestion,
   SuggestionStatus,
 } from '../entities/expense-plan-suggestion.entity';
-import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
+import {
+  ExpensePlan,
+  ExpensePlanPurpose,
+} from '../../expense-plans/entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
 import {
   PatternDetectionCriteria,
@@ -178,6 +181,29 @@ export class SuggestionGeneratorService {
   }
 
   /**
+   * Determine suggested purpose based on expense type
+   * Sinking Fund: Predictable, fixed expenses (subscription, utility, insurance, etc.)
+   * Spending Budget: Variable category spending (groceries, entertainment, etc.)
+   */
+  private determineSuggestedPurpose(expenseType: ExpenseType): ExpensePlanPurpose {
+    const sinkingFundTypes = [
+      ExpenseType.SUBSCRIPTION,
+      ExpenseType.UTILITY,
+      ExpenseType.INSURANCE,
+      ExpenseType.MORTGAGE,
+      ExpenseType.RENT,
+      ExpenseType.LOAN,
+      ExpenseType.TAX,
+    ];
+
+    if (sinkingFundTypes.includes(expenseType)) {
+      return 'sinking_fund';
+    }
+
+    return 'spending_budget';
+  }
+
+  /**
    * Create ExpensePlanSuggestion entities from category aggregations
    */
   private createSuggestionsFromAggregations(
@@ -210,6 +236,9 @@ export class SuggestionGeneratorService {
       suggestion.frequencyType = agg.frequencyType;
       suggestion.intervalDays =
         agg.sourcePatterns[0]?.frequency.intervalDays || 30;
+      suggestion.suggestedPurpose = this.determineSuggestedPurpose(
+        agg.expenseType,
+      );
       suggestion.patternConfidence = agg.averageConfidence;
       suggestion.classificationConfidence = agg.averageConfidence;
       suggestion.overallConfidence = agg.averageConfidence;
@@ -499,6 +528,7 @@ export class SuggestionGeneratorService {
         planType: this.mapExpenseTypeToPlanType(suggestion.expenseType),
         priority: suggestion.isEssential ? 'essential' : 'discretionary',
         categoryId: options.categoryId ?? suggestion.categoryId,
+        purpose: suggestion.suggestedPurpose || 'sinking_fund',
         targetAmount: suggestion.yearlyTotal,
         monthlyContribution:
           options.customMonthlyContribution ?? suggestion.monthlyContribution,
@@ -510,6 +540,7 @@ export class SuggestionGeneratorService {
         status: 'active',
         autoCalculate: true,
         rolloverSurplus: true,
+        autoTrackCategory: suggestion.suggestedPurpose === 'spending_budget',
       });
 
       const savedPlan = await this.expensePlanRepository.save(expensePlan);
@@ -814,6 +845,7 @@ export class SuggestionGeneratorService {
       firstOccurrence: suggestion.firstOccurrence,
       lastOccurrence: suggestion.lastOccurrence,
       nextExpectedDate: suggestion.nextExpectedDate,
+      suggestedPurpose: suggestion.suggestedPurpose,
       status: suggestion.status,
       createdAt: suggestion.createdAt,
     };

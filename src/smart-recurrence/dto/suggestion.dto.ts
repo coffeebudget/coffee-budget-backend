@@ -11,6 +11,7 @@ import {
 import { ExpenseType } from '../interfaces/classification.interface';
 import { FrequencyType } from '../interfaces/frequency.interface';
 import { SuggestionStatus } from '../entities/expense-plan-suggestion.entity';
+import { ExpensePlanPurpose } from '../../expense-plans/entities/expense-plan.entity';
 
 // ─────────────────────────────────────────────────────────────
 // REQUEST DTOs
@@ -188,6 +189,13 @@ export class SuggestionResponseDto {
 
   @ApiProperty()
   nextExpectedDate: Date;
+
+  @ApiPropertyOptional({
+    enum: ['sinking_fund', 'spending_budget'],
+    description:
+      'Suggested purpose: sinking_fund (accumulate for future expense) or spending_budget (track category spending)',
+  })
+  suggestedPurpose: ExpensePlanPurpose | null;
 
   @ApiProperty({ enum: ['pending', 'approved', 'rejected', 'expired'] })
   status: SuggestionStatus;

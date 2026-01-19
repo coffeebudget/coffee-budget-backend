@@ -18,6 +18,7 @@ import {
   ContributionSource,
   InitialBalanceSource,
   PaymentAccountType,
+  ExpensePlanPurpose,
 } from '../entities/expense-plan.entity';
 
 export class CreateExpensePlanDto {
@@ -96,6 +97,16 @@ export class CreateExpensePlanDto {
   @IsOptional()
   @IsBoolean()
   autoTrackCategory?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Purpose of the plan: sinking_fund (accumulate for future expense) or spending_budget (track category spending)',
+    enum: ['sinking_fund', 'spending_budget'],
+    default: 'sinking_fund',
+  })
+  @IsOptional()
+  @IsEnum(['sinking_fund', 'spending_budget'])
+  purpose?: ExpensePlanPurpose;
 
   @ApiProperty({
     description: 'Total amount needed per cycle',
