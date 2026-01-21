@@ -17,6 +17,7 @@ import {
   ExpensePlanPurpose,
 } from '../../expense-plans/entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
+import { Category } from '../../categories/entities/category.entity';
 import {
   PatternDetectionCriteria,
   DetectedPatternData,
@@ -48,6 +49,8 @@ export class SuggestionGeneratorService {
     private readonly suggestionRepository: Repository<ExpensePlanSuggestion>,
     @InjectRepository(ExpensePlan)
     private readonly expensePlanRepository: Repository<ExpensePlan>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
     private readonly patternDetection: PatternDetectionService,
     private readonly patternClassification: PatternClassificationService,
     private readonly expensePlanAdjustmentService: ExpensePlanAdjustmentService,
@@ -454,6 +457,32 @@ export class SuggestionGeneratorService {
 
     this.logger.log(`Detected ${patterns.length} patterns`);
 
+    // Step 1.5: Load categories with useMonthlyAverageOnly flag
+    // These categories should skip pattern detection and use fallback instead
+    const skipCategoryIds =
+      await this.getCategoriesWithMonthlyAverageFlag(userId);
+
+    // Filter patterns: exclude those belonging to skip categories
+    const patternsToProcess = patterns.filter(
+      (p) => !p.group.categoryId || !skipCategoryIds.has(p.group.categoryId),
+    );
+
+    // Track which categories were skipped from patterns (for fallback inclusion)
+    const skippedFromPatterns = new Set<number>(
+      patterns
+        .filter(
+          (p) => p.group.categoryId && skipCategoryIds.has(p.group.categoryId),
+        )
+        .map((p) => p.group.categoryId as number),
+    );
+
+    if (skipCategoryIds.size > 0) {
+      this.logger.log(
+        `Skipping pattern detection for ${skipCategoryIds.size} categories with useMonthlyAverageOnly flag ` +
+          `(${patterns.length - patternsToProcess.length} patterns excluded)`,
+      );
+    }
+
     // v3: Generate fallback suggestions first (runs in parallel conceptually)
     const fallbackSuggestions =
       await this.categoryFallbackService.generateFallbackSuggestions(userId);
@@ -463,9 +492,9 @@ export class SuggestionGeneratorService {
     let patternSuggestions: ExpensePlanSuggestion[] = [];
     let patternCategoryIds = new Set<number>();
 
-    if (patterns.length > 0) {
-      // Step 2: Classify patterns using AI
-      const classificationRequests: PatternClassificationRequest[] = patterns.map(
+    if (patternsToProcess.length > 0) {
+      // Step 2: Classify patterns using AI (only non-skipped patterns)
+      const classificationRequests: PatternClassificationRequest[] = patternsToProcess.map(
         (pattern) => ({
           patternId: pattern.group.id,
           merchantName: pattern.group.merchantName,
@@ -493,7 +522,7 @@ export class SuggestionGeneratorService {
         classificationResult.classifications.map((c) => [c.patternId, c]),
       );
       const categoryAggregations = this.aggregateByCategory(
-        patterns,
+        patternsToProcess,
         classificationMap,
       );
 
@@ -516,14 +545,19 @@ export class SuggestionGeneratorService {
       await this.enrichWithDiscrepancyData(userId, patternSuggestions);
     }
 
-    // Step 5 (v3): Filter fallbacks to only include categories NOT covered by patterns
+    // Step 5 (v3): Filter fallbacks to include:
+    // - Categories NOT covered by patterns
+    // - Categories with useMonthlyAverageOnly flag (even if they had patterns, those were skipped)
     const filteredFallbacks = fallbackSuggestions.filter(
-      (fb) => !patternCategoryIds.has(fb.categoryId),
+      (fb) =>
+        !patternCategoryIds.has(fb.categoryId) ||
+        skippedFromPatterns.has(fb.categoryId),
     );
 
     this.logger.log(
       `${filteredFallbacks.length} fallback suggestions after filtering ` +
-        `(${fallbackSuggestions.length - filteredFallbacks.length} already covered by patterns)`,
+        `(${fallbackSuggestions.length - filteredFallbacks.length} already covered by patterns, ` +
+        `${skippedFromPatterns.size} included via useMonthlyAverageOnly)`,
     );
 
     // Create fallback suggestion entities
@@ -1048,5 +1082,19 @@ export class SuggestionGeneratorService {
       default:
         return 'monthly';
     }
+  }
+
+  /**
+   * Get categories with useMonthlyAverageOnly flag set to true.
+   * These categories should skip pattern detection and use fallback suggestions.
+   */
+  private async getCategoriesWithMonthlyAverageFlag(
+    userId: number,
+  ): Promise<Set<number>> {
+    const categories = await this.categoryRepository.find({
+      where: { user: { id: userId }, useMonthlyAverageOnly: true },
+      select: ['id'],
+    });
+    return new Set(categories.map((c) => c.id));
   }
 }

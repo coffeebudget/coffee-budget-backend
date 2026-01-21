@@ -33,6 +33,14 @@ export class Category {
   @Column({ nullable: true })
   analyticsExclusionReason: string;
 
+  /**
+   * When true, skip pattern detection for this category and use monthly average fallback.
+   * Useful for categories with fragmented spending (e.g., Groceries with many supermarkets).
+   * Saves AI tokens and provides a cleaner aggregated view.
+   */
+  @Column({ default: false })
+  useMonthlyAverageOnly: boolean;
+
   // 🎯 Budget Management Fields
   @Column({
     type: 'enum',

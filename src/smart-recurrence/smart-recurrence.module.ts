@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Transaction } from '../transactions/transaction.entity';
 import { DetectedPattern } from './entities/detected-pattern.entity';
 import { ExpensePlanSuggestion } from './entities/expense-plan-suggestion.entity';
+import { Category } from '../categories/entities/category.entity';
 import { SimilarityScorerService } from './services/similarity-scorer.service';
 import { FrequencyAnalyzerService } from './services/frequency-analyzer.service';
 import { PatternDetectionService } from './services/pattern-detection.service';
@@ -19,6 +20,7 @@ import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
       Transaction,
       DetectedPattern,
       ExpensePlanSuggestion,
+      Category,
     ]),
     ConfigModule,
     ExpensePlansModule,

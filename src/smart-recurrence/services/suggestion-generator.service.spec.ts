@@ -6,6 +6,7 @@ import { PatternClassificationService } from './pattern-classification.service';
 import { CategoryFallbackSuggestionService } from './category-fallback-suggestion.service';
 import { ExpensePlanSuggestion } from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
+import { Category } from '../../categories/entities/category.entity';
 import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
 import { RepositoryMockFactory } from '../../test/test-utils/repository-mocks';
 import { ExpenseType } from '../interfaces/classification.interface';
@@ -17,8 +18,10 @@ describe('SuggestionGeneratorService', () => {
   let module: TestingModule;
   let suggestionRepository: any;
   let expensePlanRepository: any;
+  let categoryRepository: any;
   let patternDetectionService: jest.Mocked<PatternDetectionService>;
   let patternClassificationService: jest.Mocked<PatternClassificationService>;
+  let categoryFallbackService: jest.Mocked<CategoryFallbackSuggestionService>;
 
   const mockUserId = 1;
 
@@ -86,6 +89,7 @@ describe('SuggestionGeneratorService', () => {
         SuggestionGeneratorService,
         RepositoryMockFactory.createRepositoryProvider(ExpensePlanSuggestion),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
+        RepositoryMockFactory.createRepositoryProvider(Category),
         {
           provide: PatternDetectionService,
           useValue: {
@@ -130,8 +134,10 @@ describe('SuggestionGeneratorService', () => {
       getRepositoryToken(ExpensePlanSuggestion),
     );
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
+    categoryRepository = module.get(getRepositoryToken(Category));
     patternDetectionService = module.get(PatternDetectionService);
     patternClassificationService = module.get(PatternClassificationService);
+    categoryFallbackService = module.get(CategoryFallbackSuggestionService);
   });
 
   afterEach(async () => {
@@ -1399,6 +1405,288 @@ describe('SuggestionGeneratorService', () => {
 
       // Assert - clearedCount should still be in response
       expect(result.clearedCount).toBe(0);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // USE MONTHLY AVERAGE ONLY FLAG TESTS (Category Skip Pattern Detection)
+  // ─────────────────────────────────────────────────────────────
+
+  describe('useMonthlyAverageOnly flag', () => {
+    it('should skip pattern detection for categories with useMonthlyAverageOnly flag', async () => {
+      // Arrange - Groceries category with flag, 3 merchant patterns
+      const groceriesCategoryId = 10;
+
+      const mockPatternConad = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-conad',
+          categoryId: groceriesCategoryId,
+          categoryName: 'Groceries',
+          merchantName: 'Conad',
+        },
+      });
+      const mockPatternEsselunga = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-esselunga',
+          categoryId: groceriesCategoryId,
+          categoryName: 'Groceries',
+          merchantName: 'Esselunga',
+        },
+      });
+      const mockPatternNetflix = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-netflix',
+          categoryId: 5,
+          categoryName: 'Entertainment',
+          merchantName: 'Netflix',
+        },
+      });
+
+      // Category with flag set
+      categoryRepository.find.mockResolvedValue([{ id: groceriesCategoryId }]);
+
+      // Fallback for groceries
+      const groceriesFallback = {
+        categoryId: groceriesCategoryId,
+        categoryName: 'Groceries',
+        monthlyAverage: 350,
+        totalSpent: 4200,
+        transactionCount: 48,
+        firstOccurrence: new Date('2025-01-01'),
+        lastOccurrence: new Date('2025-12-31'),
+        suggestedPurpose: 'spending_budget' as const,
+        reason: 'no_pattern_detected' as const,
+      };
+      categoryFallbackService.generateFallbackSuggestions.mockResolvedValue([
+        groceriesFallback,
+      ]);
+
+      suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      patternDetectionService.detectPatterns.mockResolvedValue([
+        mockPatternConad,
+        mockPatternEsselunga,
+        mockPatternNetflix,
+      ]);
+      patternClassificationService.classifyPatterns.mockResolvedValue({
+        classifications: [createMockClassification('pattern-netflix')],
+        tokensUsed: 50,
+        estimatedCost: 0.001,
+        processingTimeMs: 200,
+      });
+      expensePlanRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockImplementation((entities) =>
+        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+      );
+
+      // Act
+      const result = await service.generateSuggestions(mockUserId);
+
+      // Assert
+      // classifyPatterns should only be called with Netflix pattern (not Groceries patterns)
+      expect(patternClassificationService.classifyPatterns).toHaveBeenCalledWith(
+        expect.objectContaining({
+          patterns: expect.arrayContaining([
+            expect.objectContaining({ patternId: 'pattern-netflix' }),
+          ]),
+        }),
+      );
+      // Groceries patterns should NOT be in the classification request
+      const classificationCall =
+        patternClassificationService.classifyPatterns.mock.calls[0][0];
+      expect(classificationCall.patterns).toHaveLength(1);
+      expect(classificationCall.patterns[0].patternId).toBe('pattern-netflix');
+    });
+
+    it('should include skipped categories in fallback suggestions', async () => {
+      // Arrange - Groceries category with flag
+      const groceriesCategoryId = 10;
+
+      const mockPatternConad = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-conad',
+          categoryId: groceriesCategoryId,
+          categoryName: 'Groceries',
+          merchantName: 'Conad',
+        },
+      });
+
+      // Category with flag set
+      categoryRepository.find.mockResolvedValue([{ id: groceriesCategoryId }]);
+
+      // Fallback for groceries
+      const groceriesFallback = {
+        categoryId: groceriesCategoryId,
+        categoryName: 'Groceries',
+        monthlyAverage: 350,
+        totalSpent: 4200,
+        transactionCount: 48,
+        firstOccurrence: new Date('2025-01-01'),
+        lastOccurrence: new Date('2025-12-31'),
+        suggestedPurpose: 'spending_budget' as const,
+        reason: 'no_pattern_detected' as const,
+      };
+      categoryFallbackService.generateFallbackSuggestions.mockResolvedValue([
+        groceriesFallback,
+      ]);
+
+      suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      patternDetectionService.detectPatterns.mockResolvedValue([mockPatternConad]);
+      // No patterns to classify since all are skipped
+      patternClassificationService.classifyPatterns.mockResolvedValue({
+        classifications: [],
+        tokensUsed: 0,
+        estimatedCost: 0,
+        processingTimeMs: 0,
+      });
+      expensePlanRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockImplementation((entities) =>
+        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+      );
+
+      // Act
+      await service.generateSuggestions(mockUserId);
+
+      // Assert - Groceries fallback should be included even though pattern was detected
+      const savedEntities = suggestionRepository.save.mock.calls[0][0];
+      expect(savedEntities).toHaveLength(1);
+      expect(savedEntities[0].categoryId).toBe(groceriesCategoryId);
+      expect(savedEntities[0].suggestionSource).toBe('category_average');
+      expect(savedEntities[0].monthlyContribution).toBe(350);
+    });
+
+    it('should not call classifyPatterns when all patterns are skipped', async () => {
+      // Arrange - All patterns belong to skip categories
+      const groceriesCategoryId = 10;
+
+      const mockPatternConad = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-conad',
+          categoryId: groceriesCategoryId,
+          categoryName: 'Groceries',
+          merchantName: 'Conad',
+        },
+      });
+
+      // Category with flag set
+      categoryRepository.find.mockResolvedValue([{ id: groceriesCategoryId }]);
+
+      categoryFallbackService.generateFallbackSuggestions.mockResolvedValue([]);
+
+      suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      patternDetectionService.detectPatterns.mockResolvedValue([mockPatternConad]);
+      expensePlanRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockResolvedValue([]);
+
+      // Act
+      await service.generateSuggestions(mockUserId);
+
+      // Assert - classifyPatterns should not be called when no patterns remain
+      expect(patternClassificationService.classifyPatterns).not.toHaveBeenCalled();
+    });
+
+    it('should save AI tokens by not classifying skipped patterns', async () => {
+      // Arrange - 5 Grocery patterns (skipped) + 1 Netflix pattern (processed)
+      const groceriesCategoryId = 10;
+
+      const groceryPatterns = ['Conad', 'Esselunga', 'Lidl', 'Coop', 'Carrefour'].map(
+        (merchant) =>
+          createMockPattern({
+            group: {
+              ...createMockPattern().group,
+              id: `pattern-${merchant.toLowerCase()}`,
+              categoryId: groceriesCategoryId,
+              categoryName: 'Groceries',
+              merchantName: merchant,
+            },
+          }),
+      );
+
+      const netflixPattern = createMockPattern({
+        group: {
+          ...createMockPattern().group,
+          id: 'pattern-netflix',
+          categoryId: 5,
+          categoryName: 'Entertainment',
+          merchantName: 'Netflix',
+        },
+      });
+
+      // Category with flag set for Groceries
+      categoryRepository.find.mockResolvedValue([{ id: groceriesCategoryId }]);
+
+      categoryFallbackService.generateFallbackSuggestions.mockResolvedValue([]);
+
+      suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      patternDetectionService.detectPatterns.mockResolvedValue([
+        ...groceryPatterns,
+        netflixPattern,
+      ]);
+      patternClassificationService.classifyPatterns.mockResolvedValue({
+        classifications: [createMockClassification('pattern-netflix')],
+        tokensUsed: 50, // Only 1 pattern classified instead of 6
+        estimatedCost: 0.001,
+        processingTimeMs: 100,
+      });
+      expensePlanRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockImplementation((entities) =>
+        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+      );
+
+      // Act
+      await service.generateSuggestions(mockUserId);
+
+      // Assert - Only 1 pattern should be classified (saving tokens)
+      expect(patternClassificationService.classifyPatterns).toHaveBeenCalledWith(
+        expect.objectContaining({
+          patterns: expect.any(Array),
+        }),
+      );
+      const classificationCall =
+        patternClassificationService.classifyPatterns.mock.calls[0][0];
+      expect(classificationCall.patterns).toHaveLength(1);
+      expect(classificationCall.patterns[0].patternId).toBe('pattern-netflix');
+    });
+
+    it('should handle categories without the flag normally', async () => {
+      // Arrange - No categories with flag
+      categoryRepository.find.mockResolvedValue([]);
+
+      const mockPattern = createMockPattern();
+      const mockClassification = createMockClassification('pattern-1');
+
+      categoryFallbackService.generateFallbackSuggestions.mockResolvedValue([]);
+
+      suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+      patternDetectionService.detectPatterns.mockResolvedValue([mockPattern]);
+      patternClassificationService.classifyPatterns.mockResolvedValue({
+        classifications: [mockClassification],
+        tokensUsed: 100,
+        estimatedCost: 0.002,
+        processingTimeMs: 500,
+      });
+      expensePlanRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockImplementation((entities) =>
+        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+      );
+
+      // Act
+      await service.generateSuggestions(mockUserId);
+
+      // Assert - Pattern should be processed normally
+      expect(patternClassificationService.classifyPatterns).toHaveBeenCalled();
+      const classificationCall =
+        patternClassificationService.classifyPatterns.mock.calls[0][0];
+      expect(classificationCall.patterns).toHaveLength(1);
     });
   });
 });
