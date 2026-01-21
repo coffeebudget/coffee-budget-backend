@@ -417,6 +417,22 @@ export class SuggestionGeneratorService {
   }
 
   /**
+   * Delete a specific suggestion by ID
+   * Useful for cleaning up approved suggestions after expense plan deletion
+   */
+  async deleteSuggestion(userId: number, suggestionId: number): Promise<boolean> {
+    const result = await this.suggestionRepository.delete({
+      id: suggestionId,
+      userId,
+    });
+    const deleted = (result.affected || 0) > 0;
+    if (deleted) {
+      this.logger.log(`Deleted suggestion ${suggestionId} for user ${userId}`);
+    }
+    return deleted;
+  }
+
+  /**
    * Generate expense plan suggestions for a user
    * Orchestrates pattern detection and AI classification
    */

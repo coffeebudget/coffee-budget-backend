@@ -1409,6 +1409,53 @@ describe('SuggestionGeneratorService', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
+  // DELETE SUGGESTION TESTS
+  // ─────────────────────────────────────────────────────────────
+
+  describe('deleteSuggestion', () => {
+    it('should delete a suggestion and return true', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 1 });
+
+      // Act
+      const result = await service.deleteSuggestion(mockUserId, 123);
+
+      // Assert
+      expect(result).toBe(true);
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        id: 123,
+        userId: mockUserId,
+      });
+    });
+
+    it('should return false when suggestion not found', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+
+      // Act
+      const result = await service.deleteSuggestion(mockUserId, 999);
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('should not delete suggestions from other users', async () => {
+      // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
+
+      // Act
+      const result = await service.deleteSuggestion(999, 123); // Different user
+
+      // Assert
+      expect(result).toBe(false);
+      expect(suggestionRepository.delete).toHaveBeenCalledWith({
+        id: 123,
+        userId: 999,
+      });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
   // USE MONTHLY AVERAGE ONLY FLAG TESTS (Category Skip Pattern Detection)
   // ─────────────────────────────────────────────────────────────
 

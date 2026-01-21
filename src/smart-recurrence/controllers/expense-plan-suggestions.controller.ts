@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -303,5 +304,47 @@ export class ExpensePlanSuggestionsController {
     @CurrentUser() user: any,
   ): Promise<BulkActionResultDto> {
     return this.suggestionGenerator.bulkReject(user.id, dto.suggestionIds);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // DELETION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a suggestion',
+    description:
+      'Permanently delete a suggestion. Useful for cleaning up approved suggestions ' +
+      'after the associated expense plan has been deleted.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Suggestion ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Suggestion deleted successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Suggestion not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async deleteSuggestion(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: any,
+  ): Promise<void> {
+    const deleted = await this.suggestionGenerator.deleteSuggestion(
+      user.id,
+      id,
+    );
+    if (!deleted) {
+      throw new NotFoundException(`Suggestion with ID ${id} not found`);
+    }
   }
 }
