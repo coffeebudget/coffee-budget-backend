@@ -74,18 +74,18 @@ export class CategoryFallbackSuggestionService {
     // Get all expense transactions with categories in the last 12 months
     const categoryStats = await this.transactionRepository
       .createQueryBuilder('t')
-      .select('t.category_id', 'categoryId')
+      .select('t.categoryId', 'categoryId')
       .addSelect('c.name', 'categoryName')
       .addSelect('SUM(ABS(t.amount))', 'totalSpent')
       .addSelect('COUNT(t.id)', 'transactionCount')
-      .addSelect('MIN(t.execution_date)', 'firstOccurrence')
-      .addSelect('MAX(t.execution_date)', 'lastOccurrence')
+      .addSelect('MIN(t.executionDate)', 'firstOccurrence')
+      .addSelect('MAX(t.executionDate)', 'lastOccurrence')
       .innerJoin('t.category', 'c')
-      .where('t.user_id = :userId', { userId })
+      .where('t.userId = :userId', { userId })
       .andWhere('t.type = :type', { type: 'expense' })
-      .andWhere('t.execution_date >= :startDate', { startDate })
+      .andWhere('t.executionDate >= :startDate', { startDate })
       .andWhere('c.excludeFromExpenseAnalytics = false')
-      .groupBy('t.category_id')
+      .groupBy('t.categoryId')
       .addGroupBy('c.name')
       .getRawMany();
 
@@ -143,10 +143,10 @@ export class CategoryFallbackSuggestionService {
     const result = await this.transactionRepository
       .createQueryBuilder('t')
       .select('SUM(ABS(t.amount))', 'totalSpent')
-      .where('t.user_id = :userId', { userId })
-      .andWhere('t.category_id = :categoryId', { categoryId })
+      .where('t.userId = :userId', { userId })
+      .andWhere('t.categoryId = :categoryId', { categoryId })
       .andWhere('t.type = :type', { type: 'expense' })
-      .andWhere('t.execution_date >= :startDate', { startDate })
+      .andWhere('t.executionDate >= :startDate', { startDate })
       .getRawOne();
 
     const totalSpent = parseFloat(result?.totalSpent) || 0;
