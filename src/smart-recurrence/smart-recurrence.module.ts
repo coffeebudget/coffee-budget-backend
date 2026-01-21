@@ -13,6 +13,7 @@ import { SuggestionGeneratorService } from './services/suggestion-generator.serv
 import { CategoryFallbackSuggestionService } from './services/category-fallback-suggestion.service';
 import { ExpensePlanSuggestionsController } from './controllers/expense-plan-suggestions.controller';
 import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
+import { ExpensePlanEventHandler } from './event-handlers/expense-plan.event-handler';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
     PatternClassificationService,
     SuggestionGeneratorService,
     CategoryFallbackSuggestionService,
+    ExpensePlanEventHandler,
   ],
   exports: [
     SimilarityScorerService,

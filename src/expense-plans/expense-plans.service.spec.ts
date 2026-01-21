@@ -626,6 +626,30 @@ describe('ExpensePlansService', () => {
       );
     });
 
+    it('should publish ExpensePlanDeletedEvent when plan is deleted', async () => {
+      // Arrange
+      const id = 1;
+      const userId = 1;
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      (expensePlanRepository.remove as jest.Mock).mockResolvedValue(
+        mockExpensePlan,
+      );
+      const mockEventPublisher = module.get(EventPublisherService);
+
+      // Act
+      await service.delete(id, userId);
+
+      // Assert
+      expect(mockEventPublisher.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expensePlanId: id,
+          userId: userId,
+        }),
+      );
+    });
+
     it('should throw NotFoundException if expense plan does not exist', async () => {
       // Arrange
       const id = 999;

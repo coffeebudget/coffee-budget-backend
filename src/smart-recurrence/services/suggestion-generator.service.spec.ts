@@ -1456,6 +1456,69 @@ describe('SuggestionGeneratorService', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
+  // RESET SUGGESTION FOR DELETED EXPENSE PLAN TESTS
+  // ─────────────────────────────────────────────────────────────
+
+  describe('resetSuggestionForDeletedExpensePlan', () => {
+    it('should reset suggestion to pending when linked expense plan is deleted', async () => {
+      // Arrange
+      suggestionRepository.update.mockResolvedValue({ affected: 1 });
+
+      // Act
+      const result = await service.resetSuggestionForDeletedExpensePlan(
+        mockUserId,
+        456,
+      );
+
+      // Assert
+      expect(result).toBe(true);
+      expect(suggestionRepository.update).toHaveBeenCalledWith(
+        {
+          userId: mockUserId,
+          approvedExpensePlanId: 456,
+        },
+        {
+          status: 'pending',
+          approvedExpensePlanId: null,
+          reviewedAt: null,
+        },
+      );
+    });
+
+    it('should return false when no suggestion found for expense plan', async () => {
+      // Arrange
+      suggestionRepository.update.mockResolvedValue({ affected: 0 });
+
+      // Act
+      const result = await service.resetSuggestionForDeletedExpensePlan(
+        mockUserId,
+        999,
+      );
+
+      // Assert
+      expect(result).toBe(false);
+    });
+
+    it('should not reset suggestions from other users', async () => {
+      // Arrange
+      suggestionRepository.update.mockResolvedValue({ affected: 0 });
+
+      // Act
+      const result = await service.resetSuggestionForDeletedExpensePlan(999, 456);
+
+      // Assert
+      expect(result).toBe(false);
+      expect(suggestionRepository.update).toHaveBeenCalledWith(
+        {
+          userId: 999,
+          approvedExpensePlanId: 456,
+        },
+        expect.any(Object),
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
   // USE MONTHLY AVERAGE ONLY FLAG TESTS (Category Skip Pattern Detection)
   // ─────────────────────────────────────────────────────────────
 

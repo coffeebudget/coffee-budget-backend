@@ -9,6 +9,7 @@ import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { ExpensePlanDeletedEvent } from '../shared/events/expense-plan.events';
 import {
   CoverageSummaryResponse,
   AccountCoverage,
@@ -207,6 +208,9 @@ export class ExpensePlansService {
   async delete(id: number, userId: number): Promise<void> {
     const plan = await this.findOne(id, userId);
     await this.expensePlanRepository.remove(plan);
+
+    // Publish event so linked suggestions can be reset to pending
+    this.eventPublisher.publish(new ExpensePlanDeletedEvent(id, userId));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

@@ -433,6 +433,34 @@ export class SuggestionGeneratorService {
   }
 
   /**
+   * Reset suggestion to pending when linked expense plan is deleted
+   * This allows users to re-approve the suggestion if they want to recreate the plan
+   */
+  async resetSuggestionForDeletedExpensePlan(
+    userId: number,
+    expensePlanId: number,
+  ): Promise<boolean> {
+    const result = await this.suggestionRepository.update(
+      {
+        userId,
+        approvedExpensePlanId: expensePlanId,
+      },
+      {
+        status: 'pending' as const,
+        approvedExpensePlanId: null,
+        reviewedAt: null,
+      },
+    );
+    const reset = (result.affected || 0) > 0;
+    if (reset) {
+      this.logger.log(
+        `Reset suggestion linked to expense plan ${expensePlanId} back to pending`,
+      );
+    }
+    return reset;
+  }
+
+  /**
    * Generate expense plan suggestions for a user
    * Orchestrates pattern detection and AI classification
    */
