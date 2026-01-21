@@ -291,6 +291,21 @@ describe('CategoryFallbackSuggestionService', () => {
       // Assert
       expect(result.hasDiscrepancy).toBe(false);
     });
+
+    it('should cap discrepancy percentage at 999.99 to fit database column constraint', async () => {
+      // Arrange
+      // Category average €10/month, pattern suggests €2500/month (24900% discrepancy)
+      // This would overflow decimal(5,2) column if not capped
+      mockQueryBuilder.getRawOne.mockResolvedValue({ totalSpent: '120.00' }); // €10/month
+
+      // Act
+      const result = await service.checkPatternDiscrepancy(2500, 1, 1);
+
+      // Assert
+      expect(result.hasDiscrepancy).toBe(true);
+      expect(result.discrepancyPercentage).toBe(999.99); // Capped
+      expect(result.discrepancyPercentage).toBeLessThanOrEqual(999.99);
+    });
   });
 
   describe('configuration', () => {

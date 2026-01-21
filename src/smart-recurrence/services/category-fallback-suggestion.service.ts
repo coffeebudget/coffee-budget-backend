@@ -171,7 +171,11 @@ export class CategoryFallbackSuggestionService {
 
     // Calculate discrepancy as percentage of category average
     const difference = Math.abs(patternMonthlyAmount - categoryAverage);
-    const discrepancyPercentage = Math.round((difference / categoryAverage) * 100 * 100) / 100;
+    // Cap at 999.99 to fit decimal(5,2) column constraint
+    const discrepancyPercentage = Math.min(
+      999.99,
+      Math.round((difference / categoryAverage) * 100 * 100) / 100,
+    );
 
     // Check if discrepancy exceeds threshold
     if (discrepancyPercentage > SUGGESTION_CONFIG.DISCREPANCY_THRESHOLD) {
