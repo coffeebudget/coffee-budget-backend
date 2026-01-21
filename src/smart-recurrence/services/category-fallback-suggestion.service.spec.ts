@@ -104,13 +104,13 @@ describe('CategoryFallbackSuggestionService', () => {
       expect(result[1].monthlyAverage).toBe(40);
     });
 
-    it('should filter out categories below minimum monthly average threshold', async () => {
+    it('should include all categories regardless of monthly average (no minimum threshold)', async () => {
       // Arrange
       const mockCategoryStats = [
         {
           categoryId: '1',
           categoryName: 'Groceries',
-          totalSpent: '600.00', // €50/month - above threshold
+          totalSpent: '600.00', // €50/month
           transactionCount: '15',
           firstOccurrence: '2024-01-01',
           lastOccurrence: '2024-12-01',
@@ -118,7 +118,7 @@ describe('CategoryFallbackSuggestionService', () => {
         {
           categoryId: '2',
           categoryName: 'Small Expense',
-          totalSpent: '240.00', // €20/month - below €30 threshold
+          totalSpent: '240.00', // €20/month - low amount but still included
           transactionCount: '12',
           firstOccurrence: '2024-01-01',
           lastOccurrence: '2024-12-01',
@@ -130,9 +130,11 @@ describe('CategoryFallbackSuggestionService', () => {
       // Act
       const result = await service.generateFallbackSuggestions(1);
 
-      // Assert
-      expect(result).toHaveLength(1);
+      // Assert - both categories should be included (no minimum amount filter)
+      expect(result).toHaveLength(2);
       expect(result[0].categoryName).toBe('Groceries');
+      expect(result[1].categoryName).toBe('Small Expense');
+      expect(result[1].monthlyAverage).toBe(20);
     });
 
     it('should filter out categories with insufficient transactions', async () => {
@@ -310,7 +312,7 @@ describe('CategoryFallbackSuggestionService', () => {
 
   describe('configuration', () => {
     it('should use correct default configuration values', () => {
-      expect(SUGGESTION_CONFIG.MIN_MONTHLY_AVERAGE).toBe(30);
+      expect(SUGGESTION_CONFIG.MIN_MONTHLY_AVERAGE).toBe(0);
       expect(SUGGESTION_CONFIG.DISCREPANCY_THRESHOLD).toBe(10);
       expect(SUGGESTION_CONFIG.MIN_TRANSACTIONS).toBe(2);
       expect(SUGGESTION_CONFIG.MONTHS_TO_ANALYZE).toBe(12);

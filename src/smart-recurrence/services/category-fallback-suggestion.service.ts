@@ -9,8 +9,8 @@ import { Category } from '../../categories/entities/category.entity';
  * Configuration for fallback suggestions
  */
 export const SUGGESTION_CONFIG = {
-  // Minimum monthly average to generate a fallback suggestion (€30)
-  MIN_MONTHLY_AVERAGE: 30,
+  // Minimum monthly average to generate a fallback suggestion (€0 - no limit)
+  MIN_MONTHLY_AVERAGE: 0,
 
   // Threshold for discrepancy warning between pattern amount and category average (10%)
   DISCREPANCY_THRESHOLD: 10,
