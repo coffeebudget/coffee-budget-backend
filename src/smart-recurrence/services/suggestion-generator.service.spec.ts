@@ -3,6 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { SuggestionGeneratorService } from './suggestion-generator.service';
 import { PatternDetectionService } from './pattern-detection.service';
 import { PatternClassificationService } from './pattern-classification.service';
+import { CategoryFallbackSuggestionService } from './category-fallback-suggestion.service';
 import { ExpensePlanSuggestion } from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from '../../expense-plans/expense-plan-adjustment.service';
@@ -105,6 +106,17 @@ describe('SuggestionGeneratorService', () => {
               plansReviewed: 0,
               newSuggestions: 0,
               clearedSuggestions: 0,
+            }),
+          },
+        },
+        {
+          provide: CategoryFallbackSuggestionService,
+          useValue: {
+            generateFallbackSuggestions: jest.fn().mockResolvedValue([]),
+            getCategoryMonthlyAverage: jest.fn().mockResolvedValue(0),
+            checkPatternDiscrepancy: jest.fn().mockResolvedValue({
+              hasDiscrepancy: false,
+              discrepancyPercentage: 0,
             }),
           },
         },
@@ -232,10 +244,13 @@ describe('SuggestionGeneratorService', () => {
       expect(patternDetectionService.detectPatterns).toHaveBeenCalled();
     });
 
-    it('should return empty response when no patterns detected', async () => {
+    it('should return empty response when no patterns and no fallback suggestions', async () => {
       // Arrange
+      suggestionRepository.delete.mockResolvedValue({ affected: 0 });
       suggestionRepository.find.mockResolvedValue([]);
+      suggestionRepository.save.mockResolvedValue([]);
       patternDetectionService.detectPatterns.mockResolvedValue([]);
+      // CategoryFallbackSuggestionService.generateFallbackSuggestions already mocks to []
 
       // Act
       const result = await service.generateSuggestions(mockUserId);

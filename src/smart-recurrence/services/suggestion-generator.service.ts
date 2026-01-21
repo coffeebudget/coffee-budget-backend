@@ -4,8 +4,13 @@ import { Repository, In } from 'typeorm';
 import { PatternDetectionService } from './pattern-detection.service';
 import { PatternClassificationService } from './pattern-classification.service';
 import {
+  CategoryFallbackSuggestionService,
+  CategoryFallbackSuggestion,
+} from './category-fallback-suggestion.service';
+import {
   ExpensePlanSuggestion,
   SuggestionStatus,
+  SuggestionSource,
 } from '../entities/expense-plan-suggestion.entity';
 import {
   ExpensePlan,
@@ -21,6 +26,7 @@ import {
   PatternClassificationResponse,
   ExpenseType,
 } from '../interfaces/classification.interface';
+import { FrequencyType } from '../interfaces/frequency.interface';
 import { CategoryAggregation } from '../interfaces/category-aggregation.interface';
 import {
   GenerateSuggestionsDto,
@@ -45,6 +51,7 @@ export class SuggestionGeneratorService {
     private readonly patternDetection: PatternDetectionService,
     private readonly patternClassification: PatternClassificationService,
     private readonly expensePlanAdjustmentService: ExpensePlanAdjustmentService,
+    private readonly categoryFallbackService: CategoryFallbackSuggestionService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────
@@ -205,6 +212,7 @@ export class SuggestionGeneratorService {
 
   /**
    * Create ExpensePlanSuggestion entities from category aggregations
+   * These are pattern-based suggestions (suggestionSource: 'pattern')
    */
   private createSuggestionsFromAggregations(
     userId: number,
@@ -239,6 +247,14 @@ export class SuggestionGeneratorService {
       suggestion.suggestedPurpose = this.determineSuggestedPurpose(
         agg.expenseType,
       );
+
+      // v3: Set suggestion source as pattern
+      suggestion.suggestionSource = 'pattern';
+      // Discrepancy fields will be populated later in enrichWithDiscrepancyData()
+      suggestion.categoryMonthlyAverage = null;
+      suggestion.discrepancyPercentage = null;
+      suggestion.hasDiscrepancyWarning = false;
+
       suggestion.patternConfidence = agg.averageConfidence;
       suggestion.classificationConfidence = agg.averageConfidence;
       suggestion.overallConfidence = agg.averageConfidence;
@@ -267,7 +283,7 @@ export class SuggestionGeneratorService {
             ),
           ),
         },
-        sourceVersion: '2.0',
+        sourceVersion: '3.0',
         merchants: agg.merchants,
         spanMonths: agg.spanMonths,
         aggregatedPatternCount: agg.sourcePatterns.length,
@@ -275,6 +291,105 @@ export class SuggestionGeneratorService {
 
       return suggestion;
     });
+  }
+
+  /**
+   * Create ExpensePlanSuggestion entities from category fallbacks
+   * These are category average-based suggestions (suggestionSource: 'category_average')
+   */
+  private createSuggestionsFromFallbacks(
+    userId: number,
+    fallbacks: CategoryFallbackSuggestion[],
+  ): ExpensePlanSuggestion[] {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+
+    return fallbacks.map((fb) => {
+      const suggestion = new ExpensePlanSuggestion();
+
+      suggestion.userId = userId;
+      suggestion.suggestedName = fb.categoryName.substring(0, 100);
+      suggestion.description =
+        `Based on monthly average spending (€${fb.monthlyAverage.toFixed(2)}/month from ${fb.transactionCount} transactions)`;
+      suggestion.merchantName = null;
+      suggestion.representativeDescription = `Average spending in ${fb.categoryName}`;
+      suggestion.categoryId = fb.categoryId;
+      suggestion.categoryName = fb.categoryName.substring(0, 100);
+      suggestion.averageAmount =
+        Math.round((fb.totalSpent / fb.transactionCount) * 100) / 100;
+      suggestion.monthlyContribution = fb.monthlyAverage;
+      suggestion.yearlyTotal =
+        Math.round(fb.monthlyAverage * 12 * 100) / 100;
+      // Default to VARIABLE for fallback suggestions (variable spending)
+      suggestion.expenseType = ExpenseType.VARIABLE;
+      suggestion.isEssential = false;
+      suggestion.frequencyType = FrequencyType.MONTHLY;
+      suggestion.intervalDays = 30;
+      suggestion.suggestedPurpose = 'spending_budget';
+
+      // v3: Set suggestion source as category_average
+      suggestion.suggestionSource = 'category_average';
+      suggestion.categoryMonthlyAverage = fb.monthlyAverage;
+      suggestion.discrepancyPercentage = null;
+      suggestion.hasDiscrepancyWarning = false;
+
+      // Lower confidence for fallback suggestions (no pattern detected)
+      suggestion.patternConfidence = 50;
+      suggestion.classificationConfidence = 50;
+      suggestion.overallConfidence = 50;
+      suggestion.classificationReasoning =
+        'Based on category average (no recurring pattern detected)';
+      suggestion.occurrenceCount = fb.transactionCount;
+      suggestion.firstOccurrence = fb.firstOccurrence;
+      suggestion.lastOccurrence = fb.lastOccurrence;
+      suggestion.nextExpectedDate = new Date(); // No specific date for variable spending
+      suggestion.status = 'pending';
+      suggestion.expiresAt = expiresAt;
+      suggestion.metadata = {
+        patternId: `fallback-${fb.categoryId}`,
+        sourceVersion: '3.0',
+      };
+
+      return suggestion;
+    });
+  }
+
+  /**
+   * Enrich pattern-based suggestions with discrepancy data
+   * Compares pattern amount against category monthly average
+   */
+  private async enrichWithDiscrepancyData(
+    userId: number,
+    suggestions: ExpensePlanSuggestion[],
+  ): Promise<void> {
+    for (const suggestion of suggestions) {
+      // Only check discrepancy for pattern-based suggestions with a category
+      if (suggestion.suggestionSource !== 'pattern' || !suggestion.categoryId) {
+        continue;
+      }
+
+      try {
+        const discrepancy = await this.categoryFallbackService.checkPatternDiscrepancy(
+          Number(suggestion.monthlyContribution),
+          suggestion.categoryId,
+          userId,
+        );
+
+        suggestion.categoryMonthlyAverage = discrepancy.categoryAverage ?? null;
+        suggestion.discrepancyPercentage = discrepancy.discrepancyPercentage ?? null;
+        suggestion.hasDiscrepancyWarning = discrepancy.hasDiscrepancy;
+
+        if (discrepancy.hasDiscrepancy && discrepancy.message) {
+          // Append discrepancy warning to reasoning
+          suggestion.classificationReasoning =
+            `${suggestion.classificationReasoning}. ⚠️ ${discrepancy.message}`;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to check discrepancy for category ${suggestion.categoryId}: ${error.message}`,
+        );
+      }
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -339,69 +454,108 @@ export class SuggestionGeneratorService {
 
     this.logger.log(`Detected ${patterns.length} patterns`);
 
-    if (patterns.length === 0) {
-      return this.buildResponse([], 0, startTime, clearedCount);
+    // v3: Generate fallback suggestions first (runs in parallel conceptually)
+    const fallbackSuggestions =
+      await this.categoryFallbackService.generateFallbackSuggestions(userId);
+
+    this.logger.log(`Generated ${fallbackSuggestions.length} fallback candidates`);
+
+    let patternSuggestions: ExpensePlanSuggestion[] = [];
+    let patternCategoryIds = new Set<number>();
+
+    if (patterns.length > 0) {
+      // Step 2: Classify patterns using AI
+      const classificationRequests: PatternClassificationRequest[] = patterns.map(
+        (pattern) => ({
+          patternId: pattern.group.id,
+          merchantName: pattern.group.merchantName,
+          categoryName: pattern.group.categoryName,
+          representativeDescription: pattern.group.representativeDescription,
+          averageAmount: pattern.group.averageAmount,
+          frequencyType: pattern.frequency.type,
+          occurrenceCount: pattern.frequency.occurrenceCount,
+        }),
+      );
+
+      const classificationResult =
+        await this.patternClassification.classifyPatterns({
+          patterns: classificationRequests,
+          userId,
+        });
+
+      this.logger.log(
+        `Classified ${classificationResult.classifications.length} patterns, ` +
+          `${classificationResult.tokensUsed} tokens used`,
+      );
+
+      // Step 3: Aggregate patterns by category (v2)
+      const classificationMap = new Map(
+        classificationResult.classifications.map((c) => [c.patternId, c]),
+      );
+      const categoryAggregations = this.aggregateByCategory(
+        patterns,
+        classificationMap,
+      );
+
+      this.logger.log(
+        `Aggregated into ${categoryAggregations.length} category-level suggestions`,
+      );
+
+      // Step 4: Create suggestions from aggregations
+      patternSuggestions = this.createSuggestionsFromAggregations(
+        userId,
+        categoryAggregations,
+      );
+
+      // Track which categories are covered by patterns
+      patternCategoryIds = new Set(
+        categoryAggregations.map((agg) => agg.categoryId),
+      );
+
+      // Step 4.5 (v3): Enrich pattern suggestions with discrepancy data
+      await this.enrichWithDiscrepancyData(userId, patternSuggestions);
     }
 
-    // Step 2: Classify patterns using AI
-    const classificationRequests: PatternClassificationRequest[] = patterns.map(
-      (pattern) => ({
-        patternId: pattern.group.id,
-        merchantName: pattern.group.merchantName,
-        categoryName: pattern.group.categoryName,
-        representativeDescription: pattern.group.representativeDescription,
-        averageAmount: pattern.group.averageAmount,
-        frequencyType: pattern.frequency.type,
-        occurrenceCount: pattern.frequency.occurrenceCount,
-      }),
-    );
-
-    const classificationResult =
-      await this.patternClassification.classifyPatterns({
-        patterns: classificationRequests,
-        userId,
-      });
-
-    this.logger.log(
-      `Classified ${classificationResult.classifications.length} patterns, ` +
-        `${classificationResult.tokensUsed} tokens used`,
-    );
-
-    // Step 3: Aggregate patterns by category (v2)
-    const classificationMap = new Map(
-      classificationResult.classifications.map((c) => [c.patternId, c]),
-    );
-    const categoryAggregations = this.aggregateByCategory(
-      patterns,
-      classificationMap,
+    // Step 5 (v3): Filter fallbacks to only include categories NOT covered by patterns
+    const filteredFallbacks = fallbackSuggestions.filter(
+      (fb) => !patternCategoryIds.has(fb.categoryId),
     );
 
     this.logger.log(
-      `Aggregated into ${categoryAggregations.length} category-level suggestions`,
+      `${filteredFallbacks.length} fallback suggestions after filtering ` +
+        `(${fallbackSuggestions.length - filteredFallbacks.length} already covered by patterns)`,
     );
 
-    // Step 4: Create suggestions from aggregations
-    const suggestions = this.createSuggestionsFromAggregations(
+    // Create fallback suggestion entities
+    const fallbackEntities = this.createSuggestionsFromFallbacks(
       userId,
-      categoryAggregations,
+      filteredFallbacks,
     );
 
-    // Step 5: Filter out duplicates (existing approved plans)
+    // Step 6: Combine pattern + fallback suggestions
+    const allSuggestions = [...patternSuggestions, ...fallbackEntities];
+
+    this.logger.log(
+      `Total suggestions: ${allSuggestions.length} ` +
+        `(${patternSuggestions.length} pattern-based, ${fallbackEntities.length} fallback)`,
+    );
+
+    // Step 7: Filter out duplicates (existing approved plans)
     const filteredSuggestions = await this.filterExistingSuggestions(
       userId,
-      suggestions,
+      allSuggestions,
     );
 
     this.logger.log(
       `Created ${filteredSuggestions.length} new suggestions ` +
-        `(${suggestions.length - filteredSuggestions.length} duplicates filtered)`,
+        `(${allSuggestions.length - filteredSuggestions.length} duplicates filtered)`,
     );
 
-    // Step 5: Save suggestions to database
+    // Step 8: Save suggestions to database
     const savedSuggestions =
       await this.suggestionRepository.save(filteredSuggestions);
 
-    // Step 6: Review existing expense plans for adjustment suggestions
+    // Step 9: Review existing expense plans for adjustment suggestions
     // This detects when actual spending deviates from plan contributions
     try {
       const adjustmentReview =
@@ -846,6 +1000,15 @@ export class SuggestionGeneratorService {
       lastOccurrence: suggestion.lastOccurrence,
       nextExpectedDate: suggestion.nextExpectedDate,
       suggestedPurpose: suggestion.suggestedPurpose,
+      // v3: New hierarchical suggestion fields
+      suggestionSource: suggestion.suggestionSource,
+      categoryMonthlyAverage: suggestion.categoryMonthlyAverage
+        ? Number(suggestion.categoryMonthlyAverage)
+        : null,
+      discrepancyPercentage: suggestion.discrepancyPercentage
+        ? Number(suggestion.discrepancyPercentage)
+        : null,
+      hasDiscrepancyWarning: suggestion.hasDiscrepancyWarning,
       status: suggestion.status,
       createdAt: suggestion.createdAt,
     };

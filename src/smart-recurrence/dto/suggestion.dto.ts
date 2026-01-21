@@ -10,7 +10,10 @@ import {
 } from 'class-validator';
 import { ExpenseType } from '../interfaces/classification.interface';
 import { FrequencyType } from '../interfaces/frequency.interface';
-import { SuggestionStatus } from '../entities/expense-plan-suggestion.entity';
+import {
+  SuggestionStatus,
+  SuggestionSource,
+} from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlanPurpose } from '../../expense-plans/entities/expense-plan.entity';
 
 // ─────────────────────────────────────────────────────────────
@@ -196,6 +199,28 @@ export class SuggestionResponseDto {
       'Suggested purpose: sinking_fund (accumulate for future expense) or spending_budget (track category spending)',
   })
   suggestedPurpose: ExpensePlanPurpose | null;
+
+  @ApiProperty({
+    enum: ['pattern', 'category_average'],
+    description:
+      'Source of the suggestion: pattern (detected from recurring transactions) or category_average (fallback using monthly average)',
+  })
+  suggestionSource: SuggestionSource;
+
+  @ApiPropertyOptional({
+    description: 'Monthly average spending for the category (used for discrepancy comparison)',
+  })
+  categoryMonthlyAverage: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Percentage difference between pattern amount and category average',
+  })
+  discrepancyPercentage: number | null;
+
+  @ApiProperty({
+    description: 'Whether there is a significant discrepancy between pattern and category average',
+  })
+  hasDiscrepancyWarning: boolean;
 
   @ApiProperty({ enum: ['pending', 'approved', 'rejected', 'expired'] })
   status: SuggestionStatus;

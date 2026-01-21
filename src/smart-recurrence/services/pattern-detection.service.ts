@@ -127,14 +127,15 @@ export class PatternDetectionService {
     });
 
     // Filter out transactions with categories excluded from expense analytics
+    // AND filter out income transactions (we only want expenses for expense plan suggestions)
     // Transactions without a category are included (they have no exclusion flag)
     const filteredTransactions = transactions.filter(
-      (t) => !t.category?.excludeFromExpenseAnalytics,
+      (t) => !t.category?.excludeFromExpenseAnalytics && t.type === 'expense',
     );
 
     if (transactions.length !== filteredTransactions.length) {
       this.logger.log(
-        `Excluded ${transactions.length - filteredTransactions.length} transactions with excludeFromExpenseAnalytics categories`,
+        `Excluded ${transactions.length - filteredTransactions.length} transactions (income or excludeFromExpenseAnalytics)`,
       );
     }
 

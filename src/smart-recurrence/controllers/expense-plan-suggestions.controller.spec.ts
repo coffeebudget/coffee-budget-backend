@@ -38,6 +38,10 @@ describe('ExpensePlanSuggestionsController', () => {
     lastOccurrence: new Date('2024-06-15'),
     nextExpectedDate: new Date('2024-07-15'),
     suggestedPurpose: 'sinking_fund' as const,
+    suggestionSource: 'pattern' as const,
+    categoryMonthlyAverage: 15.99,
+    discrepancyPercentage: null,
+    hasDiscrepancyWarning: false,
     status: 'pending' as const,
     createdAt: new Date(),
   };

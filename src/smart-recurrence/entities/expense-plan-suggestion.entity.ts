@@ -15,6 +15,7 @@ import { FrequencyType } from '../interfaces/frequency.interface';
 import { ExpensePlanPurpose } from '../../expense-plans/entities/expense-plan.entity';
 
 export type SuggestionStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+export type SuggestionSource = 'pattern' | 'category_average';
 
 @Entity('expense_plan_suggestions')
 @Index(['userId', 'status'])
@@ -119,6 +120,43 @@ export class ExpensePlanSuggestion {
     name: 'suggested_purpose',
   })
   suggestedPurpose: ExpensePlanPurpose | null;
+
+  // ─────────────────────────────────────────────────────────────
+  // SUGGESTION SOURCE (v3: Hierarchical Logic)
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'pattern',
+    name: 'suggestion_source',
+  })
+  suggestionSource: SuggestionSource;
+
+  @Column({
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    nullable: true,
+    name: 'category_monthly_average',
+  })
+  categoryMonthlyAverage: number | null;
+
+  @Column({
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    name: 'discrepancy_percentage',
+  })
+  discrepancyPercentage: number | null;
+
+  @Column({
+    type: 'boolean',
+    default: false,
+    name: 'has_discrepancy_warning',
+  })
+  hasDiscrepancyWarning: boolean;
 
   // ─────────────────────────────────────────────────────────────
   // CONFIDENCE METRICS

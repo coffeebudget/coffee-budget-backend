@@ -9,6 +9,7 @@ import { FrequencyAnalyzerService } from './services/frequency-analyzer.service'
 import { PatternDetectionService } from './services/pattern-detection.service';
 import { PatternClassificationService } from './services/pattern-classification.service';
 import { SuggestionGeneratorService } from './services/suggestion-generator.service';
+import { CategoryFallbackSuggestionService } from './services/category-fallback-suggestion.service';
 import { ExpensePlanSuggestionsController } from './controllers/expense-plan-suggestions.controller';
 import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
 
@@ -29,6 +30,7 @@ import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
     PatternDetectionService,
     PatternClassificationService,
     SuggestionGeneratorService,
+    CategoryFallbackSuggestionService,
   ],
   exports: [
     SimilarityScorerService,
@@ -36,6 +38,7 @@ import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
     PatternDetectionService,
     PatternClassificationService,
     SuggestionGeneratorService,
+    CategoryFallbackSuggestionService,
   ],
 })
 export class SmartRecurrenceModule {}

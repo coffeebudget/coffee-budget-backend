@@ -97,6 +97,8 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
+          
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -106,6 +108,8 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
+          
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -116,6 +120,8 @@ describe('PatternDetectionService', () => {
           description: 'Transfer to Savings',
           merchantName: 'Bank Transfer',
           amount: -500,
+          type: 'expense',
+          
           category: mockExcludedCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -125,6 +131,8 @@ describe('PatternDetectionService', () => {
           description: 'Transfer to Savings',
           merchantName: 'Bank Transfer',
           amount: -500,
+          type: 'expense',
+          
           category: mockExcludedCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -134,6 +142,8 @@ describe('PatternDetectionService', () => {
           description: 'Transfer to Savings',
           merchantName: 'Bank Transfer',
           amount: -500,
+          type: 'expense',
+          
           category: mockExcludedCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -160,6 +170,91 @@ describe('PatternDetectionService', () => {
       expect(result[0].group.transactions).toHaveLength(2);
     });
 
+    it('should exclude income transactions (only analyze expenses)', async () => {
+      // Arrange
+      const baseDate = new Date('2024-01-01');
+      const transactions = [
+        // These should be included (expense type)
+        {
+          id: 1,
+          description: 'Netflix Subscription',
+          merchantName: 'Netflix',
+          amount: -15.99,
+          type: 'expense',
+          category: mockCategory,
+          executionDate: baseDate,
+          createdAt: baseDate,
+        } as Transaction,
+        {
+          id: 2,
+          description: 'Netflix Subscription',
+          merchantName: 'Netflix',
+          amount: -15.99,
+          type: 'expense',
+          category: mockCategory,
+          executionDate: addDays(baseDate, 30),
+          createdAt: addDays(baseDate, 30),
+        } as Transaction,
+        {
+          id: 3,
+          description: 'Netflix Subscription',
+          merchantName: 'Netflix',
+          amount: -15.99,
+          type: 'expense',
+          category: mockCategory,
+          executionDate: addDays(baseDate, 60),
+          createdAt: addDays(baseDate, 60),
+        } as Transaction,
+        // These should be excluded (income type)
+        {
+          id: 4,
+          description: 'Monthly Salary',
+          merchantName: 'Employer Inc',
+          amount: 3000,
+          category: mockCategory,
+          executionDate: baseDate,
+          createdAt: baseDate,
+        } as Transaction,
+        {
+          id: 5,
+          description: 'Monthly Salary',
+          merchantName: 'Employer Inc',
+          amount: 3000,
+          category: mockCategory,
+          executionDate: addDays(baseDate, 30),
+          createdAt: addDays(baseDate, 30),
+        } as Transaction,
+        {
+          id: 6,
+          description: 'Monthly Salary',
+          merchantName: 'Employer Inc',
+          amount: 3000,
+          category: mockCategory,
+          executionDate: addDays(baseDate, 60),
+          createdAt: addDays(baseDate, 60),
+        } as Transaction,
+      ];
+
+      (repository.find as jest.Mock).mockResolvedValue(transactions);
+
+      const criteria = {
+        userId: 1,
+        monthsToAnalyze: 12,
+        minOccurrences: 2,
+        minConfidence: 60,
+        similarityThreshold: 60,
+      };
+
+      // Act
+      const result = await service.detectPatterns(criteria);
+
+      // Assert
+      // Only Netflix pattern should be detected, not the salary
+      expect(result).toHaveLength(1);
+      expect(result[0].group.merchantName).toBe('Netflix');
+      expect(result[0].group.transactions).toHaveLength(3);
+    });
+
     it('should include transactions without category (null category)', async () => {
       // Arrange
       const baseDate = new Date('2024-01-01');
@@ -169,6 +264,7 @@ describe('PatternDetectionService', () => {
           description: 'Uncategorized Purchase',
           merchantName: 'Unknown Store',
           amount: -25.0,
+          type: 'expense',
           category: null as unknown as Category, // No category assigned
           executionDate: baseDate,
           createdAt: baseDate,
@@ -178,6 +274,7 @@ describe('PatternDetectionService', () => {
           description: 'Uncategorized Purchase',
           merchantName: 'Unknown Store',
           amount: -25.0,
+          type: 'expense',
           category: null as unknown as Category,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -187,6 +284,7 @@ describe('PatternDetectionService', () => {
           description: 'Uncategorized Purchase',
           merchantName: 'Unknown Store',
           amount: -25.0,
+          type: 'expense',
           category: null as unknown as Category,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -220,6 +318,7 @@ describe('PatternDetectionService', () => {
         description: 'Netflix',
         merchantName: 'Netflix',
         amount: -15.99,
+          type: 'expense',
         category: mockCategory,
         executionDate: new Date(),
       } as Transaction;
@@ -250,6 +349,7 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -259,6 +359,7 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -268,6 +369,7 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -304,6 +406,7 @@ describe('PatternDetectionService', () => {
           description: 'Spotify Premium',
           merchantName: 'Spotify',
           amount: -9.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -313,6 +416,7 @@ describe('PatternDetectionService', () => {
           description: 'Spotify Premium',
           merchantName: 'Spotify',
           amount: -9.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -322,6 +426,7 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 15),
           createdAt: addDays(baseDate, 15),
@@ -331,6 +436,7 @@ describe('PatternDetectionService', () => {
           description: 'Netflix Subscription',
           merchantName: 'Netflix',
           amount: -15.99,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 45),
           createdAt: addDays(baseDate, 45),
@@ -364,33 +470,37 @@ describe('PatternDetectionService', () => {
       expect(netflixPattern!.group.transactions).toHaveLength(2);
     });
 
-    it('should handle amount variations with low weight (salary bonus case)', async () => {
+    it('should handle amount variations with low weight (utility bill case)', async () => {
       // Arrange
       const baseDate = new Date('2024-01-01');
+      // Utility bills with varying amounts should still be grouped together
       const transactions = [
         {
           id: 1,
-          description: 'Monthly Salary',
-          merchantName: 'Employer Inc',
-          amount: 3000,
+          description: 'Monthly Electricity',
+          merchantName: 'Electric Company',
+          amount: -100,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
         } as Transaction,
         {
           id: 2,
-          description: 'Monthly Salary',
-          merchantName: 'Employer Inc',
-          amount: 3500, // +16% bonus
+          description: 'Monthly Electricity',
+          merchantName: 'Electric Company',
+          amount: -116, // +16% variation (higher usage)
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
         } as Transaction,
         {
           id: 3,
-          description: 'Monthly Salary',
-          merchantName: 'Employer Inc',
-          amount: 3000,
+          description: 'Monthly Electricity',
+          merchantName: 'Electric Company',
+          amount: -100,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -413,7 +523,7 @@ describe('PatternDetectionService', () => {
       // Assert
       expect(result).toHaveLength(1); // Should group together despite amount variation
       expect(result[0].group.transactions).toHaveLength(3);
-      expect(result[0].group.merchantName).toBe('Employer Inc');
+      expect(result[0].group.merchantName).toBe('Electric Company');
     });
 
     it('should filter patterns by minConfidence threshold', async () => {
@@ -426,6 +536,7 @@ describe('PatternDetectionService', () => {
           description: 'Random Purchase',
           merchantName: 'Store',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -435,6 +546,7 @@ describe('PatternDetectionService', () => {
           description: 'Random Purchase',
           merchantName: 'Store',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 5), // Irregular interval
           createdAt: addDays(baseDate, 5),
@@ -444,6 +556,7 @@ describe('PatternDetectionService', () => {
           description: 'Random Purchase',
           merchantName: 'Store',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 25), // Very irregular
           createdAt: addDays(baseDate, 25),
@@ -477,6 +590,7 @@ describe('PatternDetectionService', () => {
           description: 'Weekly Grocery',
           merchantName: 'Supermarket',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -486,6 +600,7 @@ describe('PatternDetectionService', () => {
           description: 'Weekly Grocery',
           merchantName: 'Supermarket',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 7),
           createdAt: addDays(baseDate, 7),
@@ -495,6 +610,7 @@ describe('PatternDetectionService', () => {
           description: 'Weekly Grocery',
           merchantName: 'Supermarket',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 14),
           createdAt: addDays(baseDate, 14),
@@ -505,6 +621,7 @@ describe('PatternDetectionService', () => {
           description: 'Irregular Purchase',
           merchantName: 'Store',
           amount: -30,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -514,6 +631,7 @@ describe('PatternDetectionService', () => {
           description: 'Irregular Purchase',
           merchantName: 'Store',
           amount: -30,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 20),
           createdAt: addDays(baseDate, 20),
@@ -550,6 +668,7 @@ describe('PatternDetectionService', () => {
           description: 'Pattern',
           merchantName: 'Merchant',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -559,6 +678,7 @@ describe('PatternDetectionService', () => {
           description: 'Pattern',
           merchantName: 'Merchant',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -568,6 +688,7 @@ describe('PatternDetectionService', () => {
           description: 'Pattern',
           merchantName: 'Merchant',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -602,6 +723,7 @@ describe('PatternDetectionService', () => {
           description: 'Test',
           merchantName: 'Test',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -611,6 +733,7 @@ describe('PatternDetectionService', () => {
           description: 'Test',
           merchantName: 'Test',
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -650,6 +773,7 @@ describe('PatternDetectionService', () => {
           description: 'Purchase',
           merchantName: 'Store A',
           amount: -40,
+          type: 'expense',
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -659,6 +783,7 @@ describe('PatternDetectionService', () => {
           description: 'Purchase',
           merchantName: 'Store B', // Different merchant
           amount: -50,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -668,6 +793,7 @@ describe('PatternDetectionService', () => {
           description: 'Purchase',
           merchantName: 'Store B', // Most common merchant
           amount: -60,
+          type: 'expense',
           category: mockCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -704,6 +830,7 @@ describe('PatternDetectionService', () => {
         description: 'Weekly Pattern',
         merchantName: 'Merchant',
         amount: -50,
+          type: 'expense',
         category: mockCategory,
         executionDate: addDays(baseDate, i * 7),
         createdAt: addDays(baseDate, i * 7),
