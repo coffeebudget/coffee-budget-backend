@@ -38,6 +38,8 @@ import {
   BulkFundDto,
   LinkTransactionDto,
   CoverageSummaryResponse,
+  ExpensePlanWithStatusDto,
+  LongTermStatusSummary,
 } from './dto';
 import { AcceptAdjustmentDto, ReviewSummaryDto } from './dto/adjustment-action.dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
@@ -112,6 +114,46 @@ export class ExpensePlansController {
       return this.expensePlansService.findActiveByUser(user.id);
     }
     return this.expensePlansService.findAllByUser(user.id);
+  }
+
+  @Get('with-status')
+  @ApiOperation({
+    summary: 'Get all expense plans with funding status',
+    description:
+      'Retrieve all expense plans with calculated funding status fields for progress display',
+  })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'paused', 'completed', 'all'],
+    description: 'Filter by status (defaults to all)',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Expense plans with funding status retrieved successfully',
+    type: [ExpensePlanWithStatusDto],
+  })
+  async findAllWithStatus(
+    @CurrentUser() user: any,
+  ): Promise<ExpensePlanWithStatusDto[]> {
+    return this.expensePlansService.findAllByUserWithStatus(user.id);
+  }
+
+  @Get('long-term-status')
+  @ApiOperation({
+    summary: 'Get long-term sinking fund status',
+    description:
+      'Get a summary of all sinking funds and their funding status for coverage section integration',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Long-term status summary retrieved successfully',
+    type: LongTermStatusSummary,
+  })
+  async getLongTermStatus(
+    @CurrentUser() user: any,
+  ): Promise<LongTermStatusSummary> {
+    return this.expensePlansService.getLongTermStatus(user.id);
   }
 
   @Get('summary/monthly-deposit')

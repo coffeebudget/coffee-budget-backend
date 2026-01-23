@@ -1834,4 +1834,282 @@ describe('ExpensePlansService', () => {
       expect(result.transactionId).toBeNull();
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FUNDING STATUS TESTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('getMonthlyDepositSummary - funding status counts', () => {
+    it('should count sinking funds by funding status', async () => {
+      // Arrange
+      const userId = 1;
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 6);
+
+      const fundedPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'sinking_fund',
+        currentBalance: 1200,
+        targetAmount: 1200,
+        monthlyContribution: 100,
+      };
+      const onTrackPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        purpose: 'sinking_fund',
+        currentBalance: 600,
+        targetAmount: 1200,
+        monthlyContribution: 100,
+        nextDueDate: futureDate,
+      };
+      const behindPlan = {
+        ...mockExpensePlan,
+        id: 3,
+        purpose: 'sinking_fund',
+        currentBalance: 100,
+        targetAmount: 1200,
+        monthlyContribution: 50, // Too low for remaining time
+        nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 1 month
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        fundedPlan,
+        onTrackPlan,
+        behindPlan,
+      ]);
+
+      // Act
+      const result = await service.getMonthlyDepositSummary(userId);
+
+      // Assert
+      expect(result.fullyFundedCount).toBe(1);
+      expect(result.onTrackCount).toBeGreaterThanOrEqual(0);
+      expect(result.behindScheduleCount).toBeGreaterThanOrEqual(0);
+      // Total should equal sinking fund count
+      expect(
+        result.fullyFundedCount +
+          result.onTrackCount +
+          result.behindScheduleCount,
+      ).toBe(3);
+    });
+
+    it('should only count sinking funds, not spending budgets', async () => {
+      // Arrange
+      const userId = 1;
+      const spendingBudget = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'spending_budget',
+        currentBalance: 0,
+        targetAmount: 500,
+        monthlyContribution: 500,
+      };
+      const sinkingFund = {
+        ...mockExpensePlan,
+        id: 2,
+        purpose: 'sinking_fund',
+        currentBalance: 1200,
+        targetAmount: 1200,
+        monthlyContribution: 100,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        spendingBudget,
+        sinkingFund,
+      ]);
+
+      // Act
+      const result = await service.getMonthlyDepositSummary(userId);
+
+      // Assert
+      // Sinking fund is funded, spending budget doesn't count for status
+      expect(result.fullyFundedCount).toBe(1);
+    });
+  });
+
+  describe('findAllByUserWithStatus', () => {
+    it('should return plans with funding status fields', async () => {
+      // Arrange
+      const userId = 1;
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 6);
+
+      const sinkingFundPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'sinking_fund',
+        currentBalance: 600,
+        targetAmount: 1200,
+        monthlyContribution: 100,
+        nextDueDate: futureDate,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        sinkingFundPlan,
+      ]);
+
+      // Act
+      const result = await service.findAllByUserWithStatus(userId);
+
+      // Assert
+      expect(result).toHaveLength(1);
+      expect(result[0]).toHaveProperty('fundingStatus');
+      expect(result[0]).toHaveProperty('monthsUntilDue');
+      expect(result[0]).toHaveProperty('amountNeeded');
+      expect(result[0]).toHaveProperty('requiredMonthlyContribution');
+      expect(result[0]).toHaveProperty('progressPercent');
+      expect(result[0].amountNeeded).toBe(600);
+      expect(result[0].progressPercent).toBe(50);
+    });
+
+    it('should return null funding status for spending budgets', async () => {
+      // Arrange
+      const userId = 1;
+      const spendingBudget = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'spending_budget',
+        currentBalance: 0,
+        targetAmount: 500,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        spendingBudget,
+      ]);
+
+      // Act
+      const result = await service.findAllByUserWithStatus(userId);
+
+      // Assert
+      expect(result[0].fundingStatus).toBeNull();
+      expect(result[0].monthsUntilDue).toBeNull();
+    });
+  });
+
+  describe('getLongTermStatus', () => {
+    it('should return summary of sinking fund statuses', async () => {
+      // Arrange
+      const userId = 1;
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 6);
+
+      const fundedPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'sinking_fund',
+        status: 'active',
+        currentBalance: 1200,
+        targetAmount: 1200,
+        monthlyContribution: 100,
+      };
+      const onTrackPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        purpose: 'sinking_fund',
+        status: 'active',
+        currentBalance: 600,
+        targetAmount: 1200,
+        monthlyContribution: 150,
+        nextDueDate: futureDate,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        fundedPlan,
+        onTrackPlan,
+      ]);
+
+      // Act
+      const result = await service.getLongTermStatus(userId);
+
+      // Assert
+      expect(result.totalSinkingFunds).toBe(2);
+      expect(result.fundedCount).toBe(1);
+      expect(result).toHaveProperty('onTrackCount');
+      expect(result).toHaveProperty('behindScheduleCount');
+      expect(result).toHaveProperty('totalAmountNeeded');
+      expect(result).toHaveProperty('plansNeedingAttention');
+    });
+
+    it('should exclude spending budgets from long-term status', async () => {
+      // Arrange
+      const userId = 1;
+      const spendingBudget = {
+        ...mockExpensePlan,
+        id: 1,
+        purpose: 'spending_budget',
+        status: 'active',
+        currentBalance: 0,
+        targetAmount: 500,
+      };
+      const sinkingFund = {
+        ...mockExpensePlan,
+        id: 2,
+        purpose: 'sinking_fund',
+        status: 'active',
+        currentBalance: 1200,
+        targetAmount: 1200,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        spendingBudget,
+        sinkingFund,
+      ]);
+
+      // Act
+      const result = await service.getLongTermStatus(userId);
+
+      // Assert
+      expect(result.totalSinkingFunds).toBe(1); // Only sinking fund counted
+    });
+
+    it('should include behind plans in plansNeedingAttention', async () => {
+      // Arrange
+      const userId = 1;
+      const nextMonth = new Date();
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+
+      const behindPlan = {
+        ...mockExpensePlan,
+        id: 1,
+        name: 'Behind Plan',
+        purpose: 'sinking_fund',
+        status: 'active',
+        currentBalance: 100,
+        targetAmount: 1200,
+        monthlyContribution: 50, // Way too low
+        nextDueDate: nextMonth,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([behindPlan]);
+
+      // Act
+      const result = await service.getLongTermStatus(userId);
+
+      // Assert
+      expect(result.behindScheduleCount).toBe(1);
+      expect(result.plansNeedingAttention).toHaveLength(1);
+      expect(result.plansNeedingAttention[0].name).toBe('Behind Plan');
+      expect(result.plansNeedingAttention[0].status).toBe('behind');
+      expect(result.plansNeedingAttention[0].shortfallPerMonth).toBeGreaterThan(
+        0,
+      );
+    });
+
+    it('should return empty data when no sinking funds exist', async () => {
+      // Arrange
+      const userId = 1;
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([]);
+
+      // Act
+      const result = await service.getLongTermStatus(userId);
+
+      // Assert
+      expect(result.totalSinkingFunds).toBe(0);
+      expect(result.onTrackCount).toBe(0);
+      expect(result.behindScheduleCount).toBe(0);
+      expect(result.fundedCount).toBe(0);
+      expect(result.plansNeedingAttention).toHaveLength(0);
+    });
+  });
 });

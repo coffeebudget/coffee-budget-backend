@@ -16,6 +16,12 @@ import {
   UnassignedPlanSummary,
   PlanAtRisk,
 } from './dto/coverage-summary.dto';
+import {
+  ExpensePlanWithStatusDto,
+  LongTermStatusSummary,
+  PlanNeedingAttention,
+  FundingStatus,
+} from './dto/expense-plan-response.dto';
 
 export interface CreateExpensePlanDto {
   name: string;
@@ -72,6 +78,7 @@ export interface MonthlyDepositSummary {
   totalMonthlyDeposit: number;
   planCount: number;
   fullyFundedCount: number;
+  onTrackCount: number;
   behindScheduleCount: number;
   byType: {
     fixed_monthly: { total: number; plans: any[] };
@@ -140,6 +147,204 @@ export class ExpensePlansService {
     }
 
     return plan;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FIND WITH FUNDING STATUS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get all expense plans for a user with calculated funding status fields.
+   * Used for UI display where progress indicators are needed.
+   */
+  async findAllByUserWithStatus(
+    userId: number,
+  ): Promise<ExpensePlanWithStatusDto[]> {
+    const plans = await this.findAllByUser(userId);
+    return plans.map((plan) => this.enrichPlanWithStatus(plan));
+  }
+
+  /**
+   * Get a single expense plan with calculated funding status fields.
+   */
+  async findOneWithStatus(
+    id: number,
+    userId: number,
+  ): Promise<ExpensePlanWithStatusDto> {
+    const plan = await this.findOne(id, userId);
+    return this.enrichPlanWithStatus(plan);
+  }
+
+  /**
+   * Get long-term sinking fund status summary for coverage section.
+   * This provides an overview of all sinking funds and their funding status.
+   */
+  async getLongTermStatus(userId: number): Promise<LongTermStatusSummary> {
+    const plans = await this.findActiveByUser(userId);
+
+    // Filter to sinking funds only
+    const sinkingFunds = plans.filter(
+      (plan) => plan.purpose === 'sinking_fund',
+    );
+
+    let onTrackCount = 0;
+    let behindScheduleCount = 0;
+    let fundedCount = 0;
+    let almostReadyCount = 0;
+    let totalAmountNeeded = 0;
+    const plansNeedingAttention: PlanNeedingAttention[] = [];
+
+    for (const plan of sinkingFunds) {
+      const status = this.calculateStatus(plan);
+      const amountNeeded = Math.max(
+        0,
+        Number(plan.targetAmount) - Number(plan.currentBalance),
+      );
+      totalAmountNeeded += amountNeeded;
+
+      switch (status) {
+        case 'funded':
+          fundedCount++;
+          break;
+        case 'almost_ready':
+          almostReadyCount++;
+          // Include in plans needing attention if due soon
+          if (plan.nextDueDate) {
+            const monthsUntilDue = this.monthsBetween(
+              new Date(),
+              new Date(plan.nextDueDate),
+            );
+            if (monthsUntilDue <= 2) {
+              plansNeedingAttention.push(
+                this.buildPlanNeedingAttention(plan, 'almost_ready'),
+              );
+            }
+          }
+          break;
+        case 'on_track':
+          onTrackCount++;
+          break;
+        case 'behind':
+          behindScheduleCount++;
+          plansNeedingAttention.push(
+            this.buildPlanNeedingAttention(plan, 'behind'),
+          );
+          break;
+      }
+    }
+
+    // Sort plans needing attention by urgency (months until due)
+    plansNeedingAttention.sort((a, b) => a.monthsUntilDue - b.monthsUntilDue);
+
+    return {
+      totalSinkingFunds: sinkingFunds.length,
+      onTrackCount,
+      behindScheduleCount,
+      fundedCount,
+      almostReadyCount,
+      totalAmountNeeded,
+      plansNeedingAttention,
+    };
+  }
+
+  /**
+   * Enrich an expense plan with calculated funding status fields.
+   */
+  private enrichPlanWithStatus(plan: ExpensePlan): ExpensePlanWithStatusDto {
+    const currentBalance = Number(plan.currentBalance);
+    const targetAmount = Number(plan.targetAmount);
+    const monthlyContribution = Number(plan.monthlyContribution);
+
+    // Calculate funding status (only for sinking funds)
+    let fundingStatus: FundingStatus = null;
+    let monthsUntilDue: number | null = null;
+    let amountNeeded: number | null = null;
+    let requiredMonthlyContribution: number | null = null;
+
+    if (plan.purpose === 'sinking_fund') {
+      fundingStatus = this.calculateStatus(plan);
+      amountNeeded = Math.max(0, targetAmount - currentBalance);
+
+      if (plan.nextDueDate) {
+        monthsUntilDue = this.monthsBetween(
+          new Date(),
+          new Date(plan.nextDueDate),
+        );
+        if (monthsUntilDue > 0 && amountNeeded > 0) {
+          requiredMonthlyContribution = amountNeeded / monthsUntilDue;
+        } else if (monthsUntilDue <= 0) {
+          requiredMonthlyContribution = amountNeeded; // Due now, need full amount
+        }
+      }
+    }
+
+    const progressPercent =
+      targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      icon: plan.icon,
+      planType: plan.planType,
+      priority: plan.priority,
+      purpose: plan.purpose,
+      targetAmount,
+      currentBalance,
+      monthlyContribution,
+      frequency: plan.frequency,
+      nextDueDate: plan.nextDueDate,
+      status: plan.status,
+      categoryId: plan.categoryId,
+      paymentAccountId: plan.paymentAccountId,
+      paymentAccountType: plan.paymentAccountType,
+      fundingStatus,
+      monthsUntilDue,
+      amountNeeded,
+      requiredMonthlyContribution,
+      progressPercent,
+    };
+  }
+
+  /**
+   * Build a PlanNeedingAttention object from a plan.
+   */
+  private buildPlanNeedingAttention(
+    plan: ExpensePlan,
+    status: 'behind' | 'almost_ready',
+  ): PlanNeedingAttention {
+    const currentBalance = Number(plan.currentBalance);
+    const targetAmount = Number(plan.targetAmount);
+    const currentMonthly = Number(plan.monthlyContribution);
+    const amountNeeded = Math.max(0, targetAmount - currentBalance);
+
+    let monthsUntilDue = 0;
+    let requiredMonthly = amountNeeded;
+
+    if (plan.nextDueDate) {
+      monthsUntilDue = this.monthsBetween(
+        new Date(),
+        new Date(plan.nextDueDate),
+      );
+      if (monthsUntilDue > 0) {
+        requiredMonthly = amountNeeded / monthsUntilDue;
+      }
+    }
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      icon: plan.icon,
+      status,
+      amountNeeded,
+      monthsUntilDue,
+      nextDueDate: plan.nextDueDate
+        ? new Date(plan.nextDueDate).toISOString().split('T')[0]
+        : null,
+      requiredMonthly,
+      currentMonthly,
+      shortfallPerMonth: Math.max(0, requiredMonthly - currentMonthly),
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -324,7 +529,8 @@ export class ExpensePlansService {
 
     let totalMonthlyDeposit = 0;
     let fullyFundedCount = 0;
-    const behindScheduleCount = 0;
+    let onTrackCount = 0;
+    let behindScheduleCount = 0;
 
     for (const plan of plans) {
       const contribution = Number(plan.monthlyContribution);
@@ -342,8 +548,23 @@ export class ExpensePlansService {
         nextDueDate: plan.nextDueDate,
       };
 
-      // Track funding status
-      if (Number(plan.currentBalance) >= Number(plan.targetAmount)) {
+      // Track funding status for sinking funds
+      if (plan.purpose === 'sinking_fund') {
+        const fundingStatus = this.calculateStatus(plan);
+        switch (fundingStatus) {
+          case 'funded':
+            fullyFundedCount++;
+            break;
+          case 'on_track':
+          case 'almost_ready':
+            onTrackCount++;
+            break;
+          case 'behind':
+            behindScheduleCount++;
+            break;
+        }
+      } else if (Number(plan.currentBalance) >= Number(plan.targetAmount)) {
+        // For spending budgets, only track fully funded
         fullyFundedCount++;
       }
 
@@ -378,6 +599,7 @@ export class ExpensePlansService {
       totalMonthlyDeposit,
       planCount: plans.length,
       fullyFundedCount,
+      onTrackCount,
       behindScheduleCount,
       byType,
     };
