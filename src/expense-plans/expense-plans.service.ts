@@ -1096,7 +1096,7 @@ export class ExpensePlansService {
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  private daysBetween(start: Date, end: Date): number {
+  private daysBetween(start: Date | string, end: Date | string): number {
     const startDate = new Date(start);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(end);
@@ -1105,10 +1105,12 @@ export class ExpensePlansService {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
-  private monthsBetween(start: Date, end: Date): number {
+  private monthsBetween(start: Date | string, end: Date | string): number {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
     const months =
-      (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth());
+      (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+      (endDate.getMonth() - startDate.getMonth());
     return Math.max(1, months);
   }
 
