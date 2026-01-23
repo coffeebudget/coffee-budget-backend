@@ -46,3 +46,12 @@ export class WithdrawDto {
   @MaxLength(255)
   note?: string;
 }
+
+export class LinkTransactionDto {
+  @ApiProperty({
+    description: 'Transaction ID to link',
+    example: 100,
+  })
+  @IsNumber()
+  transactionId: number;
+}

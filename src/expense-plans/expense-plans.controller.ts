@@ -26,8 +26,6 @@ import {
   ExpensePlansService,
   MonthlyDepositSummary,
   TimelineEntry,
-  BulkFundResult,
-  BulkQuickFundResult,
 } from './expense-plans.service';
 import {
   CreateExpensePlanDto,
@@ -35,7 +33,6 @@ import {
   ContributeDto,
   WithdrawDto,
   AdjustBalanceDto,
-  BulkFundDto,
   LinkTransactionDto,
   CoverageSummaryResponse,
   ExpensePlanWithStatusDto,
@@ -473,116 +470,8 @@ export class ExpensePlansController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PHASE 4: MANUAL FUNDING FLOW
+  // TRANSACTION LINKING
   // ═══════════════════════════════════════════════════════════════════════════
-
-  @Post(':id/quick-fund')
-  @ApiOperation({
-    summary: 'Quick fund expense plan',
-    description:
-      'Add the monthly contribution amount to the expense plan in one click',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Quick fund completed successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async quickFund(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.quickFund(id, user.id);
-  }
-
-  @Post(':id/fund-to-target')
-  @ApiOperation({
-    summary: 'Fund expense plan to target',
-    description:
-      'Add enough funds to reach the target amount. Returns null if already fully funded.',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Fund to target completed successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Plan already fully funded (no action taken)',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async fundToTarget(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction | null> {
-    return this.expensePlansService.fundToTarget(id, user.id);
-  }
-
-  @Post('bulk-fund')
-  @ApiOperation({
-    summary: 'Bulk fund multiple expense plans',
-    description: 'Fund multiple expense plans at once with specified amounts',
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Bulk funding completed',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid bulk funding data',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async bulkFund(
-    @Body() dto: BulkFundDto,
-    @CurrentUser() user: any,
-  ): Promise<BulkFundResult> {
-    return this.expensePlansService.bulkFund(user.id, dto.items);
-  }
-
-  @Post('bulk-quick-fund')
-  @ApiOperation({
-    summary: 'Quick fund all active expense plans',
-    description:
-      'Add monthly contribution to all active expense plans. Skips fully funded plans.',
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Bulk quick funding completed',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async bulkQuickFund(@CurrentUser() user: any): Promise<BulkQuickFundResult> {
-    return this.expensePlansService.bulkQuickFund(user.id);
-  }
 
   @Post('transactions/:transactionId/link')
   @ApiOperation({
