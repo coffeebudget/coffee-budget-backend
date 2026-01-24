@@ -145,6 +145,7 @@ describe('GocardlessConnectionService', () => {
         id: 1,
         status: GocardlessConnectionStatus.ACTIVE,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        linkedAccountIds: ['acc-active-1'], // Different accounts to avoid masking alerts
       };
 
       const expiringConnection = {
@@ -152,6 +153,7 @@ describe('GocardlessConnectionService', () => {
         id: 2,
         status: GocardlessConnectionStatus.EXPIRING_SOON,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        linkedAccountIds: ['acc-expiring-1'], // Different accounts
       };
 
       const expiredConnection = {
@@ -159,6 +161,7 @@ describe('GocardlessConnectionService', () => {
         id: 3,
         status: GocardlessConnectionStatus.EXPIRED,
         expiresAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        linkedAccountIds: ['acc-expired-1'], // Different accounts
       };
 
       (repository.find as jest.Mock).mockResolvedValue([
