@@ -5,3 +5,4 @@ export * from './adjust-balance.dto';
 export * from './income-distribution-rule.dto';
 export * from './coverage-summary.dto';
 export * from './expense-plan-response.dto';
+export * from './transaction-link-suggestion.dto';
