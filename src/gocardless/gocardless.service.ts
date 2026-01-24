@@ -3,8 +3,6 @@ import {
   Logger,
   HttpException,
   HttpStatus,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -64,7 +62,6 @@ export class GocardlessService {
     @InjectRepository(CreditCard)
     private creditCardsRepository: Repository<CreditCard>,
     private moduleRef: ModuleRef,
-    @Inject(forwardRef(() => GocardlessConnectionService))
     private connectionService: GocardlessConnectionService,
   ) {
     this.httpClient = axios.create({

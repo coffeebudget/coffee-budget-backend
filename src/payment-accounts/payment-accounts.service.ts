@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  Inject,
-  forwardRef,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PaymentAccount } from './payment-account.entity';
@@ -18,9 +12,7 @@ export class PaymentAccountsService {
   constructor(
     @InjectRepository(PaymentAccount)
     private readonly paymentAccountRepository: Repository<PaymentAccount>,
-    @Inject(forwardRef(() => GocardlessService))
     private readonly gocardlessService: GocardlessService,
-    @Inject(forwardRef(() => GocardlessConnectionService))
     private readonly connectionService: GocardlessConnectionService,
   ) {}
 
