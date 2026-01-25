@@ -21,6 +21,7 @@ import {
   LongTermStatusSummary,
   PlanNeedingAttention,
   FundingStatus,
+  FixedMonthlyStatusDto,
 } from './dto/expense-plan-response.dto';
 
 export interface CreateExpensePlanDto {
@@ -161,7 +162,18 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto[]> {
     const plans = await this.findAllByUser(userId);
-    return plans.map((plan) => this.enrichPlanWithStatus(plan));
+
+    // Batch fetch current month payments for fixed_monthly plans
+    const fixedMonthlyPlanIds = plans
+      .filter((p) => p.planType === 'fixed_monthly')
+      .map((p) => p.id);
+
+    const currentMonthPayments =
+      await this.getCurrentMonthPaymentsBatch(fixedMonthlyPlanIds);
+
+    return plans.map((plan) =>
+      this.enrichPlanWithStatus(plan, currentMonthPayments.get(plan.id)),
+    );
   }
 
   /**
@@ -172,7 +184,15 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto> {
     const plan = await this.findOne(id, userId);
-    return this.enrichPlanWithStatus(plan);
+
+    // Fetch current month payment for fixed_monthly plans
+    let currentMonthPayment: { made: boolean; date: Date | null } | undefined;
+    if (plan.planType === 'fixed_monthly') {
+      const payments = await this.getCurrentMonthPaymentsBatch([plan.id]);
+      currentMonthPayment = payments.get(plan.id);
+    }
+
+    return this.enrichPlanWithStatus(plan, currentMonthPayment);
   }
 
   /**
@@ -250,7 +270,10 @@ export class ExpensePlansService {
   /**
    * Enrich an expense plan with calculated funding status fields.
    */
-  private enrichPlanWithStatus(plan: ExpensePlan): ExpensePlanWithStatusDto {
+  private enrichPlanWithStatus(
+    plan: ExpensePlan,
+    currentMonthPayment?: { made: boolean; date: Date | null },
+  ): ExpensePlanWithStatusDto {
     const currentBalance = Number(plan.currentBalance);
     const targetAmount = Number(plan.targetAmount);
     const monthlyContribution = Number(plan.monthlyContribution);
@@ -282,11 +305,37 @@ export class ExpensePlansService {
       targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
 
     // Calculate expected funded amount by now
-    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
-    const fundingGapFromExpected =
+    let expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    let fundingGapFromExpected =
       expectedFundedByNow !== null
         ? Math.max(0, expectedFundedByNow - currentBalance)
         : null;
+
+    // Fixed monthly status calculation
+    let fixedMonthlyStatus: FixedMonthlyStatusDto | null = null;
+
+    if (plan.planType === 'fixed_monthly') {
+      const readyForNext = currentBalance >= targetAmount;
+      fixedMonthlyStatus = {
+        currentMonthPaymentMade: currentMonthPayment?.made ?? false,
+        paymentDate: currentMonthPayment?.date ?? null,
+        readyForNextMonth: readyForNext,
+        amountShort: readyForNext
+          ? null
+          : Math.round((targetAmount - currentBalance) * 100) / 100,
+      };
+
+      // Override: don't show expectedFundedByNow for fixed monthly
+      expectedFundedByNow = null;
+      fundingGapFromExpected = null;
+
+      // Adjust funding status for fixed monthly
+      fundingStatus = currentMonthPayment?.made
+        ? 'funded'
+        : readyForNext
+          ? 'on_track'
+          : 'behind';
+    }
 
     return {
       id: plan.id,
@@ -313,6 +362,7 @@ export class ExpensePlansService {
       expectedFundedByNow,
       fundingGapFromExpected,
       createdAt: plan.createdAt,
+      fixedMonthlyStatus,
     };
   }
 
@@ -1114,6 +1164,46 @@ export class ExpensePlansService {
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Batch fetch current month payments for fixed_monthly plans.
+   * Returns a map of planId -> payment info.
+   */
+  private async getCurrentMonthPaymentsBatch(
+    planIds: number[],
+  ): Promise<Map<number, { made: boolean; date: Date | null }>> {
+    if (planIds.length === 0) return new Map();
+
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+    );
+
+    const withdrawals = await this.expensePlanTransactionRepository
+      .createQueryBuilder('tx')
+      .where('tx.expensePlanId IN (:...planIds)', { planIds })
+      .andWhere('tx.type = :type', { type: 'withdrawal' })
+      .andWhere('tx.date >= :start', { start: firstOfMonth })
+      .andWhere('tx.date <= :end', { end: lastOfMonth })
+      .orderBy('tx.date', 'DESC')
+      .getMany();
+
+    const result = new Map<number, { made: boolean; date: Date | null }>();
+    for (const planId of planIds) {
+      const withdrawal = withdrawals.find((w) => w.expensePlanId === planId);
+      result.set(planId, {
+        made: !!withdrawal,
+        date: withdrawal?.date || null,
+      });
+    }
+    return result;
+  }
 
   /**
    * Calculate the expected funded amount by now based on when savings

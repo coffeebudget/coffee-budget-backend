@@ -8,6 +8,26 @@ export type FundingStatus =
   | null;
 
 /**
+ * Status information specific to fixed_monthly expense plans.
+ * Shows payment status for the current month rather than funding progress.
+ */
+export class FixedMonthlyStatusDto {
+  @ApiProperty({ description: 'Whether payment for current month has been made' })
+  currentMonthPaymentMade: boolean;
+
+  @ApiPropertyOptional({ description: 'Date of current month payment' })
+  paymentDate: Date | null;
+
+  @ApiProperty({ description: 'Whether balance is sufficient for next payment' })
+  readyForNextMonth: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Amount short of next payment (targetAmount - currentBalance)',
+  })
+  amountShort: number | null;
+}
+
+/**
  * Extended expense plan response with calculated funding status fields.
  * Used for responses that need to show progress toward goals.
  */
@@ -114,6 +134,12 @@ export class ExpensePlanWithStatusDto {
     description: 'Plan creation date (used to calculate expected funding)',
   })
   createdAt: Date | null;
+
+  @ApiPropertyOptional({
+    description: 'Fixed monthly specific status (only for fixed_monthly plans)',
+    type: FixedMonthlyStatusDto,
+  })
+  fixedMonthlyStatus: FixedMonthlyStatusDto | null;
 }
 
 /**

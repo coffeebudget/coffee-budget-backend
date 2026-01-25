@@ -1844,4 +1844,277 @@ describe('ExpensePlansService', () => {
       expect(result.plansNeedingAttention).toHaveLength(0);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FIXED MONTHLY PLANS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('fixed_monthly plans', () => {
+    const mockFixedMonthlyPlan: ExpensePlan = {
+      ...mockExpensePlan,
+      id: 10,
+      name: 'Internet Bill',
+      planType: 'fixed_monthly',
+      purpose: 'sinking_fund',
+      targetAmount: 72.07,
+      currentBalance: 72.07,
+      monthlyContribution: 72.07,
+      frequency: 'monthly',
+      nextDueDate: new Date('2025-02-15'),
+    };
+
+    describe('getCurrentMonthPaymentsBatch', () => {
+      it('should detect current month payment when withdrawal exists', async () => {
+        // Arrange
+        const userId = 1;
+        const now = new Date();
+        const thisMonthWithdrawal = {
+          ...mockExpensePlanTransaction,
+          id: 5,
+          expensePlanId: 10,
+          type: 'withdrawal',
+          amount: -72.07,
+          date: new Date(now.getFullYear(), now.getMonth(), 10),
+        };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          mockFixedMonthlyPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([thisMonthWithdrawal]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fixedMonthlyStatus).toBeDefined();
+        expect(result[0].fixedMonthlyStatus?.currentMonthPaymentMade).toBe(
+          true,
+        );
+        expect(result[0].fixedMonthlyStatus?.paymentDate).toBeDefined();
+      });
+
+      it('should return no payment when no withdrawal exists this month', async () => {
+        // Arrange
+        const userId = 1;
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          mockFixedMonthlyPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fixedMonthlyStatus).toBeDefined();
+        expect(result[0].fixedMonthlyStatus?.currentMonthPaymentMade).toBe(
+          false,
+        );
+        expect(result[0].fixedMonthlyStatus?.paymentDate).toBeNull();
+      });
+    });
+
+    describe('enrichPlanWithStatus for fixed_monthly', () => {
+      it('should not show expectedFundedByNow for fixed_monthly', async () => {
+        // Arrange
+        const userId = 1;
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          mockFixedMonthlyPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].expectedFundedByNow).toBeNull();
+        expect(result[0].fundingGapFromExpected).toBeNull();
+      });
+
+      it('should show readyForNextMonth true when balance >= target', async () => {
+        // Arrange
+        const userId = 1;
+        const fundedPlan = { ...mockFixedMonthlyPlan, currentBalance: 72.07 };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          fundedPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fixedMonthlyStatus?.readyForNextMonth).toBe(true);
+        expect(result[0].fixedMonthlyStatus?.amountShort).toBeNull();
+      });
+
+      it('should calculate amountShort when not ready for next month', async () => {
+        // Arrange
+        const userId = 1;
+        const underfundedPlan = {
+          ...mockFixedMonthlyPlan,
+          currentBalance: 50,
+          targetAmount: 72.07,
+        };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          underfundedPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fixedMonthlyStatus?.readyForNextMonth).toBe(false);
+        expect(result[0].fixedMonthlyStatus?.amountShort).toBe(22.07);
+      });
+
+      it('should return funding status funded when payment made this month', async () => {
+        // Arrange
+        const userId = 1;
+        const now = new Date();
+        const thisMonthWithdrawal = {
+          ...mockExpensePlanTransaction,
+          expensePlanId: 10,
+          type: 'withdrawal',
+          date: new Date(now.getFullYear(), now.getMonth(), 10),
+        };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          mockFixedMonthlyPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([thisMonthWithdrawal]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fundingStatus).toBe('funded');
+      });
+
+      it('should return funding status on_track when ready to pay but not paid yet', async () => {
+        // Arrange
+        const userId = 1;
+        const readyPlan = {
+          ...mockFixedMonthlyPlan,
+          currentBalance: 72.07,
+          targetAmount: 72.07,
+        };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([readyPlan]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fundingStatus).toBe('on_track');
+      });
+
+      it('should return funding status behind when not enough balance', async () => {
+        // Arrange
+        const userId = 1;
+        const behindPlan = {
+          ...mockFixedMonthlyPlan,
+          currentBalance: 30,
+          targetAmount: 72.07,
+        };
+
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          behindPlan,
+        ]);
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([]),
+          });
+
+        // Act
+        const result = await service.findAllByUserWithStatus(userId);
+
+        // Assert
+        expect(result[0].fundingStatus).toBe('behind');
+      });
+    });
+
+    describe('findOneWithStatus for fixed_monthly', () => {
+      it('should fetch payment status for single fixed_monthly plan', async () => {
+        // Arrange
+        const userId = 1;
+        const planId = 10;
+        const now = new Date();
+        const thisMonthWithdrawal = {
+          ...mockExpensePlanTransaction,
+          expensePlanId: 10,
+          type: 'withdrawal',
+          date: new Date(now.getFullYear(), now.getMonth(), 10),
+        };
+
+        (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(
+          mockFixedMonthlyPlan,
+        );
+        (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
+          jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            getMany: jest.fn().mockResolvedValue([thisMonthWithdrawal]),
+          });
+
+        // Act
+        const result = await service.findOneWithStatus(planId, userId);
+
+        // Assert
+        expect(result.fixedMonthlyStatus).toBeDefined();
+        expect(result.fixedMonthlyStatus?.currentMonthPaymentMade).toBe(true);
+      });
+    });
+  });
 });
