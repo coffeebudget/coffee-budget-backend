@@ -95,6 +95,25 @@ export class ExpensePlanWithStatusDto {
     example: 50,
   })
   progressPercent: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Expected funded amount by now based on plan creation date and monthly contribution',
+    example: 1600,
+  })
+  expectedFundedByNow: number | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Funding gap from expected: expectedFundedByNow - currentBalance. Positive means behind schedule.',
+    example: 1600,
+  })
+  fundingGapFromExpected: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Plan creation date (used to calculate expected funding)',
+  })
+  createdAt: Date | null;
 }
 
 /**
@@ -144,6 +163,24 @@ export class PlanNeedingAttention {
     example: 70,
   })
   shortfallPerMonth: number;
+
+  @ApiPropertyOptional({
+    description: 'Expected funded amount by now',
+    example: 1600,
+  })
+  expectedFundedByNow: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Current balance',
+    example: 0,
+  })
+  currentBalance: number;
+
+  @ApiPropertyOptional({
+    description: 'Funding gap from expected (positive means behind)',
+    example: 1600,
+  })
+  fundingGapFromExpected: number | null;
 }
 
 /**

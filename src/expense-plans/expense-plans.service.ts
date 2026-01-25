@@ -281,6 +281,13 @@ export class ExpensePlansService {
     const progressPercent =
       targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
 
+    // Calculate expected funded amount by now
+    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    const fundingGapFromExpected =
+      expectedFundedByNow !== null
+        ? Math.max(0, expectedFundedByNow - currentBalance)
+        : null;
+
     return {
       id: plan.id,
       name: plan.name,
@@ -303,6 +310,9 @@ export class ExpensePlansService {
       amountNeeded,
       requiredMonthlyContribution,
       progressPercent,
+      expectedFundedByNow,
+      fundingGapFromExpected,
+      createdAt: plan.createdAt,
     };
   }
 
@@ -331,6 +341,12 @@ export class ExpensePlansService {
       }
     }
 
+    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    const fundingGapFromExpected =
+      expectedFundedByNow !== null
+        ? Math.max(0, expectedFundedByNow - currentBalance)
+        : null;
+
     return {
       id: plan.id,
       name: plan.name,
@@ -344,6 +360,9 @@ export class ExpensePlansService {
       requiredMonthly,
       currentMonthly,
       shortfallPerMonth: Math.max(0, requiredMonthly - currentMonthly),
+      expectedFundedByNow,
+      currentBalance,
+      fundingGapFromExpected,
     };
   }
 
@@ -1095,6 +1114,85 @@ export class ExpensePlansService {
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Calculate the expected funded amount by now based on plan creation date
+   * and monthly contribution rate.
+   *
+   * For sinking funds, this helps users understand how much they should have
+   * saved by now if they had been contributing consistently since the plan
+   * was created.
+   *
+   * The calculation uses two approaches and returns the minimum:
+   * 1. Time-based: monthsSinceCreation * monthlyContribution
+   * 2. Goal-based: working backwards from due date to determine expected progress
+   *
+   * The result is capped at the targetAmount.
+   */
+  private calculateExpectedFundedByNow(plan: ExpensePlan): number | null {
+    // Only calculate for sinking funds
+    if (plan.purpose !== 'sinking_fund') {
+      return null;
+    }
+
+    const monthlyContribution = Number(plan.monthlyContribution);
+    const targetAmount = Number(plan.targetAmount);
+    const createdAt = plan.createdAt ? new Date(plan.createdAt) : null;
+    const nextDueDate = plan.nextDueDate ? new Date(plan.nextDueDate) : null;
+
+    if (!createdAt || monthlyContribution <= 0) {
+      return null;
+    }
+
+    const now = new Date();
+
+    // Approach 1: Time-based calculation
+    // How many months since the plan was created?
+    const monthsSinceCreation = this.monthsBetweenDecimal(createdAt, now);
+    const timeBasedExpected = Math.min(
+      monthsSinceCreation * monthlyContribution,
+      targetAmount,
+    );
+
+    // Approach 2: Goal-based calculation (if due date exists)
+    // How much should be funded based on progress toward due date?
+    let goalBasedExpected = timeBasedExpected;
+
+    if (nextDueDate && nextDueDate > now) {
+      // Calculate total months from creation to due date
+      const totalMonthsToSave = this.monthsBetweenDecimal(createdAt, nextDueDate);
+
+      if (totalMonthsToSave > 0) {
+        // Calculate what percentage of the saving period has elapsed
+        const progressRatio = monthsSinceCreation / totalMonthsToSave;
+        goalBasedExpected = Math.min(progressRatio * targetAmount, targetAmount);
+      }
+    }
+
+    // Return the higher of the two calculations (more conservative)
+    // This ensures we show the expected amount based on either
+    // - what they should have saved at their contribution rate, or
+    // - what progress they should have made toward the goal
+    return Math.round(Math.max(timeBasedExpected, goalBasedExpected) * 100) / 100;
+  }
+
+  /**
+   * Calculate months between two dates with decimal precision.
+   * Returns fractional months for more accurate calculations.
+   */
+  private monthsBetweenDecimal(start: Date | string, end: Date | string): number {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    const yearsDiff = endDate.getFullYear() - startDate.getFullYear();
+    const monthsDiff = endDate.getMonth() - startDate.getMonth();
+    const daysDiff = endDate.getDate() - startDate.getDate();
+
+    // Calculate total months with day fraction
+    const totalMonths = yearsDiff * 12 + monthsDiff + daysDiff / 30;
+
+    return Math.max(0, totalMonths);
+  }
 
   private daysBetween(start: Date | string, end: Date | string): number {
     const startDate = new Date(start);
