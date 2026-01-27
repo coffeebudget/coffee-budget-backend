@@ -215,7 +215,9 @@ export class PaymentAccountsService {
 
       return result;
     } catch (error) {
-      this.logger.error(`Error in completeGocardlessConnection: ${error.message}`);
+      this.logger.error(
+        `Error in completeGocardlessConnection: ${error.message}`,
+      );
       throw error;
     }
   }

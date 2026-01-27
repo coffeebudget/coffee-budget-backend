@@ -365,37 +365,40 @@ Respond with a JSON array in this exact format:
     const mathExpressionPattern =
       /"monthlyContribution"\s*:\s*([\d.]+)\s*([*\/+-])\s*([\d.]+)/g;
 
-    return jsonString.replace(mathExpressionPattern, (match, num1, operator, num2) => {
-      const a = parseFloat(num1);
-      const b = parseFloat(num2);
-      let result: number;
+    return jsonString.replace(
+      mathExpressionPattern,
+      (match, num1, operator, num2) => {
+        const a = parseFloat(num1);
+        const b = parseFloat(num2);
+        let result: number;
 
-      switch (operator) {
-        case '*':
-          result = a * b;
-          break;
-        case '/':
-          result = a / b;
-          break;
-        case '+':
-          result = a + b;
-          break;
-        case '-':
-          result = a - b;
-          break;
-        default:
-          result = a;
-      }
+        switch (operator) {
+          case '*':
+            result = a * b;
+            break;
+          case '/':
+            result = a / b;
+            break;
+          case '+':
+            result = a + b;
+            break;
+          case '-':
+            result = a - b;
+            break;
+          default:
+            result = a;
+        }
 
-      // Round to 2 decimal places
-      result = Math.round(result * 100) / 100;
+        // Round to 2 decimal places
+        result = Math.round(result * 100) / 100;
 
-      this.logger.debug(
-        `Fixed math expression: ${num1} ${operator} ${num2} = ${result}`,
-      );
+        this.logger.debug(
+          `Fixed math expression: ${num1} ${operator} ${num2} = ${result}`,
+        );
 
-      return `"monthlyContribution": ${result}`;
-    });
+        return `"monthlyContribution": ${result}`;
+      },
+    );
   }
 
   /**

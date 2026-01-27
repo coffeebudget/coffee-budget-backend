@@ -84,7 +84,10 @@ export default registerAs('database', () => {
         entities: [__dirname + '/../**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/../migrations/*{.ts,.js}'],
         migrationsRun: process.env.NODE_ENV === 'production',
-        synchronize: process.env.TYPEORM_SYNCHRONIZE === 'false' ? false : process.env.NODE_ENV !== 'production',
+        synchronize:
+          process.env.TYPEORM_SYNCHRONIZE === 'false'
+            ? false
+            : process.env.NODE_ENV !== 'production',
         logging: process.env.DB_LOGGING === 'true',
       };
 
@@ -129,7 +132,10 @@ export default registerAs('database', () => {
             entities: [__dirname + '/../**/*.entity{.ts,.js}'],
             migrations: [__dirname + '/../migrations/*{.ts,.js}'],
             migrationsRun: process.env.NODE_ENV === 'production',
-            synchronize: process.env.TYPEORM_SYNCHRONIZE === 'false' ? false : process.env.NODE_ENV !== 'production',
+            synchronize:
+              process.env.TYPEORM_SYNCHRONIZE === 'false'
+                ? false
+                : process.env.NODE_ENV !== 'production',
             logging: process.env.DB_LOGGING === 'true',
           };
         } else {
@@ -191,7 +197,10 @@ export default registerAs('database', () => {
       entities: [__dirname + '/../**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/../migrations/*{.ts,.js}'],
       migrationsRun: process.env.NODE_ENV === 'production',
-      synchronize: process.env.TYPEORM_SYNCHRONIZE === 'false' ? false : process.env.NODE_ENV !== 'production',
+      synchronize:
+        process.env.TYPEORM_SYNCHRONIZE === 'false'
+          ? false
+          : process.env.NODE_ENV !== 'production',
       logging: process.env.DB_LOGGING === 'true',
     };
   }

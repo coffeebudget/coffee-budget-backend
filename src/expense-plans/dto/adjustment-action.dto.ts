@@ -28,7 +28,8 @@ export class AdjustmentInfoDto {
   currentAmount: number;
 
   @ApiProperty({
-    description: 'The percentage change (positive = increase, negative = decrease)',
+    description:
+      'The percentage change (positive = increase, negative = decrease)',
     example: 17.4,
   })
   percentChange: number;

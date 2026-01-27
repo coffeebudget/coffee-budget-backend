@@ -145,9 +145,7 @@ export class SuggestionGeneratorService {
       // Get classifications and determine expense type
       const classificationsList = categoryPatterns
         .map((p) => classifications.get(p.group.id))
-        .filter(
-          (c): c is PatternClassificationResponse => c !== undefined,
-        );
+        .filter((c): c is PatternClassificationResponse => c !== undefined);
 
       // Use most common expense type, or from highest confidence
       const expenseType =
@@ -195,7 +193,9 @@ export class SuggestionGeneratorService {
    * Sinking Fund: Predictable, fixed expenses (subscription, utility, insurance, etc.)
    * Spending Budget: Variable category spending (groceries, entertainment, etc.)
    */
-  private determineSuggestedPurpose(expenseType: ExpenseType): ExpensePlanPurpose {
+  private determineSuggestedPurpose(
+    expenseType: ExpenseType,
+  ): ExpensePlanPurpose {
     const sinkingFundTypes = [
       ExpenseType.SUBSCRIPTION,
       ExpenseType.UTILITY,
@@ -312,8 +312,7 @@ export class SuggestionGeneratorService {
 
       suggestion.userId = userId;
       suggestion.suggestedName = fb.categoryName.substring(0, 100);
-      suggestion.description =
-        `Based on monthly average spending (€${fb.monthlyAverage.toFixed(2)}/month from ${fb.transactionCount} transactions)`;
+      suggestion.description = `Based on monthly average spending (€${fb.monthlyAverage.toFixed(2)}/month from ${fb.transactionCount} transactions)`;
       suggestion.merchantName = null;
       suggestion.representativeDescription = `Average spending in ${fb.categoryName}`;
       suggestion.categoryId = fb.categoryId;
@@ -321,8 +320,7 @@ export class SuggestionGeneratorService {
       suggestion.averageAmount =
         Math.round((fb.totalSpent / fb.transactionCount) * 100) / 100;
       suggestion.monthlyContribution = fb.monthlyAverage;
-      suggestion.yearlyTotal =
-        Math.round(fb.monthlyAverage * 12 * 100) / 100;
+      suggestion.yearlyTotal = Math.round(fb.monthlyAverage * 12 * 100) / 100;
       // Default to VARIABLE for fallback suggestions (variable spending)
       suggestion.expenseType = ExpenseType.VARIABLE;
       suggestion.isEssential = false;
@@ -372,20 +370,21 @@ export class SuggestionGeneratorService {
       }
 
       try {
-        const discrepancy = await this.categoryFallbackService.checkPatternDiscrepancy(
-          Number(suggestion.monthlyContribution),
-          suggestion.categoryId,
-          userId,
-        );
+        const discrepancy =
+          await this.categoryFallbackService.checkPatternDiscrepancy(
+            Number(suggestion.monthlyContribution),
+            suggestion.categoryId,
+            userId,
+          );
 
         suggestion.categoryMonthlyAverage = discrepancy.categoryAverage ?? null;
-        suggestion.discrepancyPercentage = discrepancy.discrepancyPercentage ?? null;
+        suggestion.discrepancyPercentage =
+          discrepancy.discrepancyPercentage ?? null;
         suggestion.hasDiscrepancyWarning = discrepancy.hasDiscrepancy;
 
         if (discrepancy.hasDiscrepancy && discrepancy.message) {
           // Append discrepancy warning to reasoning
-          suggestion.classificationReasoning =
-            `${suggestion.classificationReasoning}. ⚠️ ${discrepancy.message}`;
+          suggestion.classificationReasoning = `${suggestion.classificationReasoning}. ⚠️ ${discrepancy.message}`;
         }
       } catch (error) {
         this.logger.warn(
@@ -411,7 +410,9 @@ export class SuggestionGeneratorService {
     });
     const cleared = result.affected || 0;
     if (cleared > 0) {
-      this.logger.log(`Cleared ${cleared} pending suggestions for user ${userId}`);
+      this.logger.log(
+        `Cleared ${cleared} pending suggestions for user ${userId}`,
+      );
     }
     return cleared;
   }
@@ -420,7 +421,10 @@ export class SuggestionGeneratorService {
    * Delete a specific suggestion by ID
    * Useful for cleaning up approved suggestions after expense plan deletion
    */
-  async deleteSuggestion(userId: number, suggestionId: number): Promise<boolean> {
+  async deleteSuggestion(
+    userId: number,
+    suggestionId: number,
+  ): Promise<boolean> {
     const result = await this.suggestionRepository.delete({
       id: suggestionId,
       userId,
@@ -484,7 +488,12 @@ export class SuggestionGeneratorService {
         this.logger.log(
           `Found ${recentSuggestions.length} recent pending suggestions`,
         );
-        return this.buildResponse(recentSuggestions, 0, startTime, clearedCount);
+        return this.buildResponse(
+          recentSuggestions,
+          0,
+          startTime,
+          clearedCount,
+        );
       }
     }
 
@@ -531,15 +540,17 @@ export class SuggestionGeneratorService {
     const fallbackSuggestions =
       await this.categoryFallbackService.generateFallbackSuggestions(userId);
 
-    this.logger.log(`Generated ${fallbackSuggestions.length} fallback candidates`);
+    this.logger.log(
+      `Generated ${fallbackSuggestions.length} fallback candidates`,
+    );
 
     let patternSuggestions: ExpensePlanSuggestion[] = [];
     let patternCategoryIds = new Set<number>();
 
     if (patternsToProcess.length > 0) {
       // Step 2: Classify patterns using AI (only non-skipped patterns)
-      const classificationRequests: PatternClassificationRequest[] = patternsToProcess.map(
-        (pattern) => ({
+      const classificationRequests: PatternClassificationRequest[] =
+        patternsToProcess.map((pattern) => ({
           patternId: pattern.group.id,
           merchantName: pattern.group.merchantName,
           categoryName: pattern.group.categoryName,
@@ -547,8 +558,7 @@ export class SuggestionGeneratorService {
           averageAmount: pattern.group.averageAmount,
           frequencyType: pattern.frequency.type,
           occurrenceCount: pattern.frequency.occurrenceCount,
-        }),
-      );
+        }));
 
       const classificationResult =
         await this.patternClassification.classifyPatterns({
@@ -651,7 +661,12 @@ export class SuggestionGeneratorService {
     // Get all pending suggestions for response
     const allPending = await this.getPendingSuggestions(userId);
 
-    return this.buildResponse(allPending, savedSuggestions.length, startTime, clearedCount);
+    return this.buildResponse(
+      allPending,
+      savedSuggestions.length,
+      startTime,
+      clearedCount,
+    );
   }
 
   /**

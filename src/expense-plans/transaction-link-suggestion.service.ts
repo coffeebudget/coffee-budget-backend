@@ -72,7 +72,10 @@ export class TransactionLinkSuggestionService {
   // FIND BY ID
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async findById(id: number, userId: number): Promise<TransactionLinkSuggestion> {
+  async findById(
+    id: number,
+    userId: number,
+  ): Promise<TransactionLinkSuggestion> {
     const suggestion = await this.suggestionRepository.findOne({
       where: { id, userId },
       relations: ['expensePlan', 'transaction'],
@@ -141,7 +144,8 @@ export class TransactionLinkSuggestionService {
     }
 
     // Use custom amount or the absolute value of transaction amount
-    const amount = customAmount ?? Math.abs(Number(suggestion.transactionAmount));
+    const amount =
+      customAmount ?? Math.abs(Number(suggestion.transactionAmount));
 
     let planTransaction;
 
@@ -230,7 +234,10 @@ export class TransactionLinkSuggestionService {
   // BULK APPROVE
   // ═══════════════════════════════════════════════════════════════════════════
 
-  async bulkApprove(ids: number[], userId: number): Promise<BulkApprovalResultDto> {
+  async bulkApprove(
+    ids: number[],
+    userId: number,
+  ): Promise<BulkApprovalResultDto> {
     const results: BulkApprovalResultDto = {
       approvedCount: 0,
       failedCount: 0,

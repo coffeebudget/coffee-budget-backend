@@ -17,6 +17,12 @@ import {
   PlanAtRisk,
 } from './dto/coverage-summary.dto';
 import {
+  AccountAllocationSummaryResponse,
+  AccountAllocationSummary,
+  FixedMonthlyPlanAllocation,
+  SinkingFundPlanAllocation,
+} from './dto/account-allocation-summary.dto';
+import {
   ExpensePlanWithStatusDto,
   LongTermStatusSummary,
   PlanNeedingAttention,
@@ -337,23 +343,15 @@ export class ExpensePlansService {
           : 'behind';
     }
 
+    // Return all plan fields plus calculated status fields
     return {
-      id: plan.id,
-      name: plan.name,
-      description: plan.description,
-      icon: plan.icon,
-      planType: plan.planType,
-      priority: plan.priority,
-      purpose: plan.purpose,
+      // Spread all original plan fields
+      ...plan,
+      // Override numeric fields to ensure they're numbers not strings
       targetAmount,
       currentBalance,
       monthlyContribution,
-      frequency: plan.frequency,
-      nextDueDate: plan.nextDueDate,
-      status: plan.status,
-      categoryId: plan.categoryId,
-      paymentAccountId: plan.paymentAccountId,
-      paymentAccountType: plan.paymentAccountType,
+      // Add calculated status fields
       fundingStatus,
       monthsUntilDue,
       amountNeeded,
@@ -361,7 +359,6 @@ export class ExpensePlansService {
       progressPercent,
       expectedFundedByNow,
       fundingGapFromExpected,
-      createdAt: plan.createdAt,
       fixedMonthlyStatus,
     };
   }
@@ -1162,6 +1159,268 @@ export class ExpensePlansService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // ACCOUNT ALLOCATION SUMMARY
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Get account allocation summary showing what each account should hold TODAY.
+   *
+   * This answers the question: "How much should my account have right now?"
+   *
+   * For fixed_monthly plans: requiredToday = targetAmount (full payment ready)
+   * For sinking funds: requiredToday = expectedFundedByNow (savings progress)
+   *
+   * Sum per account = totalRequiredToday
+   * Compare to currentBalance = shortfall/surplus
+   */
+  async getAccountAllocationSummary(
+    userId: number,
+  ): Promise<AccountAllocationSummaryResponse> {
+    // Get all active expense plans with payment accounts
+    const plans = await this.expensePlanRepository.find({
+      where: { userId, status: 'active' },
+      relations: ['paymentAccount'],
+    });
+
+    // Get all user's bank accounts
+    const bankAccounts = await this.bankAccountRepository.find({
+      where: { user: { id: userId } },
+    });
+
+    // Batch fetch current month payments for fixed_monthly plans
+    const fixedMonthlyPlanIds = plans
+      .filter((p) => p.planType === 'fixed_monthly')
+      .map((p) => p.id);
+    const currentMonthPayments =
+      await this.getCurrentMonthPaymentsBatch(fixedMonthlyPlanIds);
+
+    // Group plans by account
+    const plansByAccountId = new Map<number, ExpensePlan[]>();
+    for (const plan of plans) {
+      if (plan.paymentAccountId) {
+        if (!plansByAccountId.has(plan.paymentAccountId)) {
+          plansByAccountId.set(plan.paymentAccountId, []);
+        }
+        plansByAccountId.get(plan.paymentAccountId)!.push(plan);
+      }
+    }
+
+    // Calculate allocation summary for each account that has plans
+    const accountSummaries: AccountAllocationSummary[] = [];
+    let totalShortfall = 0;
+    let accountsWithShortfall = 0;
+    let totalMonthlyContribution = 0;
+
+    for (const account of bankAccounts) {
+      const accountPlans = plansByAccountId.get(account.id);
+      if (!accountPlans || accountPlans.length === 0) continue;
+
+      const summary = this.buildAccountAllocationSummary(
+        account,
+        accountPlans,
+        currentMonthPayments,
+      );
+
+      accountSummaries.push(summary);
+      totalMonthlyContribution += summary.monthlyContributionTotal;
+
+      if (summary.shortfall > 0) {
+        totalShortfall += summary.shortfall;
+        accountsWithShortfall++;
+      }
+    }
+
+    // Determine overall status
+    let overallStatus: 'healthy' | 'tight' | 'shortfall';
+    if (accountsWithShortfall > 0) {
+      overallStatus = 'shortfall';
+    } else {
+      // Check if any account is tight (surplus < 10% of required)
+      const hasTight = accountSummaries.some((a) => a.healthStatus === 'tight');
+      overallStatus = hasTight ? 'tight' : 'healthy';
+    }
+
+    return {
+      accounts: accountSummaries,
+      overallStatus,
+      totalShortfall,
+      accountsWithShortfall,
+      totalMonthlyContribution,
+    };
+  }
+
+  /**
+   * Build allocation summary for a single account.
+   */
+  private buildAccountAllocationSummary(
+    account: BankAccount,
+    plans: ExpensePlan[],
+    currentMonthPayments: Map<number, { made: boolean; date: Date | null }>,
+  ): AccountAllocationSummary {
+    const currentBalance = Number(account.balance);
+    const fixedMonthlyPlans: FixedMonthlyPlanAllocation[] = [];
+    const sinkingFundPlans: SinkingFundPlanAllocation[] = [];
+    let fixedMonthlyTotal = 0;
+    let sinkingFundTotal = 0;
+    let monthlyContributionTotal = 0;
+
+    for (const plan of plans) {
+      monthlyContributionTotal += Number(plan.monthlyContribution);
+
+      if (plan.planType === 'fixed_monthly') {
+        const allocation = this.buildFixedMonthlyAllocation(
+          plan,
+          currentMonthPayments.get(plan.id),
+        );
+        fixedMonthlyPlans.push(allocation);
+        fixedMonthlyTotal += allocation.requiredToday;
+      } else if (plan.purpose === 'sinking_fund') {
+        const allocation = this.buildSinkingFundAllocation(plan);
+        sinkingFundPlans.push(allocation);
+        sinkingFundTotal += allocation.requiredToday;
+      }
+    }
+
+    const totalRequiredToday = fixedMonthlyTotal + sinkingFundTotal;
+    const diff = currentBalance - totalRequiredToday;
+    const shortfall = diff < 0 ? Math.abs(diff) : 0;
+    const surplus = diff > 0 ? diff : 0;
+
+    // Determine health status
+    let healthStatus: 'healthy' | 'tight' | 'shortfall';
+    if (shortfall > 0) {
+      healthStatus = 'shortfall';
+    } else if (surplus < totalRequiredToday * 0.1) {
+      // Less than 10% buffer is "tight"
+      healthStatus = 'tight';
+    } else {
+      healthStatus = 'healthy';
+    }
+
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      currentBalance,
+      totalRequiredToday,
+      shortfall,
+      surplus,
+      healthStatus,
+      fixedMonthlyPlans,
+      fixedMonthlyTotal,
+      sinkingFundPlans,
+      sinkingFundTotal,
+      monthlyContributionTotal,
+      suggestedCatchUp: shortfall > 0 ? shortfall : null,
+    };
+  }
+
+  /**
+   * Build allocation details for a fixed monthly plan.
+   * Required amount is the full target (payment amount).
+   */
+  private buildFixedMonthlyAllocation(
+    plan: ExpensePlan,
+    paymentInfo?: { made: boolean; date: Date | null },
+  ): FixedMonthlyPlanAllocation {
+    const targetAmount = Number(plan.targetAmount);
+    const currentBalance = Number(plan.currentBalance);
+    const readyForNextMonth = currentBalance >= targetAmount;
+    const paymentMade = paymentInfo?.made ?? false;
+
+    // Determine status
+    let status: 'paid' | 'pending' | 'short';
+    if (paymentMade) {
+      status = 'paid';
+    } else if (readyForNextMonth) {
+      status = 'pending';
+    } else {
+      status = 'short';
+    }
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      icon: plan.icon,
+      requiredToday: targetAmount,
+      currentBalance,
+      paymentMade,
+      readyForNextMonth,
+      status,
+      amountShort: readyForNextMonth
+        ? null
+        : Math.round((targetAmount - currentBalance) * 100) / 100,
+    };
+  }
+
+  /**
+   * Build allocation details for a sinking fund plan.
+   * Required amount is the expected funded by now amount.
+   */
+  private buildSinkingFundAllocation(
+    plan: ExpensePlan,
+  ): SinkingFundPlanAllocation {
+    const targetAmount = Number(plan.targetAmount);
+    const currentBalance = Number(plan.currentBalance);
+    const monthlyContribution = Number(plan.monthlyContribution);
+
+    // Calculate expected funded by now
+    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    // If we can't calculate expected, use 0 (shouldn't contribute to required)
+    const requiredToday = expectedFundedByNow ?? 0;
+
+    const progressPercent =
+      targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
+
+    // Calculate gap from expected
+    const gapFromExpected =
+      expectedFundedByNow !== null
+        ? Math.round((expectedFundedByNow - currentBalance) * 100) / 100
+        : null;
+
+    // Determine status
+    let status: 'ahead' | 'on_track' | 'behind';
+    if (gapFromExpected === null) {
+      status = 'on_track';
+    } else if (gapFromExpected > 0) {
+      status = 'behind';
+    } else if (gapFromExpected < 0) {
+      status = 'ahead';
+    } else {
+      status = 'on_track';
+    }
+
+    // Calculate months until due
+    let monthsUntilDue: number | null = null;
+    let nextDueDateStr: string | null = null;
+
+    const dueDate = plan.nextDueDate
+      ? new Date(plan.nextDueDate)
+      : plan.targetDate
+        ? new Date(plan.targetDate)
+        : null;
+
+    if (dueDate) {
+      monthsUntilDue = this.monthsBetween(new Date(), dueDate);
+      nextDueDateStr = dueDate.toISOString().split('T')[0];
+    }
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      icon: plan.icon,
+      requiredToday,
+      currentBalance,
+      targetAmount,
+      monthlyContribution,
+      progressPercent: Math.round(progressPercent * 10) / 10,
+      status,
+      gapFromExpected,
+      nextDueDate: nextDueDateStr,
+      monthsUntilDue,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1253,7 +1512,9 @@ export class ExpensePlansService {
 
     // Calculate when saving should have started
     const savingStartDate = new Date(dueDate);
-    savingStartDate.setMonth(savingStartDate.getMonth() - Math.ceil(monthsNeededToSave));
+    savingStartDate.setMonth(
+      savingStartDate.getMonth() - Math.ceil(monthsNeededToSave),
+    );
 
     // If saving hasn't needed to start yet, expected is 0
     if (now < savingStartDate) {
@@ -1277,7 +1538,10 @@ export class ExpensePlansService {
    * Calculate months between two dates with decimal precision.
    * Returns fractional months for more accurate calculations.
    */
-  private monthsBetweenDecimal(start: Date | string, end: Date | string): number {
+  private monthsBetweenDecimal(
+    start: Date | string,
+    end: Date | string,
+  ): number {
     const startDate = new Date(start);
     const endDate = new Date(end);
 

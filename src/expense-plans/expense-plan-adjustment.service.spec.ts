@@ -47,7 +47,9 @@ describe('ExpensePlanAdjustmentService', () => {
     updatedAt: new Date('2024-01-01'),
   };
 
-  const createMockExpensePlan = (overrides: Partial<ExpensePlan> = {}): ExpensePlan => ({
+  const createMockExpensePlan = (
+    overrides: Partial<ExpensePlan> = {},
+  ): ExpensePlan => ({
     id: 1,
     userId: 1,
     user: mockUser as any,
@@ -121,7 +123,9 @@ describe('ExpensePlanAdjustmentService', () => {
       ],
     }).compile();
 
-    service = module.get<ExpensePlanAdjustmentService>(ExpensePlanAdjustmentService);
+    service = module.get<ExpensePlanAdjustmentService>(
+      ExpensePlanAdjustmentService,
+    );
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
     transactionRepository = module.get(getRepositoryToken(Transaction));
   });
@@ -152,10 +156,15 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(6, -130, new Date('2025-11-26')),
       ];
 
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
-      const result = await service.calculateCategorySpending(userId, categoryId);
+      const result = await service.calculateCategorySpending(
+        userId,
+        categoryId,
+      );
 
       // Assert
       expect(result.transactionCount).toBe(6);
@@ -195,7 +204,10 @@ describe('ExpensePlanAdjustmentService', () => {
       (transactionRepository.find as jest.Mock).mockResolvedValue([]);
 
       // Act
-      const result = await service.calculateCategorySpending(userId, categoryId);
+      const result = await service.calculateCategorySpending(
+        userId,
+        categoryId,
+      );
 
       // Assert
       expect(result.transactionCount).toBe(0);
@@ -218,7 +230,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(2, -115, new Date('2025-10-15')),
         createMockTransaction(3, -115, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
       const result = await service.detectAdjustmentNeeded(plan);
@@ -240,7 +254,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(1, -85, new Date('2025-09-15')),
         createMockTransaction(2, -85, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
       const result = await service.detectAdjustmentNeeded(plan);
@@ -262,7 +278,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(1, -105, new Date('2025-09-15')),
         createMockTransaction(2, -105, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
       const result = await service.detectAdjustmentNeeded(plan);
@@ -321,7 +339,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(2, -120, new Date('2025-10-15')),
         createMockTransaction(3, -120, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue(plan);
 
       // Act
@@ -355,7 +375,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(1, -102, new Date('2025-09-15')),
         createMockTransaction(2, -102, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue(plan);
 
       // Act
@@ -389,7 +411,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(2, -120, new Date('2025-10-15')),
         createMockTransaction(3, -120, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
       const updated = await service.reviewPlan(plan);
@@ -415,7 +439,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(2, -120, new Date('2025-10-15')),
         createMockTransaction(3, -120, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue(plan);
 
       // Act
@@ -460,7 +486,11 @@ describe('ExpensePlanAdjustmentService', () => {
       // Arrange
       const userId = 1;
       const mockPlans = [
-        createMockExpensePlan({ id: 1, categoryId: 376, monthlyContribution: 100 }),
+        createMockExpensePlan({
+          id: 1,
+          categoryId: 376,
+          monthlyContribution: 100,
+        }),
       ];
 
       (expensePlanRepository.find as jest.Mock).mockResolvedValue(mockPlans);
@@ -471,7 +501,9 @@ describe('ExpensePlanAdjustmentService', () => {
         createMockTransaction(2, -130, new Date('2025-10-15')),
         createMockTransaction(3, -130, new Date('2025-11-15')),
       ];
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
       (expensePlanRepository.save as jest.Mock).mockResolvedValue(mockPlans[0]);
 
       // Act

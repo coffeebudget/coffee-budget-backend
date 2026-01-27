@@ -789,7 +789,10 @@ describe('SuggestionGeneratorService', () => {
           },
           firstOccurrence: new Date('2025-01-01'),
           lastOccurrence: new Date('2025-09-01'),
-          confidence: { overall: 85, breakdown: { similarity: 90, frequency: 80, occurrenceCount: 9 } },
+          confidence: {
+            overall: 85,
+            breakdown: { similarity: 90, frequency: 80, occurrenceCount: 9 },
+          },
         });
 
         const mockPattern2 = createMockPattern({
@@ -811,12 +814,23 @@ describe('SuggestionGeneratorService', () => {
           },
           firstOccurrence: new Date('2025-10-01'),
           lastOccurrence: new Date('2026-01-01'),
-          confidence: { overall: 90, breakdown: { similarity: 95, frequency: 85, occurrenceCount: 4 } },
+          confidence: {
+            overall: 90,
+            breakdown: { similarity: 95, frequency: 85, occurrenceCount: 4 },
+          },
         });
 
         const mockClassifications = [
-          { ...createMockClassification('pattern-inps'), expenseType: ExpenseType.SALARY, isEssential: true },
-          { ...createMockClassification('pattern-main'), expenseType: ExpenseType.SALARY, isEssential: true },
+          {
+            ...createMockClassification('pattern-inps'),
+            expenseType: ExpenseType.SALARY,
+            isEssential: true,
+          },
+          {
+            ...createMockClassification('pattern-main'),
+            expenseType: ExpenseType.SALARY,
+            isEssential: true,
+          },
         ];
 
         // Mock setup with proper chained calls
@@ -824,7 +838,10 @@ describe('SuggestionGeneratorService', () => {
           .mockResolvedValueOnce([]) // getRecentPendingSuggestions
           .mockResolvedValueOnce([]) // filterExistingSuggestions
           .mockResolvedValueOnce([{ id: 1, suggestedName: 'Stipendio' }]); // getPendingSuggestions after save
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -833,7 +850,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -872,12 +891,17 @@ describe('SuggestionGeneratorService', () => {
                 id: i + 1,
                 amount: -200,
                 description: 'Esselunga',
-                transactionDate: new Date(`2025-${String(i + 1).padStart(2, '0')}-15`),
+                transactionDate: new Date(
+                  `2025-${String(i + 1).padStart(2, '0')}-15`,
+                ),
               })) as any,
           },
           firstOccurrence: new Date('2025-01-15'),
           lastOccurrence: new Date('2025-12-15'),
-          confidence: { overall: 85, breakdown: { similarity: 90, frequency: 80, occurrenceCount: 12 } },
+          confidence: {
+            overall: 85,
+            breakdown: { similarity: 90, frequency: 80, occurrenceCount: 12 },
+          },
         });
 
         const mockPatternCoop = createMockPattern({
@@ -894,12 +918,17 @@ describe('SuggestionGeneratorService', () => {
                 id: i + 20,
                 amount: -150,
                 description: 'Coop',
-                transactionDate: new Date(`2025-${String(i + 1).padStart(2, '0')}-20`),
+                transactionDate: new Date(
+                  `2025-${String(i + 1).padStart(2, '0')}-20`,
+                ),
               })) as any,
           },
           firstOccurrence: new Date('2025-01-20'),
           lastOccurrence: new Date('2025-06-20'),
-          confidence: { overall: 80, breakdown: { similarity: 85, frequency: 75, occurrenceCount: 6 } },
+          confidence: {
+            overall: 80,
+            breakdown: { similarity: 85, frequency: 75, occurrenceCount: 6 },
+          },
         });
 
         const mockPatternLidl = createMockPattern({
@@ -916,18 +945,32 @@ describe('SuggestionGeneratorService', () => {
                 id: i + 30,
                 amount: -100,
                 description: 'Lidl',
-                transactionDate: new Date(`2025-${String(i + 10).padStart(2, '0')}-10`),
+                transactionDate: new Date(
+                  `2025-${String(i + 10).padStart(2, '0')}-10`,
+                ),
               })) as any,
           },
           firstOccurrence: new Date('2025-10-10'),
           lastOccurrence: new Date('2025-12-10'),
-          confidence: { overall: 75, breakdown: { similarity: 80, frequency: 70, occurrenceCount: 3 } },
+          confidence: {
+            overall: 75,
+            breakdown: { similarity: 80, frequency: 70, occurrenceCount: 3 },
+          },
         });
 
         const mockClassifications = [
-          { ...createMockClassification('pattern-esselunga'), suggestedPlanName: 'Esselunga' },
-          { ...createMockClassification('pattern-coop'), suggestedPlanName: 'Coop' },
-          { ...createMockClassification('pattern-lidl'), suggestedPlanName: 'Lidl' },
+          {
+            ...createMockClassification('pattern-esselunga'),
+            suggestedPlanName: 'Esselunga',
+          },
+          {
+            ...createMockClassification('pattern-coop'),
+            suggestedPlanName: 'Coop',
+          },
+          {
+            ...createMockClassification('pattern-lidl'),
+            suggestedPlanName: 'Lidl',
+          },
         ];
 
         // Mock setup with proper chained calls
@@ -948,7 +991,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -980,7 +1025,12 @@ describe('SuggestionGeneratorService', () => {
             representativeDescription: 'Car insurance annual',
             averageAmount: 480,
             transactions: [
-              { id: 1, amount: -480, description: 'Insurance', transactionDate: new Date('2025-03-15') } as any,
+              {
+                id: 1,
+                amount: -480,
+                description: 'Insurance',
+                transactionDate: new Date('2025-03-15'),
+              } as any,
             ],
           },
           frequency: {
@@ -992,7 +1042,10 @@ describe('SuggestionGeneratorService', () => {
           },
           firstOccurrence: new Date('2025-03-15'),
           lastOccurrence: new Date('2025-03-15'),
-          confidence: { overall: 70, breakdown: { similarity: 80, frequency: 60, occurrenceCount: 1 } },
+          confidence: {
+            overall: 70,
+            breakdown: { similarity: 80, frequency: 60, occurrenceCount: 1 },
+          },
         });
 
         const mockClassifications = [
@@ -1019,7 +1072,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1041,7 +1096,12 @@ describe('SuggestionGeneratorService', () => {
       it('should aggregate patterns from same category into one suggestion', async () => {
         // Two patterns with same categoryId should result in one suggestion
         const mockPattern1 = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p1', categoryId: 5, categoryName: 'Entertainment' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p1',
+            categoryId: 5,
+            categoryName: 'Entertainment',
+          },
         });
         const mockPattern2 = createMockPattern({
           group: {
@@ -1059,7 +1119,10 @@ describe('SuggestionGeneratorService', () => {
         ];
 
         suggestionRepository.find.mockResolvedValue([]);
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -1068,7 +1131,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1082,16 +1147,32 @@ describe('SuggestionGeneratorService', () => {
 
       it('should create separate suggestions for different categories', async () => {
         const mockPattern1 = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p1', categoryId: 1, categoryName: 'Entertainment' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p1',
+            categoryId: 1,
+            categoryName: 'Entertainment',
+          },
         });
         const mockPattern2 = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p2', categoryId: 2, categoryName: 'Groceries' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p2',
+            categoryId: 2,
+            categoryName: 'Groceries',
+          },
         });
 
-        const mockClassifications = [createMockClassification('p1'), createMockClassification('p2')];
+        const mockClassifications = [
+          createMockClassification('p1'),
+          createMockClassification('p2'),
+        ];
 
         suggestionRepository.find.mockResolvedValue([]);
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -1100,7 +1181,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1113,16 +1196,32 @@ describe('SuggestionGeneratorService', () => {
 
       it('should exclude patterns with null categoryId', async () => {
         const mockPattern1 = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p1', categoryId: null, categoryName: null },
+          group: {
+            ...createMockPattern().group,
+            id: 'p1',
+            categoryId: null,
+            categoryName: null,
+          },
         });
         const mockPattern2 = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p2', categoryId: 1, categoryName: 'Entertainment' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p2',
+            categoryId: 1,
+            categoryName: 'Entertainment',
+          },
         });
 
-        const mockClassifications = [createMockClassification('p1'), createMockClassification('p2')];
+        const mockClassifications = [
+          createMockClassification('p1'),
+          createMockClassification('p2'),
+        ];
 
         suggestionRepository.find.mockResolvedValue([]);
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -1131,7 +1230,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1161,10 +1262,16 @@ describe('SuggestionGeneratorService', () => {
           },
         });
 
-        const mockClassifications = [createMockClassification('p1'), createMockClassification('p2')];
+        const mockClassifications = [
+          createMockClassification('p1'),
+          createMockClassification('p2'),
+        ];
 
         suggestionRepository.find.mockResolvedValue([]);
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -1173,7 +1280,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1199,7 +1308,10 @@ describe('SuggestionGeneratorService', () => {
         ];
 
         suggestionRepository.find.mockResolvedValue([]);
-        patternDetectionService.detectPatterns.mockResolvedValue([mockPattern1, mockPattern2]);
+        patternDetectionService.detectPatterns.mockResolvedValue([
+          mockPattern1,
+          mockPattern2,
+        ]);
         patternClassificationService.classifyPatterns.mockResolvedValue({
           classifications: mockClassifications,
           tokensUsed: 100,
@@ -1208,7 +1320,9 @@ describe('SuggestionGeneratorService', () => {
         });
         expensePlanRepository.find.mockResolvedValue([]);
         suggestionRepository.save.mockImplementation((entities) =>
-          Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+          Promise.resolve(
+            entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+          ),
         );
 
         // Act
@@ -1223,7 +1337,12 @@ describe('SuggestionGeneratorService', () => {
     describe('filterExistingSuggestions with category dedup', () => {
       it('should filter out suggestions for categories with existing plans', async () => {
         const mockPattern = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p1', categoryId: 5, categoryName: 'Entertainment' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p1',
+            categoryId: 5,
+            categoryName: 'Entertainment',
+          },
         });
 
         suggestionRepository.find.mockResolvedValue([]);
@@ -1236,7 +1355,9 @@ describe('SuggestionGeneratorService', () => {
           processingTimeMs: 200,
         });
         // Existing plan for same category
-        expensePlanRepository.find.mockResolvedValue([{ name: 'My Entertainment', categoryId: 5 }]);
+        expensePlanRepository.find.mockResolvedValue([
+          { name: 'My Entertainment', categoryId: 5 },
+        ]);
         suggestionRepository.save.mockResolvedValue([]);
 
         // Act
@@ -1248,7 +1369,12 @@ describe('SuggestionGeneratorService', () => {
 
       it('should filter out suggestions for categories with pending suggestions', async () => {
         const mockPattern = createMockPattern({
-          group: { ...createMockPattern().group, id: 'p1', categoryId: 5, categoryName: 'Entertainment' },
+          group: {
+            ...createMockPattern().group,
+            id: 'p1',
+            categoryId: 5,
+            categoryName: 'Entertainment',
+          },
         });
 
         // First call returns empty (no recent), second call returns existing pending
@@ -1367,7 +1493,9 @@ describe('SuggestionGeneratorService', () => {
       patternDetectionService.detectPatterns.mockResolvedValue([]);
 
       // Act
-      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: true });
+      const result = await service.generateSuggestions(mockUserId, {
+        forceRegenerate: true,
+      });
 
       // Assert
       expect(result.clearedCount).toBe(7);
@@ -1380,7 +1508,9 @@ describe('SuggestionGeneratorService', () => {
       patternDetectionService.detectPatterns.mockResolvedValue([]);
 
       // Act
-      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: true });
+      const result = await service.generateSuggestions(mockUserId, {
+        forceRegenerate: true,
+      });
 
       // Assert
       expect(result.clearedCount).toBe(0);
@@ -1401,7 +1531,9 @@ describe('SuggestionGeneratorService', () => {
       suggestionRepository.find.mockResolvedValue([existingSuggestion]);
 
       // Act - NOT forcing regeneration, should return cached
-      const result = await service.generateSuggestions(mockUserId, { forceRegenerate: false });
+      const result = await service.generateSuggestions(mockUserId, {
+        forceRegenerate: false,
+      });
 
       // Assert - clearedCount should still be in response
       expect(result.clearedCount).toBe(0);
@@ -1504,7 +1636,10 @@ describe('SuggestionGeneratorService', () => {
       suggestionRepository.update.mockResolvedValue({ affected: 0 });
 
       // Act
-      const result = await service.resetSuggestionForDeletedExpensePlan(999, 456);
+      const result = await service.resetSuggestionForDeletedExpensePlan(
+        999,
+        456,
+      );
 
       // Assert
       expect(result).toBe(false);
@@ -1589,7 +1724,9 @@ describe('SuggestionGeneratorService', () => {
       });
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act
@@ -1597,7 +1734,9 @@ describe('SuggestionGeneratorService', () => {
 
       // Assert
       // classifyPatterns should only be called with Netflix pattern (not Groceries patterns)
-      expect(patternClassificationService.classifyPatterns).toHaveBeenCalledWith(
+      expect(
+        patternClassificationService.classifyPatterns,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           patterns: expect.arrayContaining([
             expect.objectContaining({ patternId: 'pattern-netflix' }),
@@ -1646,7 +1785,9 @@ describe('SuggestionGeneratorService', () => {
 
       suggestionRepository.find.mockResolvedValue([]);
       suggestionRepository.delete.mockResolvedValue({ affected: 0 });
-      patternDetectionService.detectPatterns.mockResolvedValue([mockPatternConad]);
+      patternDetectionService.detectPatterns.mockResolvedValue([
+        mockPatternConad,
+      ]);
       // No patterns to classify since all are skipped
       patternClassificationService.classifyPatterns.mockResolvedValue({
         classifications: [],
@@ -1656,7 +1797,9 @@ describe('SuggestionGeneratorService', () => {
       });
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act
@@ -1691,7 +1834,9 @@ describe('SuggestionGeneratorService', () => {
 
       suggestionRepository.find.mockResolvedValue([]);
       suggestionRepository.delete.mockResolvedValue({ affected: 0 });
-      patternDetectionService.detectPatterns.mockResolvedValue([mockPatternConad]);
+      patternDetectionService.detectPatterns.mockResolvedValue([
+        mockPatternConad,
+      ]);
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockResolvedValue([]);
 
@@ -1699,24 +1844,31 @@ describe('SuggestionGeneratorService', () => {
       await service.generateSuggestions(mockUserId);
 
       // Assert - classifyPatterns should not be called when no patterns remain
-      expect(patternClassificationService.classifyPatterns).not.toHaveBeenCalled();
+      expect(
+        patternClassificationService.classifyPatterns,
+      ).not.toHaveBeenCalled();
     });
 
     it('should save AI tokens by not classifying skipped patterns', async () => {
       // Arrange - 5 Grocery patterns (skipped) + 1 Netflix pattern (processed)
       const groceriesCategoryId = 10;
 
-      const groceryPatterns = ['Conad', 'Esselunga', 'Lidl', 'Coop', 'Carrefour'].map(
-        (merchant) =>
-          createMockPattern({
-            group: {
-              ...createMockPattern().group,
-              id: `pattern-${merchant.toLowerCase()}`,
-              categoryId: groceriesCategoryId,
-              categoryName: 'Groceries',
-              merchantName: merchant,
-            },
-          }),
+      const groceryPatterns = [
+        'Conad',
+        'Esselunga',
+        'Lidl',
+        'Coop',
+        'Carrefour',
+      ].map((merchant) =>
+        createMockPattern({
+          group: {
+            ...createMockPattern().group,
+            id: `pattern-${merchant.toLowerCase()}`,
+            categoryId: groceriesCategoryId,
+            categoryName: 'Groceries',
+            merchantName: merchant,
+          },
+        }),
       );
 
       const netflixPattern = createMockPattern({
@@ -1748,14 +1900,18 @@ describe('SuggestionGeneratorService', () => {
       });
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act
       await service.generateSuggestions(mockUserId);
 
       // Assert - Only 1 pattern should be classified (saving tokens)
-      expect(patternClassificationService.classifyPatterns).toHaveBeenCalledWith(
+      expect(
+        patternClassificationService.classifyPatterns,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           patterns: expect.any(Array),
         }),
@@ -1786,7 +1942,9 @@ describe('SuggestionGeneratorService', () => {
       });
       expensePlanRepository.find.mockResolvedValue([]);
       suggestionRepository.save.mockImplementation((entities) =>
-        Promise.resolve(entities.map((e: any, i: number) => ({ ...e, id: i + 1 }))),
+        Promise.resolve(
+          entities.map((e: any, i: number) => ({ ...e, id: i + 1 })),
+        ),
       );
 
       // Act

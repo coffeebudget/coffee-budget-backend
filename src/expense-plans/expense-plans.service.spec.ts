@@ -2040,7 +2040,9 @@ describe('ExpensePlansService', () => {
           targetAmount: 72.07,
         };
 
-        (expensePlanRepository.find as jest.Mock).mockResolvedValue([readyPlan]);
+        (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+          readyPlan,
+        ]);
         (expensePlanTransactionRepository.createQueryBuilder as jest.Mock) =
           jest.fn().mockReturnValue({
             where: jest.fn().mockReturnThis(),

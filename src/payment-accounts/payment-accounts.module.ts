@@ -6,10 +6,7 @@ import { PaymentAccountsController } from './payment-accounts.controller';
 import { GocardlessModule } from '../gocardless/gocardless.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([PaymentAccount]),
-    GocardlessModule,
-  ],
+  imports: [TypeOrmModule.forFeature([PaymentAccount]), GocardlessModule],
   controllers: [PaymentAccountsController],
   providers: [PaymentAccountsService],
   exports: [PaymentAccountsService],

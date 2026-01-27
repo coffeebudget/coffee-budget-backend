@@ -100,7 +100,9 @@ export class ExpensePlanAdjustmentService {
   /**
    * Check if a plan needs an adjustment suggestion based on actual spending.
    */
-  async detectAdjustmentNeeded(plan: ExpensePlan): Promise<AdjustmentResult | null> {
+  async detectAdjustmentNeeded(
+    plan: ExpensePlan,
+  ): Promise<AdjustmentResult | null> {
     // Skip plans that shouldn't be reviewed
     if (!plan.categoryId) {
       return null;
@@ -110,7 +112,10 @@ export class ExpensePlanAdjustmentService {
       return null;
     }
 
-    const spending = await this.calculateCategorySpending(plan.userId, plan.categoryId);
+    const spending = await this.calculateCategorySpending(
+      plan.userId,
+      plan.categoryId,
+    );
 
     if (spending.transactionCount === 0) {
       return null;
@@ -293,7 +298,10 @@ export class ExpensePlanAdjustmentService {
   /**
    * Dismiss an adjustment suggestion.
    */
-  async dismissAdjustment(planId: number, userId: number): Promise<ExpensePlan> {
+  async dismissAdjustment(
+    planId: number,
+    userId: number,
+  ): Promise<ExpensePlan> {
     const plan = await this.expensePlanRepository.findOne({
       where: { id: planId, userId },
     });
@@ -318,7 +326,9 @@ export class ExpensePlanAdjustmentService {
   private daysBetween(date1: Date, date2: Date): number {
     const oneDay = 24 * 60 * 60 * 1000;
     return Math.round(
-      Math.abs((new Date(date2).getTime() - new Date(date1).getTime()) / oneDay),
+      Math.abs(
+        (new Date(date2).getTime() - new Date(date1).getTime()) / oneDay,
+      ),
     );
   }
 }

@@ -191,7 +191,10 @@ export class CreateTransactionLinkSuggestions1769300000001
         (fk) => fk.name === 'FK_transaction_link_suggestions_user',
       );
       if (fkUser) {
-        await queryRunner.dropForeignKey('transaction_link_suggestions', fkUser);
+        await queryRunner.dropForeignKey(
+          'transaction_link_suggestions',
+          fkUser,
+        );
       }
 
       const fkTransaction = table.foreignKeys.find(

@@ -20,7 +20,9 @@ export class ExpensePlanEventHandler {
    * Reset linked suggestion to pending when expense plan is deleted
    */
   @OnEvent(ExpensePlanDeletedEvent.name)
-  async handleExpensePlanDeleted(event: ExpensePlanDeletedEvent): Promise<void> {
+  async handleExpensePlanDeleted(
+    event: ExpensePlanDeletedEvent,
+  ): Promise<void> {
     try {
       this.logger.debug(
         'Handling ExpensePlanDeletedEvent for suggestion reset',

@@ -65,7 +65,10 @@ export class CategoryFallbackSuggestionService {
   async generateFallbackSuggestions(
     userId: number,
   ): Promise<CategoryFallbackSuggestion[]> {
-    const startDate = subMonths(new Date(), SUGGESTION_CONFIG.MONTHS_TO_ANALYZE);
+    const startDate = subMonths(
+      new Date(),
+      SUGGESTION_CONFIG.MONTHS_TO_ANALYZE,
+    );
 
     this.logger.log(
       `Generating fallback suggestions for user ${userId} from ${startDate.toISOString()}`,
@@ -97,7 +100,9 @@ export class CategoryFallbackSuggestionService {
     for (const stat of categoryStats) {
       const totalSpent = parseFloat(stat.totalSpent) || 0;
       const transactionCount = parseInt(stat.transactionCount, 10) || 0;
-      const monthlyAverage = Math.round((totalSpent / SUGGESTION_CONFIG.MONTHS_TO_ANALYZE) * 100) / 100;
+      const monthlyAverage =
+        Math.round((totalSpent / SUGGESTION_CONFIG.MONTHS_TO_ANALYZE) * 100) /
+        100;
 
       // Skip if below minimum thresholds
       if (monthlyAverage < SUGGESTION_CONFIG.MIN_MONTHLY_AVERAGE) {
@@ -127,7 +132,9 @@ export class CategoryFallbackSuggestionService {
     );
 
     // Sort by monthly average (highest first)
-    return fallbackSuggestions.sort((a, b) => b.monthlyAverage - a.monthlyAverage);
+    return fallbackSuggestions.sort(
+      (a, b) => b.monthlyAverage - a.monthlyAverage,
+    );
   }
 
   /**
@@ -138,7 +145,10 @@ export class CategoryFallbackSuggestionService {
     categoryId: number,
     userId: number,
   ): Promise<number> {
-    const startDate = subMonths(new Date(), SUGGESTION_CONFIG.MONTHS_TO_ANALYZE);
+    const startDate = subMonths(
+      new Date(),
+      SUGGESTION_CONFIG.MONTHS_TO_ANALYZE,
+    );
 
     const result = await this.transactionRepository
       .createQueryBuilder('t')
@@ -150,7 +160,9 @@ export class CategoryFallbackSuggestionService {
       .getRawOne();
 
     const totalSpent = parseFloat(result?.totalSpent) || 0;
-    return Math.round((totalSpent / SUGGESTION_CONFIG.MONTHS_TO_ANALYZE) * 100) / 100;
+    return (
+      Math.round((totalSpent / SUGGESTION_CONFIG.MONTHS_TO_ANALYZE) * 100) / 100
+    );
   }
 
   /**
@@ -162,7 +174,10 @@ export class CategoryFallbackSuggestionService {
     categoryId: number,
     userId: number,
   ): Promise<DiscrepancyResult> {
-    const categoryAverage = await this.getCategoryMonthlyAverage(categoryId, userId);
+    const categoryAverage = await this.getCategoryMonthlyAverage(
+      categoryId,
+      userId,
+    );
 
     // If category average is 0, no discrepancy to check
     if (categoryAverage === 0) {

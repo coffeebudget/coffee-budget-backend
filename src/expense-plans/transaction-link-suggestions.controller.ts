@@ -68,7 +68,8 @@ export class TransactionLinkSuggestionsController {
   @Get('counts')
   @ApiOperation({
     summary: 'Get suggestion counts',
-    description: 'Get the count of pending and total suggestions for badge display',
+    description:
+      'Get the count of pending and total suggestions for badge display',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -131,7 +132,8 @@ export class TransactionLinkSuggestionsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Reject a link suggestion',
-    description: 'Reject a suggestion. Optionally provide a reason and disable future suggestions for this plan.',
+    description:
+      'Reject a suggestion. Optionally provide a reason and disable future suggestions for this plan.',
   })
   @ApiParam({
     name: 'id',

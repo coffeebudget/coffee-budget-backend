@@ -208,17 +208,20 @@ export class SuggestionResponseDto {
   suggestionSource: SuggestionSource;
 
   @ApiPropertyOptional({
-    description: 'Monthly average spending for the category (used for discrepancy comparison)',
+    description:
+      'Monthly average spending for the category (used for discrepancy comparison)',
   })
   categoryMonthlyAverage: number | null;
 
   @ApiPropertyOptional({
-    description: 'Percentage difference between pattern amount and category average',
+    description:
+      'Percentage difference between pattern amount and category average',
   })
   discrepancyPercentage: number | null;
 
   @ApiProperty({
-    description: 'Whether there is a significant discrepancy between pattern and category average',
+    description:
+      'Whether there is a significant discrepancy between pattern and category average',
   })
   hasDiscrepancyWarning: boolean;
 

@@ -98,7 +98,7 @@ describe('PatternDetectionService', () => {
           merchantName: 'Netflix',
           amount: -15.99,
           type: 'expense',
-          
+
           category: mockCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -109,7 +109,7 @@ describe('PatternDetectionService', () => {
           merchantName: 'Netflix',
           amount: -15.99,
           type: 'expense',
-          
+
           category: mockCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -121,7 +121,7 @@ describe('PatternDetectionService', () => {
           merchantName: 'Bank Transfer',
           amount: -500,
           type: 'expense',
-          
+
           category: mockExcludedCategory,
           executionDate: baseDate,
           createdAt: baseDate,
@@ -132,7 +132,7 @@ describe('PatternDetectionService', () => {
           merchantName: 'Bank Transfer',
           amount: -500,
           type: 'expense',
-          
+
           category: mockExcludedCategory,
           executionDate: addDays(baseDate, 30),
           createdAt: addDays(baseDate, 30),
@@ -143,7 +143,7 @@ describe('PatternDetectionService', () => {
           merchantName: 'Bank Transfer',
           amount: -500,
           type: 'expense',
-          
+
           category: mockExcludedCategory,
           executionDate: addDays(baseDate, 60),
           createdAt: addDays(baseDate, 60),
@@ -318,7 +318,7 @@ describe('PatternDetectionService', () => {
         description: 'Netflix',
         merchantName: 'Netflix',
         amount: -15.99,
-          type: 'expense',
+        type: 'expense',
         category: mockCategory,
         executionDate: new Date(),
       } as Transaction;
@@ -830,7 +830,7 @@ describe('PatternDetectionService', () => {
         description: 'Weekly Pattern',
         merchantName: 'Merchant',
         amount: -50,
-          type: 'expense',
+        type: 'expense',
         category: mockCategory,
         executionDate: addDays(baseDate, i * 7),
         createdAt: addDays(baseDate, i * 7),

@@ -37,8 +37,12 @@ import {
   CoverageSummaryResponse,
   ExpensePlanWithStatusDto,
   LongTermStatusSummary,
+  AccountAllocationSummaryResponse,
 } from './dto';
-import { AcceptAdjustmentDto, ReviewSummaryDto } from './dto/adjustment-action.dto';
+import {
+  AcceptAdjustmentDto,
+  ReviewSummaryDto,
+} from './dto/adjustment-action.dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
@@ -220,6 +224,27 @@ export class ExpensePlansController {
     @CurrentUser() user: any,
   ): Promise<CoverageSummaryResponse> {
     return this.expensePlansService.getCoverageSummary(user.id);
+  }
+
+  @Get('summary/account-allocation')
+  @ApiOperation({
+    summary: 'Get account allocation summary',
+    description:
+      'Get what each account should hold TODAY, comparing required allocations (fixed monthly + sinking fund progress) against current balance',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Account allocation summary retrieved successfully',
+    type: AccountAllocationSummaryResponse,
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getAccountAllocationSummary(
+    @CurrentUser() user: any,
+  ): Promise<AccountAllocationSummaryResponse> {
+    return this.expensePlansService.getAccountAllocationSummary(user.id);
   }
 
   @Get(':id')
@@ -580,7 +605,11 @@ export class ExpensePlansController {
     @Body() dto: AcceptAdjustmentDto,
     @CurrentUser() user: any,
   ): Promise<ExpensePlan> {
-    return this.adjustmentService.acceptAdjustment(id, user.id, dto.customAmount);
+    return this.adjustmentService.acceptAdjustment(
+      id,
+      user.id,
+      dto.customAmount,
+    );
   }
 
   @Post(':id/dismiss-adjustment')

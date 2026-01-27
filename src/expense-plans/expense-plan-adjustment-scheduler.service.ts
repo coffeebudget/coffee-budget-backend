@@ -15,7 +15,9 @@ export interface WeeklyReviewResult {
 
 @Injectable()
 export class ExpensePlanAdjustmentSchedulerService {
-  private readonly logger = new Logger(ExpensePlanAdjustmentSchedulerService.name);
+  private readonly logger = new Logger(
+    ExpensePlanAdjustmentSchedulerService.name,
+  );
 
   constructor(
     @InjectRepository(User)
@@ -45,7 +47,9 @@ export class ExpensePlanAdjustmentSchedulerService {
 
     for (const user of users) {
       try {
-        const result = await this.adjustmentService.reviewAllPlansForUser(user.id);
+        const result = await this.adjustmentService.reviewAllPlansForUser(
+          user.id,
+        );
         usersProcessed++;
         totalPlansReviewed += result.plansReviewed;
         totalNewSuggestions += result.newSuggestions;

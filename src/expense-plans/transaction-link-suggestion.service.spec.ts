@@ -83,7 +83,9 @@ describe('TransactionLinkSuggestionService', () => {
     module = await Test.createTestingModule({
       providers: [
         TransactionLinkSuggestionService,
-        RepositoryMockFactory.createRepositoryProvider(TransactionLinkSuggestion),
+        RepositoryMockFactory.createRepositoryProvider(
+          TransactionLinkSuggestion,
+        ),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
         RepositoryMockFactory.createRepositoryProvider(Transaction),
         {
@@ -113,9 +115,9 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('findPending', () => {
     it('should return pending suggestions for user', async () => {
-      jest.spyOn(suggestionRepository, 'find').mockResolvedValue([
-        mockSuggestion as TransactionLinkSuggestion,
-      ]);
+      jest
+        .spyOn(suggestionRepository, 'find')
+        .mockResolvedValue([mockSuggestion as TransactionLinkSuggestion]);
 
       const result = await service.findPending(1);
 
@@ -155,9 +157,9 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('findById', () => {
     it('should return suggestion when found', async () => {
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        mockSuggestion as TransactionLinkSuggestion,
-      );
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(mockSuggestion as TransactionLinkSuggestion);
 
       const result = await service.findById(1, 1);
 
@@ -177,12 +179,12 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('createSuggestion', () => {
     it('should create a withdrawal suggestion for expense transaction', async () => {
-      jest.spyOn(suggestionRepository, 'create').mockReturnValue(
-        mockSuggestion as TransactionLinkSuggestion,
-      );
-      jest.spyOn(suggestionRepository, 'save').mockResolvedValue(
-        mockSuggestion as TransactionLinkSuggestion,
-      );
+      jest
+        .spyOn(suggestionRepository, 'create')
+        .mockReturnValue(mockSuggestion as TransactionLinkSuggestion);
+      jest
+        .spyOn(suggestionRepository, 'save')
+        .mockResolvedValue(mockSuggestion as TransactionLinkSuggestion);
 
       const result = await service.createSuggestion(
         mockTransaction as Transaction,
@@ -234,9 +236,9 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('approve', () => {
     it('should approve suggestion and create withdrawal', async () => {
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        mockSuggestion as TransactionLinkSuggestion,
-      );
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(mockSuggestion as TransactionLinkSuggestion);
       jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
         ...mockSuggestion,
         status: 'approved',
@@ -259,10 +261,13 @@ describe('TransactionLinkSuggestionService', () => {
     });
 
     it('should approve with custom amount', async () => {
-      const pendingSuggestion = { ...mockSuggestion, status: 'pending' as const };
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        pendingSuggestion as TransactionLinkSuggestion,
-      );
+      const pendingSuggestion = {
+        ...mockSuggestion,
+        status: 'pending' as const,
+      };
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(pendingSuggestion as TransactionLinkSuggestion);
       jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
         ...pendingSuggestion,
         status: 'approved',
@@ -297,9 +302,9 @@ describe('TransactionLinkSuggestionService', () => {
         transactionAmount: 100,
       };
 
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        contributionSuggestion as TransactionLinkSuggestion,
-      );
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(contributionSuggestion as TransactionLinkSuggestion);
       jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
         ...contributionSuggestion,
         status: 'approved',
@@ -313,10 +318,13 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('reject', () => {
     it('should reject suggestion with reason', async () => {
-      const pendingSuggestion = { ...mockSuggestion, status: 'pending' as const };
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        pendingSuggestion as TransactionLinkSuggestion,
-      );
+      const pendingSuggestion = {
+        ...mockSuggestion,
+        status: 'pending' as const,
+      };
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(pendingSuggestion as TransactionLinkSuggestion);
       jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
         ...pendingSuggestion,
         status: 'rejected',
@@ -345,8 +353,17 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('bulkApprove', () => {
     it('should approve multiple suggestions', async () => {
-      const suggestion1 = { ...mockSuggestion, id: 1, status: 'pending' as const };
-      const suggestion2 = { ...mockSuggestion, id: 2, transactionId: 124, status: 'pending' as const };
+      const suggestion1 = {
+        ...mockSuggestion,
+        id: 1,
+        status: 'pending' as const,
+      };
+      const suggestion2 = {
+        ...mockSuggestion,
+        id: 2,
+        transactionId: 124,
+        status: 'pending' as const,
+      };
 
       jest
         .spyOn(suggestionRepository, 'findOne')
@@ -364,7 +381,10 @@ describe('TransactionLinkSuggestionService', () => {
     });
 
     it('should handle partial failures', async () => {
-      const pendingSuggestion = { ...mockSuggestion, status: 'pending' as const };
+      const pendingSuggestion = {
+        ...mockSuggestion,
+        status: 'pending' as const,
+      };
       jest
         .spyOn(suggestionRepository, 'findOne')
         .mockResolvedValueOnce(pendingSuggestion as TransactionLinkSuggestion)
@@ -399,9 +419,9 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('checkSuggestionExists', () => {
     it('should return true when suggestion exists', async () => {
-      jest.spyOn(suggestionRepository, 'findOne').mockResolvedValue(
-        mockSuggestion as TransactionLinkSuggestion,
-      );
+      jest
+        .spyOn(suggestionRepository, 'findOne')
+        .mockResolvedValue(mockSuggestion as TransactionLinkSuggestion);
 
       const result = await service.checkSuggestionExists(123, 1);
 
@@ -419,9 +439,9 @@ describe('TransactionLinkSuggestionService', () => {
 
   describe('findMatchingPlans', () => {
     it('should find sinking fund plans with matching category', async () => {
-      jest.spyOn(expensePlanRepository, 'find').mockResolvedValue([
-        mockExpensePlan as ExpensePlan,
-      ]);
+      jest
+        .spyOn(expensePlanRepository, 'find')
+        .mockResolvedValue([mockExpensePlan as ExpensePlan]);
 
       const result = await service.findMatchingPlans(1, 1);
 

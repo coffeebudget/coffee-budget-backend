@@ -12,13 +12,17 @@ export type FundingStatus =
  * Shows payment status for the current month rather than funding progress.
  */
 export class FixedMonthlyStatusDto {
-  @ApiProperty({ description: 'Whether payment for current month has been made' })
+  @ApiProperty({
+    description: 'Whether payment for current month has been made',
+  })
   currentMonthPaymentMade: boolean;
 
   @ApiPropertyOptional({ description: 'Date of current month payment' })
   paymentDate: Date | null;
 
-  @ApiProperty({ description: 'Whether balance is sufficient for next payment' })
+  @ApiProperty({
+    description: 'Whether balance is sufficient for next payment',
+  })
   readyForNextMonth: boolean;
 
   @ApiPropertyOptional({

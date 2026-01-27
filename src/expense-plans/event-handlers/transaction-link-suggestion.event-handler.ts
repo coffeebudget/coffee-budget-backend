@@ -16,7 +16,9 @@ import { TransactionLinkSuggestionService } from '../transaction-link-suggestion
  */
 @Injectable()
 export class TransactionLinkSuggestionEventHandler {
-  private readonly logger = new Logger(TransactionLinkSuggestionEventHandler.name);
+  private readonly logger = new Logger(
+    TransactionLinkSuggestionEventHandler.name,
+  );
 
   constructor(
     private readonly suggestionService: TransactionLinkSuggestionService,
@@ -33,10 +35,13 @@ export class TransactionLinkSuggestionEventHandler {
     event: TransactionCreatedEvent,
   ): Promise<void> {
     try {
-      this.logger.debug('Handling TransactionCreatedEvent for link suggestions', {
-        transactionId: event.transaction.id,
-        userId: event.userId,
-      });
+      this.logger.debug(
+        'Handling TransactionCreatedEvent for link suggestions',
+        {
+          transactionId: event.transaction.id,
+          userId: event.userId,
+        },
+      );
 
       await this.checkForMatchingPlans(event.transaction, event.userId);
 
@@ -127,7 +132,9 @@ export class TransactionLinkSuggestionEventHandler {
         },
       );
 
-      await this.suggestionService.invalidateForTransaction(event.transactionId);
+      await this.suggestionService.invalidateForTransaction(
+        event.transactionId,
+      );
 
       this.logger.debug(
         'Link suggestion invalidation completed for deleted transaction',
@@ -159,9 +166,12 @@ export class TransactionLinkSuggestionEventHandler {
     // Need a category to match
     const categoryId = transaction.category?.id;
     if (!categoryId) {
-      this.logger.debug('Transaction has no category, skipping link suggestion', {
-        transactionId: transaction.id,
-      });
+      this.logger.debug(
+        'Transaction has no category, skipping link suggestion',
+        {
+          transactionId: transaction.id,
+        },
+      );
       return;
     }
 

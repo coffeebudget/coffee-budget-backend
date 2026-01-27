@@ -150,7 +150,9 @@ export class GocardlessConnectionService {
 
         // Only add alert if there are accounts that still need attention
         if (accountsNeedingAlert.length > 0) {
-          const daysUntilExpiration = this.getDaysUntilExpiration(conn.expiresAt);
+          const daysUntilExpiration = this.getDaysUntilExpiration(
+            conn.expiresAt,
+          );
 
           alerts.push({
             connectionId: conn.id,

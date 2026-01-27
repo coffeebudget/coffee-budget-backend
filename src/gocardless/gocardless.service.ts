@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, IsNull } from 'typeorm';
@@ -424,7 +419,9 @@ export class GocardlessService {
   /**
    * Get a single institution by ID
    */
-  async getInstitutionById(institutionId: string): Promise<InstitutionDto | null> {
+  async getInstitutionById(
+    institutionId: string,
+  ): Promise<InstitutionDto | null> {
     try {
       await this.ensureValidToken();
 
@@ -437,7 +434,9 @@ export class GocardlessService {
 
       return response.data;
     } catch (error) {
-      this.logger.warn(`Failed to fetch institution ${institutionId}: ${error.message}`);
+      this.logger.warn(
+        `Failed to fetch institution ${institutionId}: ${error.message}`,
+      );
       return null;
     }
   }
