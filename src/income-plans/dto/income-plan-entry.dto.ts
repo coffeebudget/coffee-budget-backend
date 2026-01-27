@@ -146,3 +146,32 @@ export class AnnualTrackingSummaryDto {
   // Monthly breakdown
   months: MonthlyTrackingSummaryDto[];
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TRANSACTION SUGGESTION DTOs
+// ═══════════════════════════════════════════════════════════════════════════
+
+export class TransactionSuggestionDto {
+  transactionId: number;
+  description: string;
+  amount: number;
+  date: Date;
+  categoryId: number | null;
+  categoryName: string | null;
+  merchantName: string | null;
+
+  // Matching scores
+  confidence: number; // 0-100
+  matchReasons: string[];
+}
+
+export class TransactionSuggestionsResponseDto {
+  incomePlanId: number;
+  incomePlanName: string;
+  year: number;
+  month: number;
+  expectedAmount: number;
+
+  suggestions: TransactionSuggestionDto[];
+  alreadyLinkedTransactionId: number | null;
+}

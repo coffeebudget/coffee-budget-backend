@@ -35,6 +35,7 @@ import {
   IncomePlanTrackingSummaryDto,
   MonthlyTrackingSummaryDto,
   AnnualTrackingSummaryDto,
+  TransactionSuggestionsResponseDto,
 } from './dto';
 import { IncomePlan } from './entities/income-plan.entity';
 
@@ -382,6 +383,33 @@ export class IncomePlansController {
     @CurrentUser() user: any,
   ): Promise<void> {
     return this.incomePlansService.deleteEntry(entryId, id, user.id);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRACKING: TRANSACTION SUGGESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get(':id/suggest-transactions/:year/:month')
+  @ApiOperation({
+    summary: 'Get suggested transactions for linking',
+    description:
+      'Find income transactions that match this income plan for a specific month. ' +
+      'Suggestions are scored based on category match, amount similarity, and date proximity.',
+  })
+  @ApiParam({ name: 'id', description: 'Income plan ID', type: Number })
+  @ApiParam({ name: 'year', description: 'Year', type: Number })
+  @ApiParam({ name: 'month', description: 'Month (1-12)', type: Number })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Transaction suggestions retrieved successfully',
+  })
+  async suggestTransactions(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('year', ParseIntPipe) year: number,
+    @Param('month', ParseIntPipe) month: number,
+    @CurrentUser() user: any,
+  ): Promise<TransactionSuggestionsResponseDto> {
+    return this.incomePlansService.suggestTransactions(id, user.id, year, month);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

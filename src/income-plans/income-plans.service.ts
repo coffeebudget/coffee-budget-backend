@@ -4,9 +4,10 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { IncomePlan, MonthlyAmounts } from './entities/income-plan.entity';
 import { IncomePlanEntry } from './entities/income-plan-entry.entity';
+import { Transaction } from '../transactions/transaction.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import {
   IncomePlanCreatedEvent,
@@ -29,6 +30,8 @@ import {
   MonthlyTrackingSummaryDto,
   AnnualTrackingSummaryDto,
   IncomePlanEntryStatus,
+  TransactionSuggestionDto,
+  TransactionSuggestionsResponseDto,
 } from './dto/income-plan-entry.dto';
 
 @Injectable()
@@ -38,6 +41,8 @@ export class IncomePlansService {
     private readonly incomePlanRepository: Repository<IncomePlan>,
     @InjectRepository(IncomePlanEntry)
     private readonly entryRepository: Repository<IncomePlanEntry>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
     private readonly eventPublisher: EventPublisherService,
   ) {}
 
@@ -775,6 +780,148 @@ export class IncomePlansService {
       now.getMonth() + 1,
     );
     return summary.status;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSACTION SUGGESTIONS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Suggest matching transactions for an income plan entry
+   * Matching criteria:
+   * - Income transactions only (type = 'income')
+   * - In the target month/year
+   * - Category match (if plan has categoryId)
+   * - Amount similarity (within 20% of expected)
+   * - Near expected day (if plan has expectedDay)
+   */
+  async suggestTransactions(
+    incomePlanId: number,
+    userId: number,
+    year: number,
+    month: number,
+  ): Promise<TransactionSuggestionsResponseDto> {
+    const plan = await this.findOne(incomePlanId, userId);
+    const expectedAmount = plan.getAmountForMonth(month - 1); // month is 1-indexed, getAmountForMonth is 0-indexed
+
+    // Get existing entry to check if already linked
+    const existingEntry = await this.entryRepository.findOne({
+      where: { incomePlanId, year, month },
+    });
+
+    // Calculate date range for the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // Find income transactions in the target month
+    const transactions = await this.transactionRepository
+      .createQueryBuilder('t')
+      .leftJoinAndSelect('t.category', 'category')
+      .where('t.user = :userId', { userId })
+      .andWhere('t.type = :type', { type: 'income' })
+      .andWhere('t.executionDate BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .orderBy('t.executionDate', 'DESC')
+      .getMany();
+
+    // Score and filter transactions
+    const suggestions: TransactionSuggestionDto[] = [];
+
+    for (const transaction of transactions) {
+      const { confidence, reasons } = this.calculateMatchScore(
+        transaction,
+        plan,
+        expectedAmount,
+      );
+
+      // Only include if confidence > 30%
+      if (confidence >= 30) {
+        suggestions.push({
+          transactionId: transaction.id,
+          description: transaction.description,
+          amount: Number(transaction.amount),
+          date: transaction.executionDate || transaction.createdAt,
+          categoryId: transaction.category?.id || null,
+          categoryName: transaction.category?.name || null,
+          merchantName: transaction.merchantName || transaction.creditorName,
+          confidence,
+          matchReasons: reasons,
+        });
+      }
+    }
+
+    // Sort by confidence descending
+    suggestions.sort((a, b) => b.confidence - a.confidence);
+
+    return {
+      incomePlanId,
+      incomePlanName: plan.name,
+      year,
+      month,
+      expectedAmount,
+      suggestions,
+      alreadyLinkedTransactionId: existingEntry?.transactionId || null,
+    };
+  }
+
+  /**
+   * Calculate match score for a transaction against an income plan
+   */
+  private calculateMatchScore(
+    transaction: Transaction,
+    plan: IncomePlan,
+    expectedAmount: number,
+  ): { confidence: number; reasons: string[] } {
+    let score = 0;
+    const reasons: string[] = [];
+
+    // Category match (40 points)
+    if (plan.categoryId && transaction.category?.id === plan.categoryId) {
+      score += 40;
+      reasons.push('Category matches');
+    }
+
+    // Amount similarity (35 points max)
+    const amount = Math.abs(Number(transaction.amount));
+    const amountDiff = Math.abs(amount - expectedAmount);
+    const amountTolerance = expectedAmount * 0.2; // 20% tolerance
+
+    if (amountDiff <= amountTolerance) {
+      const amountScore = 35 * (1 - amountDiff / amountTolerance);
+      score += amountScore;
+      if (amountDiff === 0) {
+        reasons.push('Exact amount match');
+      } else if (amountDiff <= expectedAmount * 0.05) {
+        reasons.push('Amount very close');
+      } else {
+        reasons.push('Amount similar');
+      }
+    }
+
+    // Day proximity (25 points max)
+    if (plan.expectedDay) {
+      const transactionDay = (
+        transaction.executionDate || transaction.createdAt
+      ).getDate();
+      const dayDiff = Math.abs(transactionDay - plan.expectedDay);
+
+      if (dayDiff <= 5) {
+        const dayScore = 25 * (1 - dayDiff / 5);
+        score += dayScore;
+        if (dayDiff === 0) {
+          reasons.push('On expected day');
+        } else {
+          reasons.push('Near expected day');
+        }
+      }
+    } else {
+      // No expected day, give some base points
+      score += 10;
+    }
+
+    return { confidence: Math.min(100, Math.round(score)), reasons };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

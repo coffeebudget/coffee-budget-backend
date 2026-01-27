@@ -11,7 +11,6 @@ import {
 import { User } from '../../users/user.entity';
 import { Transaction } from '../../transactions/transaction.entity';
 import { ExpensePlan } from './expense-plan.entity';
-import { ExpensePlanTransaction } from './expense-plan-transaction.entity';
 
 export type TransactionLinkSuggestionStatus =
   | 'pending'
@@ -62,16 +61,6 @@ export class TransactionLinkSuggestion {
 
   @Column({ type: 'varchar', length: 20, default: 'pending' })
   status: TransactionLinkSuggestionStatus;
-
-  @Column({ nullable: true })
-  expensePlanTransactionId: number | null;
-
-  @ManyToOne(() => ExpensePlanTransaction, {
-    nullable: true,
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'expensePlanTransactionId' })
-  expensePlanTransaction: ExpensePlanTransaction | null;
 
   @Column({ type: 'text', nullable: true })
   rejectionReason: string | null;

@@ -21,35 +21,17 @@ export class FixedMonthlyPlanAllocation {
   requiredToday: number;
 
   @ApiProperty({
-    description: 'Current balance in the plan',
-    example: 1301,
-  })
-  currentBalance: number;
-
-  @ApiProperty({
     description: 'Whether current month payment has been made',
     example: true,
   })
   paymentMade: boolean;
 
   @ApiProperty({
-    description: 'Whether ready for next payment',
-    example: true,
-  })
-  readyForNextMonth: boolean;
-
-  @ApiProperty({
-    description: 'Payment status: paid, pending, or short',
+    description: 'Payment status: paid or pending',
     example: 'paid',
-    enum: ['paid', 'pending', 'short'],
+    enum: ['paid', 'pending'],
   })
-  status: 'paid' | 'pending' | 'short';
-
-  @ApiPropertyOptional({
-    description: 'Amount short if not ready',
-    example: null,
-  })
-  amountShort: number | null;
+  status: 'paid' | 'pending';
 }
 
 /**
@@ -73,12 +55,6 @@ export class SinkingFundPlanAllocation {
   requiredToday: number;
 
   @ApiProperty({
-    description: 'Current balance in the plan',
-    example: 1500,
-  })
-  currentBalance: number;
-
-  @ApiProperty({
     description: 'Target total amount',
     example: 4000,
   })
@@ -91,7 +67,7 @@ export class SinkingFundPlanAllocation {
   monthlyContribution: number;
 
   @ApiProperty({
-    description: 'Progress percentage',
+    description: 'Progress percentage (time-based)',
     example: 37.5,
   })
   progressPercent: number;
@@ -99,15 +75,9 @@ export class SinkingFundPlanAllocation {
   @ApiProperty({
     description: 'Funding status relative to schedule',
     example: 'behind',
-    enum: ['ahead', 'on_track', 'behind'],
+    enum: ['on_track', 'behind'],
   })
-  status: 'ahead' | 'on_track' | 'behind';
-
-  @ApiPropertyOptional({
-    description: 'Gap from expected (positive = behind schedule)',
-    example: 393,
-  })
-  gapFromExpected: number | null;
+  status: 'on_track' | 'behind';
 
   @ApiPropertyOptional({
     description: 'Next due date',

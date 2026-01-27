@@ -1,15 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OnEvent } from '@nestjs/event-emitter';
 import {
   IncomeDistributionRule,
   DistributionStrategy,
 } from './entities/income-distribution-rule.entity';
 import { ExpensePlan } from './entities/expense-plan.entity';
-import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { TransactionCreatedEvent } from '../shared/events/transaction.events';
 
 export interface DistributionItem {
   planId: number;
@@ -28,7 +25,6 @@ export interface PendingDistribution {
   planName: string;
   icon: string | null;
   priority: string;
-  currentBalance: number;
   monthlyContribution: number;
   amountNeeded: number;
 }
@@ -63,8 +59,6 @@ export class IncomeDistributionService {
     private readonly ruleRepository: Repository<IncomeDistributionRule>,
     @InjectRepository(ExpensePlan)
     private readonly planRepository: Repository<ExpensePlan>,
-    @InjectRepository(ExpensePlanTransaction)
-    private readonly planTransactionRepository: Repository<ExpensePlanTransaction>,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -189,7 +183,7 @@ export class IncomeDistributionService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DISTRIBUTION STRATEGIES
+  // DISTRIBUTION STRATEGIES (for planning purposes only, no balance tracking)
   // ═══════════════════════════════════════════════════════════════════════════
 
   calculateDistribution(
@@ -257,241 +251,7 @@ export class IncomeDistributionService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // INCOME DISTRIBUTION
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async distributeIncome(
-    userId: number,
-    transaction: Transaction,
-    rule: IncomeDistributionRule,
-  ): Promise<DistributionResult> {
-    if (!rule.autoDistribute) {
-      return {
-        distributed: [],
-        totalDistributed: 0,
-        remaining: Math.abs(transaction.amount),
-        sourceTransactionId: transaction.id,
-      };
-    }
-
-    // Get active expense plans sorted by priority
-    const plans = await this.planRepository.find({
-      where: { userId, status: 'active' },
-      order: { priority: 'ASC' }, // essential first
-    });
-
-    if (plans.length === 0) {
-      return {
-        distributed: [],
-        totalDistributed: 0,
-        remaining: Math.abs(transaction.amount),
-        sourceTransactionId: transaction.id,
-      };
-    }
-
-    const incomeAmount = Math.abs(transaction.amount);
-    const distributions = this.calculateDistribution(
-      plans,
-      incomeAmount,
-      rule.distributionStrategy,
-    );
-
-    // Create contribution transactions
-    for (const dist of distributions) {
-      await this.createContribution(dist.planId, dist.amount, transaction.id);
-    }
-
-    const totalDistributed = distributions.reduce(
-      (sum, d) => sum + d.amount,
-      0,
-    );
-
-    return {
-      distributed: distributions,
-      totalDistributed,
-      remaining: incomeAmount - totalDistributed,
-      sourceTransactionId: transaction.id,
-    };
-  }
-
-  private async createContribution(
-    planId: number,
-    amount: number,
-    sourceTransactionId: number,
-  ): Promise<void> {
-    const plan = await this.planRepository.findOne({ where: { id: planId } });
-
-    if (!plan) return;
-
-    const newBalance = Number(plan.currentBalance) + amount;
-
-    // Create transaction record
-    await this.planTransactionRepository.save({
-      expensePlanId: planId,
-      type: 'contribution',
-      amount,
-      date: new Date(),
-      balanceAfter: newBalance,
-      transactionId: sourceTransactionId,
-      isAutomatic: true,
-      note: 'Auto-distributed from income',
-    });
-
-    // Update plan balance
-    await this.planRepository.update(planId, {
-      currentBalance: newBalance,
-      lastFundedDate: new Date(),
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EVENT HANDLER
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  @OnEvent('TransactionCreatedEvent')
-  async handleIncomeTransaction(event: TransactionCreatedEvent): Promise<void> {
-    const transaction = event.transaction;
-
-    // Only process income transactions
-    if (transaction.type !== 'income') return;
-
-    // Check if matches any distribution rule
-    const rule = await this.findMatchingRule(transaction);
-    if (!rule || !rule.autoDistribute) return;
-
-    // Distribute to expense plans
-    await this.distributeIncome(event.userId, transaction, rule);
-  }
-
-  @OnEvent('TransactionCreatedEvent')
-  async handleExpenseTransaction(
-    event: TransactionCreatedEvent,
-  ): Promise<void> {
-    const transaction = event.transaction;
-
-    // Only process expense transactions
-    if (transaction.type !== 'expense') return;
-
-    // Get category ID from relation
-    const categoryId = transaction.category?.id;
-    if (!categoryId) return;
-
-    // Find linked expense plan with autoTrackCategory enabled
-    const plan = await this.planRepository.findOne({
-      where: {
-        userId: event.userId,
-        categoryId: categoryId,
-        autoTrackCategory: true,
-        status: 'active',
-      },
-    });
-
-    if (!plan) return;
-
-    // Create automatic withdrawal
-    await this.createAutoWithdrawal(plan, transaction);
-  }
-
-  private async createAutoWithdrawal(
-    plan: ExpensePlan,
-    transaction: Transaction,
-  ): Promise<void> {
-    const amount = Math.abs(Number(transaction.amount));
-    const newBalance = Math.max(0, Number(plan.currentBalance) - amount);
-
-    // Create withdrawal transaction record
-    await this.planTransactionRepository.save({
-      expensePlanId: plan.id,
-      type: 'withdrawal',
-      amount: -amount,
-      date: transaction.createdAt,
-      balanceAfter: newBalance,
-      transactionId: transaction.id,
-      isAutomatic: true,
-      note: `Auto-tracked: ${transaction.description}`,
-    });
-
-    // Update plan balance
-    await this.planRepository.update(plan.id, {
-      currentBalance: newBalance,
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MANUAL DISTRIBUTION
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async distributeManually(
-    userId: number,
-    amount: number,
-    strategy: DistributionStrategy = 'priority',
-    note?: string,
-  ): Promise<DistributionResult> {
-    // Get active expense plans sorted by priority
-    const plans = await this.planRepository.find({
-      where: { userId, status: 'active' },
-      order: { priority: 'ASC' },
-    });
-
-    if (plans.length === 0) {
-      return {
-        distributed: [],
-        totalDistributed: 0,
-        remaining: amount,
-      };
-    }
-
-    const distributions = this.calculateDistribution(plans, amount, strategy);
-
-    // Create contribution transactions
-    for (const dist of distributions) {
-      await this.createManualContribution(dist.planId, dist.amount, note);
-    }
-
-    const totalDistributed = distributions.reduce(
-      (sum, d) => sum + d.amount,
-      0,
-    );
-
-    return {
-      distributed: distributions,
-      totalDistributed,
-      remaining: amount - totalDistributed,
-    };
-  }
-
-  private async createManualContribution(
-    planId: number,
-    amount: number,
-    note?: string,
-  ): Promise<void> {
-    const plan = await this.planRepository.findOne({ where: { id: planId } });
-
-    if (!plan) return;
-
-    const newBalance = Number(plan.currentBalance) + amount;
-
-    // Create transaction record
-    await this.planTransactionRepository.save({
-      expensePlanId: planId,
-      type: 'contribution',
-      amount,
-      date: new Date(),
-      balanceAfter: newBalance,
-      transactionId: null,
-      isAutomatic: false,
-      note: note || 'Manual distribution',
-    });
-
-    // Update plan balance
-    await this.planRepository.update(planId, {
-      currentBalance: newBalance,
-      lastFundedDate: new Date(),
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // PENDING DISTRIBUTIONS
+  // PENDING DISTRIBUTIONS (for UI display)
   // ═══════════════════════════════════════════════════════════════════════════
 
   async getPendingDistributions(
@@ -507,7 +267,6 @@ export class IncomeDistributionService {
       planName: plan.name,
       icon: plan.icon,
       priority: plan.priority,
-      currentBalance: Number(plan.currentBalance),
       monthlyContribution: Number(plan.monthlyContribution),
       amountNeeded: Number(plan.monthlyContribution),
     }));

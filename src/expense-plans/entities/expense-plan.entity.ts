@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
-  OneToMany,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -12,7 +11,6 @@ import {
 import { User } from '../../users/user.entity';
 import { Category } from '../../categories/entities/category.entity';
 import { BankAccount } from '../../bank-accounts/entities/bank-account.entity';
-import { ExpensePlanTransaction } from './expense-plan-transaction.entity';
 
 export type PaymentAccountType = 'bank_account'; // Future: | 'credit_card'
 
@@ -38,8 +36,6 @@ export type ExpensePlanFrequency =
 export type ExpensePlanStatus = 'active' | 'paused' | 'completed';
 
 export type ContributionSource = 'calculated' | 'manual' | 'historical';
-
-export type InitialBalanceSource = 'zero' | 'historical' | 'custom';
 
 export type ExpensePlanPurpose = 'sinking_fund' | 'spending_budget';
 
@@ -113,9 +109,6 @@ export class ExpensePlan {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   targetAmount: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
-  currentBalance: number;
-
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   monthlyContribution: number;
 
@@ -143,9 +136,6 @@ export class ExpensePlan {
 
   @Column({ type: 'simple-array', nullable: true })
   seasonalMonths: number[] | null;
-
-  @Column({ type: 'date', nullable: true })
-  lastFundedDate: Date | null;
 
   @Column({ type: 'date', nullable: true })
   nextDueDate: Date | null;
@@ -183,16 +173,6 @@ export class ExpensePlan {
   adjustmentDismissedAt: Date | null;
 
   // ─────────────────────────────────────────────────────────────
-  // INITIALIZATION
-  // ─────────────────────────────────────────────────────────────
-
-  @Column({ type: 'varchar', length: 20, default: 'zero' })
-  initialBalanceSource: InitialBalanceSource;
-
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
-  initialBalanceCustom: number | null;
-
-  // ─────────────────────────────────────────────────────────────
   // METADATA
   // ─────────────────────────────────────────────────────────────
 
@@ -201,14 +181,4 @@ export class ExpensePlan {
 
   @UpdateDateColumn()
   updatedAt: Date;
-
-  // ─────────────────────────────────────────────────────────────
-  // RELATIONS
-  // ─────────────────────────────────────────────────────────────
-
-  @OneToMany(
-    () => ExpensePlanTransaction,
-    (transaction) => transaction.expensePlan,
-  )
-  transactions: ExpensePlanTransaction[];
 }

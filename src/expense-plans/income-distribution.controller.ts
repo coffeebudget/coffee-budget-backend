@@ -22,13 +22,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/user.decorator';
 import {
   IncomeDistributionService,
-  DistributionResult,
   PendingDistribution,
 } from './income-distribution.service';
 import {
   CreateIncomeDistributionRuleDto,
   UpdateIncomeDistributionRuleDto,
-  ManualDistributionDto,
 } from './dto';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
 
@@ -186,38 +184,8 @@ export class IncomeDistributionController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // DISTRIBUTION OPERATIONS
+  // DISTRIBUTION INFO
   // ═══════════════════════════════════════════════════════════════════════════
-
-  @Post('distribute-manually')
-  @ApiOperation({
-    summary: 'Manually distribute funds to expense plans',
-    description:
-      'Distribute a specified amount to active expense plans using the chosen strategy',
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Distribution completed successfully',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid distribution data',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async distributeManually(
-    @Body() dto: ManualDistributionDto,
-    @CurrentUser() user: any,
-  ): Promise<DistributionResult> {
-    return this.incomeDistributionService.distributeManually(
-      user.id,
-      dto.amount,
-      dto.strategy || 'priority',
-      dto.note,
-    );
-  }
 
   @Get('pending-distributions')
   @ApiOperation({

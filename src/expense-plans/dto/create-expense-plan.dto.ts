@@ -16,7 +16,6 @@ import {
   ExpensePlanPriority,
   ExpensePlanFrequency,
   ContributionSource,
-  InitialBalanceSource,
   PaymentAccountType,
   ExpensePlanPurpose,
 } from '../entities/expense-plan.entity';
@@ -217,24 +216,6 @@ export class CreateExpensePlanDto {
   @IsOptional()
   @IsBoolean()
   rolloverSurplus?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'How to set initial balance',
-    enum: ['zero', 'historical', 'custom'],
-    default: 'zero',
-  })
-  @IsOptional()
-  @IsEnum(['zero', 'historical', 'custom'])
-  initialBalanceSource?: InitialBalanceSource;
-
-  @ApiPropertyOptional({
-    description: 'Custom initial balance amount',
-    example: 500,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  initialBalanceCustom?: number;
 
   // ─────────────────────────────────────────────────────────────
   // PAYMENT SOURCE (Optional - for coverage tracking)
