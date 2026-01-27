@@ -12,7 +12,6 @@ import {
 } from './entities/transaction-link-suggestion.entity';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { ExpensePlansService } from './expense-plans.service';
 import {
   TransactionLinkSuggestionResponseDto,
   SuggestionCountsDto,
@@ -32,7 +31,6 @@ export class TransactionLinkSuggestionService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
-    private readonly expensePlansService: ExpensePlansService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -133,7 +131,7 @@ export class TransactionLinkSuggestionService {
   async approve(
     id: number,
     userId: number,
-    customAmount?: number,
+    _customAmount?: number,
   ): Promise<ApprovalResultDto> {
     const suggestion = await this.findById(id, userId);
 
@@ -143,50 +141,19 @@ export class TransactionLinkSuggestionService {
       );
     }
 
-    // Use custom amount or the absolute value of transaction amount
-    const amount =
-      customAmount ?? Math.abs(Number(suggestion.transactionAmount));
-
-    let planTransaction;
-
-    if (suggestion.suggestedType === 'withdrawal') {
-      // Create a withdrawal from the expense plan
-      planTransaction = await this.expensePlansService.withdraw(
-        suggestion.expensePlanId,
-        userId,
-        amount,
-        `Collegato: ${suggestion.transactionDescription}`,
-        suggestion.transactionId,
-        false, // Not automatic - user approved it
-      );
-    } else {
-      // Create a contribution to the expense plan
-      planTransaction = await this.expensePlansService.contribute(
-        suggestion.expensePlanId,
-        userId,
-        amount,
-        `Collegato: ${suggestion.transactionDescription}`,
-        suggestion.transactionId,
-        false,
-      );
-    }
-
-    // Update suggestion status
+    // Update suggestion status (no balance tracking anymore)
     suggestion.status = 'approved';
-    suggestion.expensePlanTransactionId = planTransaction.id;
     suggestion.reviewedAt = new Date();
     await this.suggestionRepository.save(suggestion);
 
     this.logger.log('Approved transaction link suggestion', {
       suggestionId: id,
-      planTransactionId: planTransaction.id,
-      newBalance: planTransaction.balanceAfter,
+      expensePlanId: suggestion.expensePlanId,
+      transactionId: suggestion.transactionId,
     });
 
     return {
       success: true,
-      planTransactionId: planTransaction.id,
-      newBalance: Number(planTransaction.balanceAfter),
     };
   }
 

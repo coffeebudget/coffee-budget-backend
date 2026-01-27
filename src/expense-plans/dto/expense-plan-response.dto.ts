@@ -20,15 +20,6 @@ export class FixedMonthlyStatusDto {
   @ApiPropertyOptional({ description: 'Date of current month payment' })
   paymentDate: Date | null;
 
-  @ApiProperty({
-    description: 'Whether balance is sufficient for next payment',
-  })
-  readyForNextMonth: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Amount short of next payment (targetAmount - currentBalance)',
-  })
-  amountShort: number | null;
 }
 
 /**
@@ -59,9 +50,6 @@ export class ExpensePlanWithStatusDto {
 
   @ApiProperty({ description: 'Target amount', example: 600 })
   targetAmount: number;
-
-  @ApiProperty({ description: 'Current accumulated balance', example: 300 })
-  currentBalance: number;
 
   @ApiProperty({ description: 'Monthly contribution amount', example: 50 })
   monthlyContribution: number;
@@ -115,27 +103,13 @@ export class ExpensePlanWithStatusDto {
   requiredMonthlyContribution: number | null;
 
   @ApiPropertyOptional({
-    description: 'Progress percentage toward target',
+    description: 'Progress percentage toward target (based on time elapsed)',
     example: 50,
   })
   progressPercent: number;
 
   @ApiPropertyOptional({
-    description:
-      'Expected funded amount by now based on plan creation date and monthly contribution',
-    example: 1600,
-  })
-  expectedFundedByNow: number | null;
-
-  @ApiPropertyOptional({
-    description:
-      'Funding gap from expected: expectedFundedByNow - currentBalance. Positive means behind schedule.',
-    example: 1600,
-  })
-  fundingGapFromExpected: number | null;
-
-  @ApiPropertyOptional({
-    description: 'Plan creation date (used to calculate expected funding)',
+    description: 'Plan creation date',
   })
   createdAt: Date | null;
 
@@ -193,24 +167,6 @@ export class PlanNeedingAttention {
     example: 70,
   })
   shortfallPerMonth: number;
-
-  @ApiPropertyOptional({
-    description: 'Expected funded amount by now',
-    example: 1600,
-  })
-  expectedFundedByNow: number | null;
-
-  @ApiPropertyOptional({
-    description: 'Current balance',
-    example: 0,
-  })
-  currentBalance: number;
-
-  @ApiPropertyOptional({
-    description: 'Funding gap from expected (positive means behind)',
-    example: 1600,
-  })
-  fundingGapFromExpected: number | null;
 }
 
 /**

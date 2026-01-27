@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { IncomePlansService } from './income-plans.service';
 import { IncomePlan } from './entities/income-plan.entity';
 import { IncomePlanEntry } from './entities/income-plan-entry.entity';
+import { Transaction } from '../transactions/transaction.entity';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
@@ -205,6 +206,7 @@ describe('IncomePlansService', () => {
         IncomePlansService,
         RepositoryMockFactory.createRepositoryProvider(IncomePlan),
         RepositoryMockFactory.createRepositoryProvider(IncomePlanEntry),
+        RepositoryMockFactory.createRepositoryProvider(Transaction),
         {
           provide: EventPublisherService,
           useValue: {

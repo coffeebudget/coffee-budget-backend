@@ -1,12 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ExpensePlan } from './entities/expense-plan.entity';
-import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { ExpensePlanDeletedEvent } from '../shared/events/expense-plan.events';
@@ -16,6 +11,12 @@ import {
   UnassignedPlanSummary,
   PlanAtRisk,
 } from './dto/coverage-summary.dto';
+import {
+  CoveragePeriodType,
+  getPeriodRange,
+  PeriodRange,
+  VALID_COVERAGE_PERIODS,
+} from './dto/coverage-period.dto';
 import {
   AccountAllocationSummaryResponse,
   AccountAllocationSummary,
@@ -49,8 +50,6 @@ export interface CreateExpensePlanDto {
   seasonalMonths?: number[];
   autoCalculate?: boolean;
   rolloverSurplus?: boolean;
-  initialBalanceSource?: ExpensePlan['initialBalanceSource'];
-  initialBalanceCustom?: number;
   // Payment source (optional - for coverage tracking)
   paymentAccountType?: ExpensePlan['paymentAccountType'];
   paymentAccountId?: number;
@@ -102,7 +101,6 @@ export interface TimelineEntry {
   planName: string;
   icon: string | null;
   amount: number;
-  currentBalance: number;
   status: 'funded' | 'on_track' | 'behind';
   monthsAway: number;
 }
@@ -112,8 +110,6 @@ export class ExpensePlansService {
   constructor(
     @InjectRepository(ExpensePlan)
     private readonly expensePlanRepository: Repository<ExpensePlan>,
-    @InjectRepository(ExpensePlanTransaction)
-    private readonly expensePlanTransactionRepository: Repository<ExpensePlanTransaction>,
     @InjectRepository(BankAccount)
     private readonly bankAccountRepository: Repository<BankAccount>,
     private readonly eventPublisher: EventPublisherService,
@@ -168,18 +164,7 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto[]> {
     const plans = await this.findAllByUser(userId);
-
-    // Batch fetch current month payments for fixed_monthly plans
-    const fixedMonthlyPlanIds = plans
-      .filter((p) => p.planType === 'fixed_monthly')
-      .map((p) => p.id);
-
-    const currentMonthPayments =
-      await this.getCurrentMonthPaymentsBatch(fixedMonthlyPlanIds);
-
-    return plans.map((plan) =>
-      this.enrichPlanWithStatus(plan, currentMonthPayments.get(plan.id)),
-    );
+    return plans.map((plan) => this.enrichPlanWithStatus(plan));
   }
 
   /**
@@ -190,15 +175,7 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto> {
     const plan = await this.findOne(id, userId);
-
-    // Fetch current month payment for fixed_monthly plans
-    let currentMonthPayment: { made: boolean; date: Date | null } | undefined;
-    if (plan.planType === 'fixed_monthly') {
-      const payments = await this.getCurrentMonthPaymentsBatch([plan.id]);
-      currentMonthPayment = payments.get(plan.id);
-    }
-
-    return this.enrichPlanWithStatus(plan, currentMonthPayment);
+    return this.enrichPlanWithStatus(plan);
   }
 
   /**
@@ -222,10 +199,7 @@ export class ExpensePlansService {
 
     for (const plan of sinkingFunds) {
       const status = this.calculateStatus(plan);
-      const amountNeeded = Math.max(
-        0,
-        Number(plan.targetAmount) - Number(plan.currentBalance),
-      );
+      const amountNeeded = Number(plan.targetAmount);
       totalAmountNeeded += amountNeeded;
 
       switch (status) {
@@ -275,12 +249,9 @@ export class ExpensePlansService {
 
   /**
    * Enrich an expense plan with calculated funding status fields.
+   * Now based on time-based calculations instead of currentBalance.
    */
-  private enrichPlanWithStatus(
-    plan: ExpensePlan,
-    currentMonthPayment?: { made: boolean; date: Date | null },
-  ): ExpensePlanWithStatusDto {
-    const currentBalance = Number(plan.currentBalance);
+  private enrichPlanWithStatus(plan: ExpensePlan): ExpensePlanWithStatusDto {
     const targetAmount = Number(plan.targetAmount);
     const monthlyContribution = Number(plan.monthlyContribution);
 
@@ -292,56 +263,52 @@ export class ExpensePlansService {
 
     if (plan.purpose === 'sinking_fund') {
       fundingStatus = this.calculateStatus(plan);
-      amountNeeded = Math.max(0, targetAmount - currentBalance);
+      amountNeeded = targetAmount;
 
       if (plan.nextDueDate) {
         monthsUntilDue = this.monthsBetween(
           new Date(),
           new Date(plan.nextDueDate),
         );
-        if (monthsUntilDue > 0 && amountNeeded > 0) {
-          requiredMonthlyContribution = amountNeeded / monthsUntilDue;
-        } else if (monthsUntilDue <= 0) {
-          requiredMonthlyContribution = amountNeeded; // Due now, need full amount
+        if (monthsUntilDue > 0) {
+          requiredMonthlyContribution = targetAmount / monthsUntilDue;
+        } else {
+          requiredMonthlyContribution = targetAmount; // Due now, need full amount
         }
       }
     }
 
-    const progressPercent =
-      targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
-
-    // Calculate expected funded amount by now
-    let expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
-    let fundingGapFromExpected =
-      expectedFundedByNow !== null
-        ? Math.max(0, expectedFundedByNow - currentBalance)
-        : null;
+    // Calculate expected funded amount by now (for sinking funds)
+    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
 
     // Fixed monthly status calculation
     let fixedMonthlyStatus: FixedMonthlyStatusDto | null = null;
 
     if (plan.planType === 'fixed_monthly') {
-      const readyForNext = currentBalance >= targetAmount;
+      // For fixed monthly, check if next due date has passed
+      const dueDay = plan.dueDay || 1;
+      const now = new Date();
+      const currentDueDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        dueDay,
+      );
+      const isPaidThisMonth = now >= currentDueDate;
+
       fixedMonthlyStatus = {
-        currentMonthPaymentMade: currentMonthPayment?.made ?? false,
-        paymentDate: currentMonthPayment?.date ?? null,
-        readyForNextMonth: readyForNext,
-        amountShort: readyForNext
-          ? null
-          : Math.round((targetAmount - currentBalance) * 100) / 100,
+        currentMonthPaymentMade: isPaidThisMonth,
+        paymentDate: isPaidThisMonth ? currentDueDate : null,
       };
 
-      // Override: don't show expectedFundedByNow for fixed monthly
-      expectedFundedByNow = null;
-      fundingGapFromExpected = null;
-
       // Adjust funding status for fixed monthly
-      fundingStatus = currentMonthPayment?.made
-        ? 'funded'
-        : readyForNext
-          ? 'on_track'
-          : 'behind';
+      fundingStatus = isPaidThisMonth ? 'funded' : 'on_track';
     }
+
+    // Calculate progress based on time rather than balance
+    const progressPercent =
+      plan.purpose === 'sinking_fund' && expectedFundedByNow !== null
+        ? (expectedFundedByNow / targetAmount) * 100
+        : 0;
 
     // Return all plan fields plus calculated status fields
     return {
@@ -349,7 +316,6 @@ export class ExpensePlansService {
       ...plan,
       // Override numeric fields to ensure they're numbers not strings
       targetAmount,
-      currentBalance,
       monthlyContribution,
       // Add calculated status fields
       fundingStatus,
@@ -357,8 +323,6 @@ export class ExpensePlansService {
       amountNeeded,
       requiredMonthlyContribution,
       progressPercent,
-      expectedFundedByNow,
-      fundingGapFromExpected,
       fixedMonthlyStatus,
     };
   }
@@ -370,10 +334,9 @@ export class ExpensePlansService {
     plan: ExpensePlan,
     status: 'behind' | 'almost_ready',
   ): PlanNeedingAttention {
-    const currentBalance = Number(plan.currentBalance);
     const targetAmount = Number(plan.targetAmount);
     const currentMonthly = Number(plan.monthlyContribution);
-    const amountNeeded = Math.max(0, targetAmount - currentBalance);
+    const amountNeeded = targetAmount;
 
     let monthsUntilDue = 0;
     let requiredMonthly = amountNeeded;
@@ -388,12 +351,6 @@ export class ExpensePlansService {
       }
     }
 
-    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
-    const fundingGapFromExpected =
-      expectedFundedByNow !== null
-        ? Math.max(0, expectedFundedByNow - currentBalance)
-        : null;
-
     return {
       id: plan.id,
       name: plan.name,
@@ -407,9 +364,6 @@ export class ExpensePlansService {
       requiredMonthly,
       currentMonthly,
       shortfallPerMonth: Math.max(0, requiredMonthly - currentMonthly),
-      expectedFundedByNow,
-      currentBalance,
-      fundingGapFromExpected,
     };
   }
 
@@ -424,7 +378,6 @@ export class ExpensePlansService {
     const plan = this.expensePlanRepository.create({
       ...dto,
       userId,
-      currentBalance: 0,
       status: 'active',
     });
 
@@ -485,95 +438,6 @@ export class ExpensePlansService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // CONTRIBUTE
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async contribute(
-    id: number,
-    userId: number,
-    amount: number,
-    note?: string,
-    transactionId?: number,
-    isAutomatic: boolean = false,
-  ): Promise<ExpensePlanTransaction> {
-    const plan = await this.findOne(id, userId);
-
-    const newBalance = Number(plan.currentBalance) + amount;
-
-    const planTransaction = await this.expensePlanTransactionRepository.save({
-      expensePlanId: plan.id,
-      type: 'contribution' as const,
-      amount,
-      date: new Date(),
-      balanceAfter: newBalance,
-      transactionId: transactionId || null,
-      note: note || null,
-      isAutomatic,
-    });
-
-    plan.currentBalance = newBalance;
-    plan.lastFundedDate = new Date();
-    await this.expensePlanRepository.save(plan);
-
-    return planTransaction;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // WITHDRAW
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async withdraw(
-    id: number,
-    userId: number,
-    amount: number,
-    note?: string,
-    transactionId?: number,
-    isAutomatic: boolean = false,
-  ): Promise<ExpensePlanTransaction> {
-    const plan = await this.findOne(id, userId);
-
-    if (Number(plan.currentBalance) < amount) {
-      throw new BadRequestException('Insufficient balance');
-    }
-
-    const newBalance = Number(plan.currentBalance) - amount;
-
-    const planTransaction = await this.expensePlanTransactionRepository.save({
-      expensePlanId: plan.id,
-      type: 'withdrawal' as const,
-      amount: -amount,
-      date: new Date(),
-      balanceAfter: newBalance,
-      transactionId: transactionId || null,
-      note: note || null,
-      isAutomatic,
-    });
-
-    plan.currentBalance = newBalance;
-    await this.expensePlanRepository.save(plan);
-
-    return planTransaction;
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // GET TRANSACTIONS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  async getTransactions(
-    id: number,
-    userId: number,
-  ): Promise<ExpensePlanTransaction[]> {
-    // Verify ownership
-    await this.findOne(id, userId);
-
-    return this.expensePlanTransactionRepository.find({
-      where: { expensePlanId: id },
-      relations: ['transaction'],
-      order: { date: 'DESC', createdAt: 'DESC' },
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
   // SUMMARY
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -608,9 +472,6 @@ export class ExpensePlansService {
         icon: plan.icon,
         monthlyContribution: contribution,
         targetAmount: Number(plan.targetAmount),
-        currentBalance: Number(plan.currentBalance),
-        progress:
-          (Number(plan.currentBalance) / Number(plan.targetAmount)) * 100,
         nextDueDate: plan.nextDueDate,
       };
 
@@ -629,9 +490,6 @@ export class ExpensePlansService {
             behindScheduleCount++;
             break;
         }
-      } else if (Number(plan.currentBalance) >= Number(plan.targetAmount)) {
-        // For spending budgets, only track fully funded
-        fullyFundedCount++;
       }
 
       // Categorize by type
@@ -672,7 +530,7 @@ export class ExpensePlansService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // PHASE 2: CALCULATION ENGINE
+  // CALCULATION ENGINE
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
@@ -685,7 +543,6 @@ export class ExpensePlansService {
     }
 
     const targetAmount = Number(plan.targetAmount);
-    const currentBalance = Number(plan.currentBalance);
 
     switch (plan.frequency) {
       case 'monthly':
@@ -710,16 +567,15 @@ export class ExpensePlansService {
           : targetAmount / 12;
 
       case 'one_time':
-        // Calculate based on remaining time and amount needed
+        // Calculate based on remaining time
         const dueDate = plan.targetDate ? new Date(plan.targetDate) : null;
         if (!dueDate) {
           return targetAmount / 12; // Default to yearly if no date
         }
         const monthsRemaining = this.monthsBetween(new Date(), dueDate);
-        const amountNeeded = targetAmount - currentBalance;
         return monthsRemaining > 0
-          ? Math.max(0, amountNeeded / monthsRemaining)
-          : amountNeeded;
+          ? Math.max(0, targetAmount / monthsRemaining)
+          : targetAmount;
 
       default:
         return targetAmount / 12;
@@ -727,24 +583,45 @@ export class ExpensePlansService {
   }
 
   /**
-   * Calculate the status of a plan based on funding progress
+   * Calculate the status of a plan based on contribution rate vs required rate.
+   * No longer depends on currentBalance.
    */
   calculateStatus(
     plan: ExpensePlan,
   ): 'funded' | 'almost_ready' | 'on_track' | 'behind' {
-    const currentBalance = Number(plan.currentBalance);
+    if (!plan.nextDueDate) {
+      return 'on_track'; // No due date means we consider it on track
+    }
+
+    const monthsUntilDue = this.monthsBetween(
+      new Date(),
+      new Date(plan.nextDueDate),
+    );
+
+    // If due date is very close (less than 1 month), check if almost ready
+    if (monthsUntilDue <= 1) {
+      // Check if configured contribution would cover the target
+      const expectedFunded = this.calculateExpectedFundedByNow(plan);
+      if (expectedFunded !== null && expectedFunded >= Number(plan.targetAmount) * 0.8) {
+        return expectedFunded >= Number(plan.targetAmount)
+          ? 'funded'
+          : 'almost_ready';
+      }
+      return 'behind';
+    }
+
+    // Calculate required monthly vs configured monthly
     const targetAmount = Number(plan.targetAmount);
-    const progress = currentBalance / targetAmount;
+    const requiredMonthly = targetAmount / monthsUntilDue;
+    const configuredMonthly = Number(plan.monthlyContribution);
 
-    if (progress >= 1) {
-      return 'funded';
-    }
-
-    if (progress >= 0.8) {
-      return 'almost_ready';
-    }
-
-    if (this.isOnTrack(plan)) {
+    // 10% tolerance
+    if (configuredMonthly >= requiredMonthly * 0.9) {
+      // Check if almost ready (more than 80% of time elapsed)
+      const expectedFunded = this.calculateExpectedFundedByNow(plan);
+      if (expectedFunded !== null && expectedFunded >= targetAmount * 0.8) {
+        return 'almost_ready';
+      }
       return 'on_track';
     }
 
@@ -752,7 +629,8 @@ export class ExpensePlansService {
   }
 
   /**
-   * Check if a plan is on track to meet its target by the due date
+   * Check if a plan is on track to meet its target by the due date.
+   * Based on contribution rate comparison.
    */
   isOnTrack(plan: ExpensePlan, targetDate?: Date): boolean {
     const dueDate =
@@ -763,12 +641,11 @@ export class ExpensePlansService {
 
     const monthsRemaining = this.monthsBetween(new Date(), dueDate);
     if (monthsRemaining <= 0) {
-      return Number(plan.currentBalance) >= Number(plan.targetAmount);
+      return true; // Can't determine without balance tracking
     }
 
-    const amountNeeded =
-      Number(plan.targetAmount) - Number(plan.currentBalance);
-    const requiredMonthly = amountNeeded / monthsRemaining;
+    const targetAmount = Number(plan.targetAmount);
+    const requiredMonthly = targetAmount / monthsRemaining;
 
     // 10% tolerance
     return requiredMonthly <= Number(plan.monthlyContribution) * 1.1;
@@ -828,11 +705,9 @@ export class ExpensePlansService {
         return null;
 
       case 'multi_year':
-        if (plan.lastFundedDate && plan.frequencyYears) {
-          const lastDate = new Date(plan.lastFundedDate);
-          const nextDate = new Date(lastDate);
-          nextDate.setFullYear(nextDate.getFullYear() + plan.frequencyYears);
-          return nextDate;
+        // For multi-year without lastFundedDate, use targetDate or calculate from creation
+        if (plan.targetDate) {
+          return new Date(plan.targetDate);
         }
         return null;
 
@@ -878,13 +753,10 @@ export class ExpensePlansService {
       const monthsAway = this.monthsBetween(today, dueDate);
       if (monthsAway > months) continue;
 
-      const currentBalance = Number(plan.currentBalance);
       const targetAmount = Number(plan.targetAmount);
 
       let status: 'funded' | 'on_track' | 'behind';
-      if (currentBalance >= targetAmount) {
-        status = 'funded';
-      } else if (this.isOnTrack(plan, dueDate)) {
+      if (this.isOnTrack(plan, dueDate)) {
         status = 'on_track';
       } else {
         status = 'behind';
@@ -896,7 +768,6 @@ export class ExpensePlansService {
         planName: plan.name,
         icon: plan.icon,
         amount: targetAmount,
-        currentBalance,
         status,
         monthsAway,
       });
@@ -905,138 +776,60 @@ export class ExpensePlansService {
     return timeline.sort((a, b) => a.date.getTime() - b.date.getTime());
   }
 
-  /**
-   * Adjust the balance of an expense plan to a new amount
-   */
-  async adjustBalance(
-    id: number,
-    userId: number,
-    newBalance: number,
-    note?: string,
-  ): Promise<ExpensePlanTransaction> {
-    const plan = await this.findOne(id, userId);
-
-    const currentBalance = Number(plan.currentBalance);
-    const difference = newBalance - currentBalance;
-
-    const planTransaction = await this.expensePlanTransactionRepository.save({
-      expensePlanId: plan.id,
-      type: 'adjustment' as const,
-      amount: difference,
-      date: new Date(),
-      balanceAfter: newBalance,
-      transactionId: null,
-      note: note || null,
-      isAutomatic: false,
-    });
-
-    plan.currentBalance = newBalance;
-    await this.expensePlanRepository.save(plan);
-
-    return planTransaction;
-  }
-
-  /**
-   * Link an existing transaction to a plan transaction
-   */
-  async linkTransaction(
-    planTransactionId: number,
-    transactionId: number,
-    userId: number,
-  ): Promise<ExpensePlanTransaction> {
-    const planTransaction = await this.expensePlanTransactionRepository.findOne(
-      {
-        where: { id: planTransactionId },
-      },
-    );
-
-    if (!planTransaction) {
-      throw new NotFoundException(
-        `Plan transaction ${planTransactionId} not found`,
-      );
-    }
-
-    // Verify ownership through the expense plan
-    const plan = await this.expensePlanRepository.findOne({
-      where: { id: planTransaction.expensePlanId, userId },
-    });
-
-    if (!plan) {
-      throw new NotFoundException(
-        `Plan transaction ${planTransactionId} not found`,
-      );
-    }
-
-    planTransaction.transactionId = transactionId;
-    return this.expensePlanTransactionRepository.save(planTransaction);
-  }
-
-  /**
-   * Unlink a transaction from a plan transaction
-   */
-  async unlinkTransaction(
-    planTransactionId: number,
-    userId: number,
-  ): Promise<ExpensePlanTransaction> {
-    const planTransaction = await this.expensePlanTransactionRepository.findOne(
-      {
-        where: { id: planTransactionId },
-      },
-    );
-
-    if (!planTransaction) {
-      throw new NotFoundException(
-        `Plan transaction ${planTransactionId} not found`,
-      );
-    }
-
-    // Verify ownership through the expense plan
-    const plan = await this.expensePlanRepository.findOne({
-      where: { id: planTransaction.expensePlanId, userId },
-    });
-
-    if (!plan) {
-      throw new NotFoundException(
-        `Plan transaction ${planTransactionId} not found`,
-      );
-    }
-
-    planTransaction.transactionId = null;
-    return this.expensePlanTransactionRepository.save(planTransaction);
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // COVERAGE SUMMARY
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Get coverage summary for expense plans over the next 30 days.
+   * Get coverage summary for expense plans over a configurable period.
    * Shows which bank accounts have sufficient funds to cover upcoming expenses.
+   *
+   * @param userId - The user ID
+   * @param periodType - The period type (defaults to 'next_30_days')
    */
-  async getCoverageSummary(userId: number): Promise<CoverageSummaryResponse> {
+  async getCoverageSummary(
+    userId: number,
+    periodType: CoveragePeriodType = 'next_30_days',
+  ): Promise<CoverageSummaryResponse> {
+    // Validate and get period range
+    const validPeriod = VALID_COVERAGE_PERIODS.includes(periodType)
+      ? periodType
+      : 'next_30_days';
+    const period = getPeriodRange(validPeriod);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const periodStart = new Date(period.start);
+    periodStart.setHours(0, 0, 0, 0);
+    const periodEnd = new Date(period.end);
+    periodEnd.setHours(23, 59, 59, 999);
 
-    // Get all active expense plans with next due date in next 30 days
+    // Get ALL active expense plans (not filtered by nextDueDate anymore)
     const plans = await this.expensePlanRepository.find({
       where: {
         userId,
         status: 'active',
-        nextDueDate: LessThanOrEqual(thirtyDaysFromNow),
       },
       relations: ['paymentAccount'],
     });
 
-    // Filter only plans with due dates today or in the future
-    const upcomingPlans = plans.filter((plan) => {
-      if (!plan.nextDueDate) return false;
-      const dueDate = new Date(plan.nextDueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate >= today;
-    });
+    // Calculate obligation for each plan in the period
+    // Store plan + obligation data together
+    interface PlanWithObligation {
+      plan: ExpensePlan;
+      obligation: { amount: number; hasObligation: boolean; occurrences: number };
+    }
+
+    const plansWithObligations: PlanWithObligation[] = plans.map((plan) => ({
+      plan,
+      obligation: this.calculateObligationForPeriod(plan, periodStart, periodEnd),
+    }));
+
+    // Filter to only plans with obligations in this period
+    const upcomingPlans = plansWithObligations.filter(
+      (po) => po.obligation.hasObligation,
+    );
 
     // Get all user's bank accounts
     const bankAccounts = await this.bankAccountRepository.find({
@@ -1044,14 +837,17 @@ export class ExpensePlansService {
     });
 
     // Group plans by account
-    const plansByAccountId = new Map<number | 'unassigned', ExpensePlan[]>();
+    const plansByAccountId = new Map<
+      number | 'unassigned',
+      PlanWithObligation[]
+    >();
 
-    for (const plan of upcomingPlans) {
-      const key = plan.paymentAccountId ?? 'unassigned';
+    for (const po of upcomingPlans) {
+      const key = po.plan.paymentAccountId ?? 'unassigned';
       if (!plansByAccountId.has(key)) {
         plansByAccountId.set(key, []);
       }
-      plansByAccountId.get(key)!.push(plan);
+      plansByAccountId.get(key)!.push(po);
     }
 
     // Calculate coverage for each account that has plans linked
@@ -1063,8 +859,9 @@ export class ExpensePlansService {
       // Only include accounts that have upcoming plans
       if (accountPlans.length === 0) continue;
 
+      // Use the calculated obligation amounts instead of getUpcomingAmount
       const upcomingTotal = accountPlans.reduce(
-        (sum, p) => sum + this.getUpcomingAmount(p),
+        (sum, po) => sum + po.obligation.amount,
         0,
       );
       const currentBalance = Number(account.balance);
@@ -1074,32 +871,44 @@ export class ExpensePlansService {
 
       // Sort plans by due date (soonest first)
       const sortedPlans = [...accountPlans].sort((a, b) => {
-        const dateA = a.nextDueDate ? new Date(a.nextDueDate).getTime() : 0;
-        const dateB = b.nextDueDate ? new Date(b.nextDueDate).getTime() : 0;
+        const dateA = a.plan.nextDueDate
+          ? new Date(a.plan.nextDueDate).getTime()
+          : 0;
+        const dateB = b.plan.nextDueDate
+          ? new Date(b.plan.nextDueDate).getTime()
+          : 0;
         return dateA - dateB;
       });
 
-      // Calculate plans at risk
+      // Calculate plans at risk (using obligation amounts)
       const plansAtRisk: PlanAtRisk[] = hasShortfall
-        ? sortedPlans.map((p) => ({
-            id: p.id,
-            name: p.name,
-            amount: this.getUpcomingAmount(p),
-            nextDueDate: p.nextDueDate
-              ? new Date(p.nextDueDate).toISOString().split('T')[0]
+        ? sortedPlans.map((po) => ({
+            id: po.plan.id,
+            name: po.plan.name,
+            amount: po.obligation.amount,
+            nextDueDate: po.plan.nextDueDate
+              ? new Date(po.plan.nextDueDate).toISOString().split('T')[0]
               : null,
-            daysUntilDue: p.nextDueDate
-              ? this.daysBetween(today, new Date(p.nextDueDate))
+            daysUntilDue: po.plan.nextDueDate
+              ? this.daysBetween(today, new Date(po.plan.nextDueDate))
               : 0,
-            icon: p.icon,
+            icon: po.plan.icon,
+            obligationType: this.getObligationType(po.plan),
           }))
         : [];
+
+      // Determine balance source from GoCardless integration
+      const balanceSource = account.gocardlessAccountId
+        ? 'gocardless'
+        : 'manual';
 
       accountCoverages.push({
         accountId: account.id,
         accountName: account.name,
         institution: null, // BankAccount doesn't have institution field
         currentBalance,
+        balanceSource,
+        balanceLastUpdated: null, // TODO: Track balance update timestamps
         upcomingPlansTotal: upcomingTotal,
         planCount: accountPlans.length,
         projectedBalance,
@@ -1114,20 +923,21 @@ export class ExpensePlansService {
     const unassignedSummary: UnassignedPlanSummary = {
       count: unassignedPlans.length,
       totalAmount: unassignedPlans.reduce(
-        (sum, p) => sum + this.getUpcomingAmount(p),
+        (sum, po) => sum + po.obligation.amount,
         0,
       ),
-      plans: unassignedPlans.map((p) => ({
-        id: p.id,
-        name: p.name,
-        amount: this.getUpcomingAmount(p),
-        nextDueDate: p.nextDueDate
-          ? new Date(p.nextDueDate).toISOString().split('T')[0]
+      plans: unassignedPlans.map((po) => ({
+        id: po.plan.id,
+        name: po.plan.name,
+        amount: po.obligation.amount,
+        nextDueDate: po.plan.nextDueDate
+          ? new Date(po.plan.nextDueDate).toISOString().split('T')[0]
           : null,
-        daysUntilDue: p.nextDueDate
-          ? this.daysBetween(today, new Date(p.nextDueDate))
+        daysUntilDue: po.plan.nextDueDate
+          ? this.daysBetween(today, new Date(po.plan.nextDueDate))
           : 0,
-        icon: p.icon,
+        icon: po.plan.icon,
+        obligationType: this.getObligationType(po.plan),
       })),
     };
 
@@ -1150,6 +960,7 @@ export class ExpensePlansService {
     }
 
     return {
+      period,
       accounts: accountCoverages,
       unassignedPlans: unassignedSummary,
       overallStatus,
@@ -1172,10 +983,20 @@ export class ExpensePlansService {
    *
    * Sum per account = totalRequiredToday
    * Compare to currentBalance = shortfall/surplus
+   *
+   * @param userId - The user ID
+   * @param periodType - The period type (defaults to 'this_month' for allocation view)
    */
   async getAccountAllocationSummary(
     userId: number,
+    periodType: CoveragePeriodType = 'this_month',
   ): Promise<AccountAllocationSummaryResponse> {
+    // Validate and get period range
+    const validPeriod = VALID_COVERAGE_PERIODS.includes(periodType)
+      ? periodType
+      : 'this_month';
+    const period = getPeriodRange(validPeriod);
+
     // Get all active expense plans with payment accounts
     const plans = await this.expensePlanRepository.find({
       where: { userId, status: 'active' },
@@ -1186,13 +1007,6 @@ export class ExpensePlansService {
     const bankAccounts = await this.bankAccountRepository.find({
       where: { user: { id: userId } },
     });
-
-    // Batch fetch current month payments for fixed_monthly plans
-    const fixedMonthlyPlanIds = plans
-      .filter((p) => p.planType === 'fixed_monthly')
-      .map((p) => p.id);
-    const currentMonthPayments =
-      await this.getCurrentMonthPaymentsBatch(fixedMonthlyPlanIds);
 
     // Group plans by account
     const plansByAccountId = new Map<number, ExpensePlan[]>();
@@ -1215,11 +1029,7 @@ export class ExpensePlansService {
       const accountPlans = plansByAccountId.get(account.id);
       if (!accountPlans || accountPlans.length === 0) continue;
 
-      const summary = this.buildAccountAllocationSummary(
-        account,
-        accountPlans,
-        currentMonthPayments,
-      );
+      const summary = this.buildAccountAllocationSummary(account, accountPlans);
 
       accountSummaries.push(summary);
       totalMonthlyContribution += summary.monthlyContributionTotal;
@@ -1241,6 +1051,7 @@ export class ExpensePlansService {
     }
 
     return {
+      period,
       accounts: accountSummaries,
       overallStatus,
       totalShortfall,
@@ -1255,7 +1066,6 @@ export class ExpensePlansService {
   private buildAccountAllocationSummary(
     account: BankAccount,
     plans: ExpensePlan[],
-    currentMonthPayments: Map<number, { made: boolean; date: Date | null }>,
   ): AccountAllocationSummary {
     const currentBalance = Number(account.balance);
     const fixedMonthlyPlans: FixedMonthlyPlanAllocation[] = [];
@@ -1268,10 +1078,7 @@ export class ExpensePlansService {
       monthlyContributionTotal += Number(plan.monthlyContribution);
 
       if (plan.planType === 'fixed_monthly') {
-        const allocation = this.buildFixedMonthlyAllocation(
-          plan,
-          currentMonthPayments.get(plan.id),
-        );
+        const allocation = this.buildFixedMonthlyAllocation(plan);
         fixedMonthlyPlans.push(allocation);
         fixedMonthlyTotal += allocation.requiredToday;
       } else if (plan.purpose === 'sinking_fund') {
@@ -1297,10 +1104,17 @@ export class ExpensePlansService {
       healthStatus = 'healthy';
     }
 
+    // Determine balance source from GoCardless integration
+    const balanceSource = account.gocardlessAccountId
+      ? 'gocardless'
+      : 'manual';
+
     return {
       accountId: account.id,
       accountName: account.name,
       currentBalance,
+      balanceSource,
+      balanceLastUpdated: null, // TODO: Track balance update timestamps
       totalRequiredToday,
       shortfall,
       surplus,
@@ -1320,35 +1134,18 @@ export class ExpensePlansService {
    */
   private buildFixedMonthlyAllocation(
     plan: ExpensePlan,
-    paymentInfo?: { made: boolean; date: Date | null },
   ): FixedMonthlyPlanAllocation {
     const targetAmount = Number(plan.targetAmount);
-    const currentBalance = Number(plan.currentBalance);
-    const readyForNextMonth = currentBalance >= targetAmount;
-    const paymentMade = paymentInfo?.made ?? false;
 
-    // Determine status
-    let status: 'paid' | 'pending' | 'short';
-    if (paymentMade) {
-      status = 'paid';
-    } else if (readyForNextMonth) {
-      status = 'pending';
-    } else {
-      status = 'short';
-    }
-
+    // Without envelope tracking, we show the required amount
+    // and assume the user tracks payments separately
     return {
       id: plan.id,
       name: plan.name,
       icon: plan.icon,
       requiredToday: targetAmount,
-      currentBalance,
-      paymentMade,
-      readyForNextMonth,
-      status,
-      amountShort: readyForNextMonth
-        ? null
-        : Math.round((targetAmount - currentBalance) * 100) / 100,
+      paymentMade: false, // Can't track without envelope transactions
+      status: 'pending',
     };
   }
 
@@ -1360,7 +1157,6 @@ export class ExpensePlansService {
     plan: ExpensePlan,
   ): SinkingFundPlanAllocation {
     const targetAmount = Number(plan.targetAmount);
-    const currentBalance = Number(plan.currentBalance);
     const monthlyContribution = Number(plan.monthlyContribution);
 
     // Calculate expected funded by now
@@ -1369,25 +1165,7 @@ export class ExpensePlansService {
     const requiredToday = expectedFundedByNow ?? 0;
 
     const progressPercent =
-      targetAmount > 0 ? (currentBalance / targetAmount) * 100 : 0;
-
-    // Calculate gap from expected
-    const gapFromExpected =
-      expectedFundedByNow !== null
-        ? Math.round((expectedFundedByNow - currentBalance) * 100) / 100
-        : null;
-
-    // Determine status
-    let status: 'ahead' | 'on_track' | 'behind';
-    if (gapFromExpected === null) {
-      status = 'on_track';
-    } else if (gapFromExpected > 0) {
-      status = 'behind';
-    } else if (gapFromExpected < 0) {
-      status = 'ahead';
-    } else {
-      status = 'on_track';
-    }
+      targetAmount > 0 ? (requiredToday / targetAmount) * 100 : 0;
 
     // Calculate months until due
     let monthsUntilDue: number | null = null;
@@ -1404,17 +1182,18 @@ export class ExpensePlansService {
       nextDueDateStr = dueDate.toISOString().split('T')[0];
     }
 
+    // Determine status based on contribution rate
+    const status = this.isOnTrack(plan) ? 'on_track' : 'behind';
+
     return {
       id: plan.id,
       name: plan.name,
       icon: plan.icon,
       requiredToday,
-      currentBalance,
       targetAmount,
       monthlyContribution,
       progressPercent: Math.round(progressPercent * 10) / 10,
       status,
-      gapFromExpected,
       nextDueDate: nextDueDateStr,
       monthsUntilDue,
     };
@@ -1423,46 +1202,6 @@ export class ExpensePlansService {
   // ═══════════════════════════════════════════════════════════════════════════
   // PRIVATE HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
-
-  /**
-   * Batch fetch current month payments for fixed_monthly plans.
-   * Returns a map of planId -> payment info.
-   */
-  private async getCurrentMonthPaymentsBatch(
-    planIds: number[],
-  ): Promise<Map<number, { made: boolean; date: Date | null }>> {
-    if (planIds.length === 0) return new Map();
-
-    const now = new Date();
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const lastOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-    );
-
-    const withdrawals = await this.expensePlanTransactionRepository
-      .createQueryBuilder('tx')
-      .where('tx.expensePlanId IN (:...planIds)', { planIds })
-      .andWhere('tx.type = :type', { type: 'withdrawal' })
-      .andWhere('tx.date >= :start', { start: firstOfMonth })
-      .andWhere('tx.date <= :end', { end: lastOfMonth })
-      .orderBy('tx.date', 'DESC')
-      .getMany();
-
-    const result = new Map<number, { made: boolean; date: Date | null }>();
-    for (const planId of planIds) {
-      const withdrawal = withdrawals.find((w) => w.expensePlanId === planId);
-      result.set(planId, {
-        made: !!withdrawal,
-        date: withdrawal?.date || null,
-      });
-    }
-    return result;
-  }
 
   /**
    * Calculate the expected funded amount by now based on when savings
@@ -1574,6 +1313,28 @@ export class ExpensePlansService {
   }
 
   /**
+   * Determine the obligation type for a plan.
+   * - 'fixed': Known exact amount (fixed_monthly, yearly_fixed)
+   * - 'estimated': Amount based on historical data or estimates (yearly_variable, seasonal)
+   * - 'prorated': Amount calculated as progress toward a goal (sinking funds)
+   */
+  private getObligationType(
+    plan: ExpensePlan,
+  ): 'fixed' | 'estimated' | 'prorated' {
+    switch (plan.planType) {
+      case 'fixed_monthly':
+      case 'yearly_fixed':
+        return 'fixed';
+      case 'yearly_variable':
+      case 'seasonal':
+        return 'estimated';
+      default:
+        // Sinking funds and goals use prorated calculation
+        return plan.purpose === 'sinking_fund' ? 'prorated' : 'fixed';
+    }
+  }
+
+  /**
    * Get the upcoming amount due for a plan based on its frequency.
    * For monthly plans, this is the monthlyContribution.
    * For other frequencies, this is the targetAmount (what's due on the due date).
@@ -1592,5 +1353,269 @@ export class ExpensePlansService {
         // Other frequencies: the upcoming expense is the target amount
         return Number(plan.targetAmount);
     }
+  }
+
+  /**
+   * Calculate the obligation amount for a plan within a specific period.
+   * Returns { amount, hasObligation } where:
+   * - amount: the total obligation in this period
+   * - hasObligation: whether the plan has any obligation in this period
+   *
+   * Handles all plan types appropriately:
+   * - fixed_monthly: counts occurrences in period
+   * - yearly_fixed/yearly_variable: checks if due date is in period
+   * - multi_year: checks if target date is in period
+   * - seasonal: checks if any seasonal months fall in period
+   * - emergency_fund: no periodic obligation
+   * - goal: monthly contribution × months in period
+   */
+  calculateObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    switch (plan.planType) {
+      case 'fixed_monthly':
+        return this.calculateFixedMonthlyObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'yearly_fixed':
+      case 'yearly_variable':
+        return this.calculateYearlyObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'multi_year':
+        return this.calculateMultiYearObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'seasonal':
+        return this.calculateSeasonalObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'emergency_fund':
+        // Emergency funds don't have periodic obligations
+        // (they are for maintaining a buffer)
+        return { amount: 0, hasObligation: false, occurrences: 0 };
+
+      case 'goal':
+        return this.calculateGoalObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      default:
+        // Fallback: check if nextDueDate is in period
+        return this.calculateDefaultObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+    }
+  }
+
+  /**
+   * Fixed monthly plans: count how many months fall in the period
+   * and multiply by the target amount (not monthly contribution).
+   */
+  private calculateFixedMonthlyObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+    const dueDay = plan.dueDay || 1;
+
+    // Count how many payment dates fall within the period
+    let occurrences = 0;
+    const current = new Date(periodStart);
+    current.setDate(dueDay);
+
+    // If we're past the due day in the start month, start from next month
+    if (current < periodStart) {
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    while (current <= periodEnd) {
+      occurrences++;
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    return {
+      amount: occurrences * targetAmount,
+      hasObligation: occurrences > 0,
+      occurrences,
+    };
+  }
+
+  /**
+   * Yearly plans: check if the due date falls within the period.
+   */
+  private calculateYearlyObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+
+    // Check nextDueDate first
+    if (plan.nextDueDate) {
+      const dueDate = new Date(plan.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      if (dueDate >= periodStart && dueDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    // Fallback: check if dueMonth/dueDay combination falls in period
+    if (plan.dueMonth !== null && plan.dueDay !== null) {
+      // Check current year and next year
+      for (const year of [periodStart.getFullYear(), periodEnd.getFullYear()]) {
+        const dueDate = new Date(year, plan.dueMonth - 1, plan.dueDay);
+        if (dueDate >= periodStart && dueDate <= periodEnd) {
+          return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+        }
+      }
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Multi-year plans: check if target date falls in period.
+   */
+  private calculateMultiYearObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+
+    // Check targetDate
+    if (plan.targetDate) {
+      const targetDate = new Date(plan.targetDate);
+      targetDate.setHours(0, 0, 0, 0);
+      if (targetDate >= periodStart && targetDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    // Check nextDueDate as fallback
+    if (plan.nextDueDate) {
+      const dueDate = new Date(plan.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      if (dueDate >= periodStart && dueDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Seasonal plans: check if any seasonal months fall in the period.
+   */
+  private calculateSeasonalObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+    const seasonalMonths = plan.seasonalMonths || [];
+
+    if (seasonalMonths.length === 0) {
+      return { amount: 0, hasObligation: false, occurrences: 0 };
+    }
+
+    // Count how many seasonal months fall in the period
+    let occurrences = 0;
+    const current = new Date(periodStart);
+
+    while (current <= periodEnd) {
+      const month = current.getMonth() + 1; // 1-indexed
+      if (seasonalMonths.includes(month)) {
+        occurrences++;
+      }
+      current.setMonth(current.getMonth() + 1);
+      current.setDate(1); // Move to first of next month
+    }
+
+    // For seasonal, the amount per occurrence might be targetAmount / seasonalMonths.length
+    // or just targetAmount per season. We'll use targetAmount per occurrence.
+    return {
+      amount: occurrences * targetAmount,
+      hasObligation: occurrences > 0,
+      occurrences,
+    };
+  }
+
+  /**
+   * Goal plans: calculate monthly contribution × months in period.
+   */
+  private calculateGoalObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const monthlyContribution = Number(plan.monthlyContribution);
+
+    // Count months in period
+    const months = this.countMonthsInPeriod(periodStart, periodEnd);
+
+    return {
+      amount: months * monthlyContribution,
+      hasObligation: months > 0,
+      occurrences: months,
+    };
+  }
+
+  /**
+   * Default: check if nextDueDate is in period.
+   */
+  private calculateDefaultObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    if (!plan.nextDueDate) {
+      return { amount: 0, hasObligation: false, occurrences: 0 };
+    }
+
+    const dueDate = new Date(plan.nextDueDate);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate >= periodStart && dueDate <= periodEnd) {
+      return {
+        amount: Number(plan.targetAmount),
+        hasObligation: true,
+        occurrences: 1,
+      };
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Count the number of months (or partial months) in a period.
+   */
+  private countMonthsInPeriod(periodStart: Date, periodEnd: Date): number {
+    const startYear = periodStart.getFullYear();
+    const startMonth = periodStart.getMonth();
+    const endYear = periodEnd.getFullYear();
+    const endMonth = periodEnd.getMonth();
+
+    return (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
   }
 }

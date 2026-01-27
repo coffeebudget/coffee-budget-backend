@@ -143,18 +143,6 @@ export class SuggestionCountsDto {
 export class ApprovalResultDto {
   @ApiProperty({ description: 'Whether the approval was successful' })
   success: boolean;
-
-  @ApiProperty({
-    description: 'The created expense plan transaction ID',
-    example: 42,
-  })
-  planTransactionId: number;
-
-  @ApiProperty({
-    description: 'New balance after the transaction',
-    example: 450.5,
-  })
-  newBalance: number;
 }
 
 export class BulkApprovalResultDto {

@@ -30,21 +30,18 @@ import {
 import {
   CreateExpensePlanDto,
   UpdateExpensePlanDto,
-  ContributeDto,
-  WithdrawDto,
-  AdjustBalanceDto,
-  LinkTransactionDto,
   CoverageSummaryResponse,
   ExpensePlanWithStatusDto,
   LongTermStatusSummary,
   AccountAllocationSummaryResponse,
+  CoveragePeriodType,
+  VALID_COVERAGE_PERIODS,
 } from './dto';
 import {
   AcceptAdjustmentDto,
   ReviewSummaryDto,
 } from './dto/adjustment-action.dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
-import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
 
 @ApiTags('Expense Plans')
@@ -209,7 +206,14 @@ export class ExpensePlansController {
   @ApiOperation({
     summary: 'Get coverage summary',
     description:
-      'Get a summary of expense plan coverage status for the next 30 days, showing which bank accounts have sufficient funds',
+      'Get a summary of expense plan coverage status for a configurable period, showing which bank accounts have sufficient funds',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: VALID_COVERAGE_PERIODS,
+    description:
+      'Time period for coverage calculation (defaults to next_30_days)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -222,15 +226,22 @@ export class ExpensePlansController {
   })
   async getCoverageSummary(
     @CurrentUser() user: any,
+    @Query('period') period?: CoveragePeriodType,
   ): Promise<CoverageSummaryResponse> {
-    return this.expensePlansService.getCoverageSummary(user.id);
+    return this.expensePlansService.getCoverageSummary(user.id, period);
   }
 
   @Get('summary/account-allocation')
   @ApiOperation({
     summary: 'Get account allocation summary',
     description:
-      'Get what each account should hold TODAY, comparing required allocations (fixed monthly + sinking fund progress) against current balance',
+      'Get what each account should hold for a configurable period, comparing required allocations (fixed monthly + sinking fund progress) against current balance',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: VALID_COVERAGE_PERIODS,
+    description: 'Time period for allocation calculation (defaults to this_month)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -243,8 +254,9 @@ export class ExpensePlansController {
   })
   async getAccountAllocationSummary(
     @CurrentUser() user: any,
+    @Query('period') period?: CoveragePeriodType,
   ): Promise<AccountAllocationSummaryResponse> {
-    return this.expensePlansService.getAccountAllocationSummary(user.id);
+    return this.expensePlansService.getAccountAllocationSummary(user.id, period);
   }
 
   @Get(':id')
@@ -340,232 +352,6 @@ export class ExpensePlansController {
     @CurrentUser() user: any,
   ): Promise<void> {
     await this.expensePlansService.delete(id, user.id);
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TRANSACTIONS
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  @Get(':id/transactions')
-  @ApiOperation({
-    summary: 'Get expense plan transactions',
-    description:
-      'Retrieve all contribution and withdrawal transactions for an expense plan',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Transactions retrieved successfully',
-    type: [ExpensePlanTransaction],
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async getTransactions(
-    @Param('id', ParseIntPipe) id: number,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction[]> {
-    return this.expensePlansService.getTransactions(id, user.id);
-  }
-
-  @Post(':id/contribute')
-  @ApiOperation({
-    summary: 'Add contribution to expense plan',
-    description: 'Manually add money to the expense plan virtual envelope',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Contribution added successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid contribution data',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async contribute(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: ContributeDto,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.contribute(
-      id,
-      user.id,
-      dto.amount,
-      dto.note,
-    );
-  }
-
-  @Post(':id/withdraw')
-  @ApiOperation({
-    summary: 'Withdraw from expense plan',
-    description:
-      'Manually withdraw money from the expense plan when the expense occurs',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Withdrawal completed successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Insufficient balance or invalid withdrawal data',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async withdraw(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: WithdrawDto,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.withdraw(id, user.id, dto.amount, dto.note);
-  }
-
-  @Post(':id/adjust')
-  @ApiOperation({
-    summary: 'Adjust expense plan balance',
-    description:
-      'Manually adjust the balance of an expense plan to a specific amount (for corrections)',
-  })
-  @ApiParam({
-    name: 'id',
-    description: 'Expense plan ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.CREATED,
-    description: 'Balance adjusted successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Expense plan not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid adjustment data',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async adjustBalance(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AdjustBalanceDto,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.adjustBalance(
-      id,
-      user.id,
-      dto.newBalance,
-      dto.note,
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // TRANSACTION LINKING
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  @Post('transactions/:transactionId/link')
-  @ApiOperation({
-    summary: 'Link transaction to plan transaction',
-    description:
-      'Link an existing transaction to a plan contribution or withdrawal',
-  })
-  @ApiParam({
-    name: 'transactionId',
-    description: 'Plan transaction ID (not the linked transaction ID)',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Transaction linked successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Plan transaction not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async linkTransaction(
-    @Param('transactionId', ParseIntPipe) planTransactionId: number,
-    @Body() dto: LinkTransactionDto,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.linkTransaction(
-      planTransactionId,
-      dto.transactionId,
-      user.id,
-    );
-  }
-
-  @Delete('transactions/:transactionId/link')
-  @ApiOperation({
-    summary: 'Unlink transaction from plan transaction',
-    description:
-      'Remove the link between a transaction and a plan contribution or withdrawal',
-  })
-  @ApiParam({
-    name: 'transactionId',
-    description: 'Plan transaction ID',
-    example: 1,
-  })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Transaction unlinked successfully',
-    type: ExpensePlanTransaction,
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Plan transaction not found',
-  })
-  @ApiResponse({
-    status: HttpStatus.UNAUTHORIZED,
-    description: 'Authentication required',
-  })
-  async unlinkTransaction(
-    @Param('transactionId', ParseIntPipe) planTransactionId: number,
-    @CurrentUser() user: any,
-  ): Promise<ExpensePlanTransaction> {
-    return this.expensePlansService.unlinkTransaction(
-      planTransactionId,
-      user.id,
-    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

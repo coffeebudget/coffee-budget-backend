@@ -2,22 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
-import {
-  IncomeDistributionService,
-  DistributionResult,
-} from './income-distribution.service';
+import { IncomeDistributionService } from './income-distribution.service';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
 import { ExpensePlan } from './entities/expense-plan.entity';
-import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
-import { TransactionCreatedEvent } from '../shared/events/transaction.events';
 
 describe('IncomeDistributionService', () => {
   let service: IncomeDistributionService;
   let ruleRepository: Repository<IncomeDistributionRule>;
   let planRepository: Repository<ExpensePlan>;
-  let planTransactionRepository: Repository<ExpensePlanTransaction>;
   let module: TestingModule;
 
   const mockUser = {
@@ -58,7 +52,6 @@ describe('IncomeDistributionService', () => {
     category: null,
     autoTrackCategory: false,
     targetAmount: 1200,
-    currentBalance: 600,
     monthlyContribution: 100,
     contributionSource: 'calculated',
     frequency: 'yearly',
@@ -67,16 +60,12 @@ describe('IncomeDistributionService', () => {
     dueDay: 15,
     targetDate: null,
     seasonalMonths: null,
-    lastFundedDate: null,
     nextDueDate: new Date('2025-06-15'),
     status: 'active',
     autoCalculate: true,
     rolloverSurplus: true,
-    initialBalanceSource: 'zero',
-    initialBalanceCustom: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    transactions: [],
   } as unknown as ExpensePlan;
 
   const mockTransaction = {
@@ -114,16 +103,12 @@ describe('IncomeDistributionService', () => {
         IncomeDistributionService,
         RepositoryMockFactory.createRepositoryProvider(IncomeDistributionRule),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
-        RepositoryMockFactory.createRepositoryProvider(ExpensePlanTransaction),
       ],
     }).compile();
 
     service = module.get<IncomeDistributionService>(IncomeDistributionService);
     ruleRepository = module.get(getRepositoryToken(IncomeDistributionRule));
     planRepository = module.get(getRepositoryToken(ExpensePlan));
-    planTransactionRepository = module.get(
-      getRepositoryToken(ExpensePlanTransaction),
-    );
   });
 
   afterEach(async () => {
@@ -532,184 +517,6 @@ describe('IncomeDistributionService', () => {
     });
   });
 
-  describe('distributeIncome', () => {
-    it('should distribute income and create transactions', async () => {
-      // Arrange
-      const plans = [
-        {
-          ...mockExpensePlan,
-          id: 1,
-          currentBalance: 100,
-          monthlyContribution: 100,
-        },
-        {
-          ...mockExpensePlan,
-          id: 2,
-          currentBalance: 200,
-          monthlyContribution: 200,
-        },
-      ];
-
-      (planRepository.find as jest.Mock).mockResolvedValue(plans);
-      (planRepository.findOne as jest.Mock)
-        .mockResolvedValueOnce(plans[0])
-        .mockResolvedValueOnce(plans[1]);
-      (planTransactionRepository.save as jest.Mock).mockImplementation((tx) =>
-        Promise.resolve({ ...tx, id: 1 }),
-      );
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      const result = await service.distributeIncome(
-        1,
-        mockTransaction as Transaction,
-        mockRule,
-      );
-
-      // Assert
-      expect(result.distributed).toHaveLength(2);
-      expect(result.totalDistributed).toBe(300);
-      expect(result.remaining).toBe(2700); // 3000 - 300
-      expect(planTransactionRepository.save).toHaveBeenCalledTimes(2);
-    });
-
-    it('should skip distribution when autoDistribute is false', async () => {
-      // Arrange
-      const rule = { ...mockRule, autoDistribute: false };
-
-      // Act
-      const result = await service.distributeIncome(
-        1,
-        mockTransaction as Transaction,
-        rule,
-      );
-
-      // Assert
-      expect(result.distributed).toHaveLength(0);
-      expect(result.totalDistributed).toBe(0);
-      expect(planRepository.find).not.toHaveBeenCalled();
-    });
-
-    it('should return empty distribution when no active plans exist', async () => {
-      // Arrange
-      (planRepository.find as jest.Mock).mockResolvedValue([]);
-
-      // Act
-      const result = await service.distributeIncome(
-        1,
-        mockTransaction as Transaction,
-        mockRule,
-      );
-
-      // Assert
-      expect(result.distributed).toHaveLength(0);
-      expect(result.totalDistributed).toBe(0);
-    });
-  });
-
-  describe('handleIncomeTransaction (Event Handler)', () => {
-    it('should process income transaction when matching rule exists', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(
-        mockTransaction as Transaction,
-        1,
-      );
-      const plans = [{ ...mockExpensePlan, monthlyContribution: 100 }];
-
-      (ruleRepository.find as jest.Mock).mockResolvedValue([mockRule]);
-      (planRepository.find as jest.Mock).mockResolvedValue(plans);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(plans[0]);
-      (planTransactionRepository.save as jest.Mock).mockResolvedValue({
-        id: 1,
-      });
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      await service.handleIncomeTransaction(event);
-
-      // Assert
-      expect(planTransactionRepository.save).toHaveBeenCalled();
-    });
-
-    it('should not process expense transactions', async () => {
-      // Arrange
-      const expenseTransaction = {
-        ...mockTransaction,
-        type: 'expense' as const,
-      };
-      const event = new TransactionCreatedEvent(
-        expenseTransaction as Transaction,
-        1,
-      );
-
-      // Act
-      await service.handleIncomeTransaction(event);
-
-      // Assert
-      expect(ruleRepository.find).not.toHaveBeenCalled();
-    });
-
-    it('should not distribute when no matching rule found', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(
-        mockTransaction as Transaction,
-        1,
-      );
-      (ruleRepository.find as jest.Mock).mockResolvedValue([]);
-
-      // Act
-      await service.handleIncomeTransaction(event);
-
-      // Assert
-      expect(planRepository.find).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('distributeManually', () => {
-    it('should distribute a specific amount to plans', async () => {
-      // Arrange
-      const plans = [
-        {
-          ...mockExpensePlan,
-          id: 1,
-          currentBalance: 100,
-          monthlyContribution: 100,
-        },
-      ];
-
-      (planRepository.find as jest.Mock).mockResolvedValue(plans);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(plans[0]);
-      (planTransactionRepository.save as jest.Mock).mockResolvedValue({
-        id: 1,
-      });
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      const result = await service.distributeManually(1, 500, 'priority');
-
-      // Assert
-      expect(result.totalDistributed).toBe(100); // Only monthly contribution
-      expect(result.remaining).toBe(400);
-    });
-
-    it('should use priority strategy by default', async () => {
-      // Arrange
-      const plans = [{ ...mockExpensePlan, monthlyContribution: 100 }];
-      (planRepository.find as jest.Mock).mockResolvedValue(plans);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(plans[0]);
-      (planTransactionRepository.save as jest.Mock).mockResolvedValue({
-        id: 1,
-      });
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      const result = await service.distributeManually(1, 500);
-
-      // Assert
-      expect(result.distributed).toHaveLength(1);
-    });
-  });
-
   describe('getPendingDistributions', () => {
     it('should return plans that need funding', async () => {
       // Arrange
@@ -717,13 +524,11 @@ describe('IncomeDistributionService', () => {
         {
           ...mockExpensePlan,
           id: 1,
-          currentBalance: 50,
           monthlyContribution: 100,
         },
         {
           ...mockExpensePlan,
           id: 2,
-          currentBalance: 100,
           monthlyContribution: 100,
         },
       ];
@@ -736,172 +541,6 @@ describe('IncomeDistributionService', () => {
       expect(result).toHaveLength(2);
       expect(result[0].amountNeeded).toBe(100); // Monthly contribution
       expect(result[1].amountNeeded).toBe(100);
-    });
-  });
-
-  describe('handleExpenseTransaction (Event Handler)', () => {
-    const mockExpenseTransaction = {
-      id: 2,
-      user: { id: 1, auth0Id: 'auth0|123456', email: 'test@example.com' },
-      description: 'Grocery shopping',
-      amount: -50,
-      type: 'expense' as const,
-      createdAt: new Date(),
-      status: 'executed' as const,
-      category: { id: 10, name: 'Groceries' },
-      suggestedCategory: null,
-      suggestedCategoryName: null,
-      bankAccount: { id: 1, name: 'Main Account' },
-      creditCard: null,
-      tags: [],
-      executionDate: null,
-      billingDate: null,
-      source: 'manual',
-      categorizationConfidence: null,
-      transactionIdOpenBankAPI: null,
-      merchantName: null,
-      merchantCategoryCode: null,
-      debtorName: null,
-      creditorName: null,
-      enrichedFromPaymentActivityId: null,
-      originalMerchantName: null,
-      enhancedMerchantName: null,
-      enhancedCategoryConfidence: null,
-    } as unknown as Transaction;
-
-    const mockPlanWithAutoTrack = {
-      ...mockExpensePlan,
-      id: 5,
-      categoryId: 10,
-      autoTrackCategory: true,
-      currentBalance: 200,
-    };
-
-    it('should create auto-withdrawal when expense matches linked plan', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(mockExpenseTransaction, 1);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(
-        mockPlanWithAutoTrack,
-      );
-      (planTransactionRepository.save as jest.Mock).mockResolvedValue({
-        id: 1,
-      });
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          userId: 1,
-          categoryId: 10,
-          autoTrackCategory: true,
-          status: 'active',
-        },
-      });
-      expect(planTransactionRepository.save).toHaveBeenCalledWith({
-        expensePlanId: 5,
-        type: 'withdrawal',
-        amount: -50,
-        date: mockExpenseTransaction.createdAt,
-        balanceAfter: 150, // 200 - 50
-        transactionId: 2,
-        isAutomatic: true,
-        note: 'Auto-tracked: Grocery shopping',
-      });
-      expect(planRepository.update).toHaveBeenCalledWith(5, {
-        currentBalance: 150,
-      });
-    });
-
-    it('should not process income transactions', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(mockTransaction, 1);
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planRepository.findOne).not.toHaveBeenCalled();
-    });
-
-    it('should not process transactions without category', async () => {
-      // Arrange
-      const transactionWithoutCategory = {
-        ...mockExpenseTransaction,
-        category: null,
-      } as unknown as Transaction;
-      const event = new TransactionCreatedEvent(transactionWithoutCategory, 1);
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planRepository.findOne).not.toHaveBeenCalled();
-    });
-
-    it('should not create withdrawal when no linked plan exists', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(mockExpenseTransaction, 1);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(null);
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planRepository.findOne).toHaveBeenCalled();
-      expect(planTransactionRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('should not create withdrawal when plan has autoTrackCategory disabled', async () => {
-      // Arrange
-      const event = new TransactionCreatedEvent(mockExpenseTransaction, 1);
-      // The query itself filters for autoTrackCategory: true, so null result
-      (planRepository.findOne as jest.Mock).mockResolvedValue(null);
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          userId: 1,
-          categoryId: 10,
-          autoTrackCategory: true,
-          status: 'active',
-        },
-      });
-      expect(planTransactionRepository.save).not.toHaveBeenCalled();
-    });
-
-    it('should not let balance go negative', async () => {
-      // Arrange
-      const largeExpense = {
-        ...mockExpenseTransaction,
-        amount: -500, // More than current balance of 200
-      } as unknown as Transaction;
-      const event = new TransactionCreatedEvent(largeExpense, 1);
-      (planRepository.findOne as jest.Mock).mockResolvedValue(
-        mockPlanWithAutoTrack,
-      );
-      (planTransactionRepository.save as jest.Mock).mockResolvedValue({
-        id: 1,
-      });
-      (planRepository.update as jest.Mock).mockResolvedValue({ affected: 1 });
-
-      // Act
-      await service.handleExpenseTransaction(event);
-
-      // Assert
-      expect(planTransactionRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          balanceAfter: 0, // Should be capped at 0, not -300
-        }),
-      );
-      expect(planRepository.update).toHaveBeenCalledWith(5, {
-        currentBalance: 0,
-      });
     });
   });
 });

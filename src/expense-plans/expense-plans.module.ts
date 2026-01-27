@@ -10,7 +10,6 @@ import { TransactionLinkSuggestionService } from './transaction-link-suggestion.
 import { TransactionLinkSuggestionsController } from './transaction-link-suggestions.controller';
 import { TransactionLinkSuggestionEventHandler } from './event-handlers/transaction-link-suggestion.event-handler';
 import { ExpensePlan } from './entities/expense-plan.entity';
-import { ExpensePlanTransaction } from './entities/expense-plan-transaction.entity';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
 import { TransactionLinkSuggestion } from './entities/transaction-link-suggestion.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
@@ -22,7 +21,6 @@ import { SharedModule } from '../shared/shared.module';
   imports: [
     TypeOrmModule.forFeature([
       ExpensePlan,
-      ExpensePlanTransaction,
       IncomeDistributionRule,
       TransactionLinkSuggestion,
       BankAccount,

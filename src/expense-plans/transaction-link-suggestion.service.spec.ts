@@ -3,7 +3,6 @@ import { TransactionLinkSuggestionService } from './transaction-link-suggestion.
 import { TransactionLinkSuggestion } from './entities/transaction-link-suggestion.entity';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { Transaction } from '../transactions/transaction.entity';
-import { ExpensePlansService } from './expense-plans.service';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
@@ -14,7 +13,6 @@ describe('TransactionLinkSuggestionService', () => {
   let suggestionRepository: Repository<TransactionLinkSuggestion>;
   let expensePlanRepository: Repository<ExpensePlan>;
   let transactionRepository: Repository<Transaction>;
-  let expensePlansService: jest.Mocked<ExpensePlansService>;
   let module: TestingModule;
 
   const mockUser = {
@@ -37,7 +35,6 @@ describe('TransactionLinkSuggestionService', () => {
     purpose: 'sinking_fund',
     status: 'active',
     autoTrackCategory: false,
-    currentBalance: 500,
     targetAmount: 1000,
   };
 
@@ -62,21 +59,11 @@ describe('TransactionLinkSuggestionService', () => {
     transactionDate: new Date('2026-01-24'),
     suggestedType: 'withdrawal',
     status: 'pending',
-    expensePlanTransactionId: null,
     rejectionReason: null,
     reviewedAt: null,
     createdAt: new Date('2026-01-24'),
     updatedAt: new Date('2026-01-24'),
     expensePlan: mockExpensePlan as ExpensePlan,
-  };
-
-  const mockPlanTransaction = {
-    id: 42,
-    expensePlanId: 1,
-    type: 'withdrawal',
-    amount: -300,
-    balanceAfter: 200,
-    date: new Date(),
   };
 
   beforeEach(async () => {
@@ -88,13 +75,6 @@ describe('TransactionLinkSuggestionService', () => {
         ),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
         RepositoryMockFactory.createRepositoryProvider(Transaction),
-        {
-          provide: ExpensePlansService,
-          useValue: {
-            withdraw: jest.fn().mockResolvedValue(mockPlanTransaction),
-            contribute: jest.fn().mockResolvedValue(mockPlanTransaction),
-          },
-        },
       ],
     }).compile();
 
@@ -106,7 +86,6 @@ describe('TransactionLinkSuggestionService', () => {
     );
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
     transactionRepository = module.get(getRepositoryToken(Transaction));
-    expensePlansService = module.get(ExpensePlansService);
   });
 
   afterEach(async () => {
@@ -235,53 +214,23 @@ describe('TransactionLinkSuggestionService', () => {
   });
 
   describe('approve', () => {
-    it('should approve suggestion and create withdrawal', async () => {
+    it('should approve suggestion', async () => {
       jest
         .spyOn(suggestionRepository, 'findOne')
         .mockResolvedValue(mockSuggestion as TransactionLinkSuggestion);
       jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
         ...mockSuggestion,
         status: 'approved',
-        expensePlanTransactionId: 42,
       } as TransactionLinkSuggestion);
 
       const result = await service.approve(1, 1);
 
       expect(result.success).toBe(true);
-      expect(result.planTransactionId).toBe(42);
-      expect(result.newBalance).toBe(200);
-      expect(expensePlansService.withdraw).toHaveBeenCalledWith(
-        1,
-        1,
-        300, // absolute value
-        'Collegato: Asilo Nido Milano',
-        123,
-        false,
-      );
-    });
-
-    it('should approve with custom amount', async () => {
-      const pendingSuggestion = {
-        ...mockSuggestion,
-        status: 'pending' as const,
-      };
-      jest
-        .spyOn(suggestionRepository, 'findOne')
-        .mockResolvedValue(pendingSuggestion as TransactionLinkSuggestion);
-      jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
-        ...pendingSuggestion,
-        status: 'approved',
-      } as TransactionLinkSuggestion);
-
-      await service.approve(1, 1, 250);
-
-      expect(expensePlansService.withdraw).toHaveBeenCalledWith(
-        1,
-        1,
-        250,
-        expect.any(String),
-        123,
-        false,
+      expect(suggestionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'approved',
+          reviewedAt: expect.any(Date),
+        }),
       );
     });
 
@@ -292,27 +241,6 @@ describe('TransactionLinkSuggestionService', () => {
       } as TransactionLinkSuggestion);
 
       await expect(service.approve(1, 1)).rejects.toThrow(BadRequestException);
-    });
-
-    it('should call contribute for contribution type', async () => {
-      const contributionSuggestion = {
-        ...mockSuggestion,
-        status: 'pending' as const,
-        suggestedType: 'contribution' as const,
-        transactionAmount: 100,
-      };
-
-      jest
-        .spyOn(suggestionRepository, 'findOne')
-        .mockResolvedValue(contributionSuggestion as TransactionLinkSuggestion);
-      jest.spyOn(suggestionRepository, 'save').mockResolvedValue({
-        ...contributionSuggestion,
-        status: 'approved',
-      } as TransactionLinkSuggestion);
-
-      await service.approve(1, 1);
-
-      expect(expensePlansService.contribute).toHaveBeenCalled();
     });
   });
 
