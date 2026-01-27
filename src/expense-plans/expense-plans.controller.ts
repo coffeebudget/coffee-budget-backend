@@ -34,6 +34,8 @@ import {
   ExpensePlanWithStatusDto,
   LongTermStatusSummary,
   AccountAllocationSummaryResponse,
+  CoveragePeriodType,
+  VALID_COVERAGE_PERIODS,
 } from './dto';
 import {
   AcceptAdjustmentDto,
@@ -204,7 +206,14 @@ export class ExpensePlansController {
   @ApiOperation({
     summary: 'Get coverage summary',
     description:
-      'Get a summary of expense plan coverage status for the next 30 days, showing which bank accounts have sufficient funds',
+      'Get a summary of expense plan coverage status for a configurable period, showing which bank accounts have sufficient funds',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: VALID_COVERAGE_PERIODS,
+    description:
+      'Time period for coverage calculation (defaults to next_30_days)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -217,15 +226,22 @@ export class ExpensePlansController {
   })
   async getCoverageSummary(
     @CurrentUser() user: any,
+    @Query('period') period?: CoveragePeriodType,
   ): Promise<CoverageSummaryResponse> {
-    return this.expensePlansService.getCoverageSummary(user.id);
+    return this.expensePlansService.getCoverageSummary(user.id, period);
   }
 
   @Get('summary/account-allocation')
   @ApiOperation({
     summary: 'Get account allocation summary',
     description:
-      'Get what each account should hold TODAY, comparing required allocations (fixed monthly + sinking fund progress) against current balance',
+      'Get what each account should hold for a configurable period, comparing required allocations (fixed monthly + sinking fund progress) against current balance',
+  })
+  @ApiQuery({
+    name: 'period',
+    required: false,
+    enum: VALID_COVERAGE_PERIODS,
+    description: 'Time period for allocation calculation (defaults to this_month)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -238,8 +254,9 @@ export class ExpensePlansController {
   })
   async getAccountAllocationSummary(
     @CurrentUser() user: any,
+    @Query('period') period?: CoveragePeriodType,
   ): Promise<AccountAllocationSummaryResponse> {
-    return this.expensePlansService.getAccountAllocationSummary(user.id);
+    return this.expensePlansService.getAccountAllocationSummary(user.id, period);
   }
 
   @Get(':id')

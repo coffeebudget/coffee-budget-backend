@@ -12,6 +12,12 @@ import {
   PlanAtRisk,
 } from './dto/coverage-summary.dto';
 import {
+  CoveragePeriodType,
+  getPeriodRange,
+  PeriodRange,
+  VALID_COVERAGE_PERIODS,
+} from './dto/coverage-period.dto';
+import {
   AccountAllocationSummaryResponse,
   AccountAllocationSummary,
   FixedMonthlyPlanAllocation,
@@ -775,32 +781,46 @@ export class ExpensePlansService {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /**
-   * Get coverage summary for expense plans over the next 30 days.
+   * Get coverage summary for expense plans over a configurable period.
    * Shows which bank accounts have sufficient funds to cover upcoming expenses.
+   *
+   * @param userId - The user ID
+   * @param periodType - The period type (defaults to 'next_30_days')
    */
-  async getCoverageSummary(userId: number): Promise<CoverageSummaryResponse> {
+  async getCoverageSummary(
+    userId: number,
+    periodType: CoveragePeriodType = 'next_30_days',
+  ): Promise<CoverageSummaryResponse> {
+    // Validate and get period range
+    const validPeriod = VALID_COVERAGE_PERIODS.includes(periodType)
+      ? periodType
+      : 'next_30_days';
+    const period = getPeriodRange(validPeriod);
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const thirtyDaysFromNow = new Date(today);
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    const periodStart = new Date(period.start);
+    periodStart.setHours(0, 0, 0, 0);
+    const periodEnd = new Date(period.end);
+    periodEnd.setHours(23, 59, 59, 999);
 
-    // Get all active expense plans with next due date in next 30 days
+    // Get all active expense plans with next due date in the period
     const plans = await this.expensePlanRepository.find({
       where: {
         userId,
         status: 'active',
-        nextDueDate: LessThanOrEqual(thirtyDaysFromNow),
+        nextDueDate: LessThanOrEqual(periodEnd),
       },
       relations: ['paymentAccount'],
     });
 
-    // Filter only plans with due dates today or in the future
+    // Filter only plans with due dates within the period
     const upcomingPlans = plans.filter((plan) => {
       if (!plan.nextDueDate) return false;
       const dueDate = new Date(plan.nextDueDate);
       dueDate.setHours(0, 0, 0, 0);
-      return dueDate >= today;
+      return dueDate >= periodStart && dueDate <= periodEnd;
     });
 
     // Get all user's bank accounts
@@ -915,6 +935,7 @@ export class ExpensePlansService {
     }
 
     return {
+      period,
       accounts: accountCoverages,
       unassignedPlans: unassignedSummary,
       overallStatus,
@@ -937,10 +958,20 @@ export class ExpensePlansService {
    *
    * Sum per account = totalRequiredToday
    * Compare to currentBalance = shortfall/surplus
+   *
+   * @param userId - The user ID
+   * @param periodType - The period type (defaults to 'this_month' for allocation view)
    */
   async getAccountAllocationSummary(
     userId: number,
+    periodType: CoveragePeriodType = 'this_month',
   ): Promise<AccountAllocationSummaryResponse> {
+    // Validate and get period range
+    const validPeriod = VALID_COVERAGE_PERIODS.includes(periodType)
+      ? periodType
+      : 'this_month';
+    const period = getPeriodRange(validPeriod);
+
     // Get all active expense plans with payment accounts
     const plans = await this.expensePlanRepository.find({
       where: { userId, status: 'active' },
@@ -995,6 +1026,7 @@ export class ExpensePlansService {
     }
 
     return {
+      period,
       accounts: accountSummaries,
       overallStatus,
       totalShortfall,

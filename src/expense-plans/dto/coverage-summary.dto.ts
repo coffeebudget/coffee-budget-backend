@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PeriodRange } from './coverage-period.dto';
 
 /**
  * Represents an expense plan at risk of not being covered
@@ -133,6 +134,12 @@ export class UnassignedPlanSummary {
  * Complete coverage summary response
  */
 export class CoverageSummaryResponse {
+  @ApiProperty({
+    description: 'The period for which coverage is calculated',
+    type: PeriodRange,
+  })
+  period: PeriodRange;
+
   @ApiProperty({
     description:
       'Coverage information for each bank account with upcoming plans',

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PeriodRange } from './coverage-period.dto';
 
 /**
  * Individual fixed monthly plan allocation within the account summary.
@@ -175,6 +176,12 @@ export class AccountAllocationSummary {
  * Response containing allocation summaries for all accounts with linked plans.
  */
 export class AccountAllocationSummaryResponse {
+  @ApiProperty({
+    description: 'The period for which allocation is calculated',
+    type: PeriodRange,
+  })
+  period: PeriodRange;
+
   @ApiProperty({
     description: 'Account allocation summaries',
     type: [AccountAllocationSummary],
