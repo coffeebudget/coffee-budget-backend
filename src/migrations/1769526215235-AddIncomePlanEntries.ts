@@ -54,20 +54,26 @@ export class AddIncomePlanEntries1769526215235 implements MigrationInterface {
         await queryRunner.query(`CREATE TYPE "public"."expense_plan_suggestions_expense_type_enum" AS ENUM('subscription', 'utility', 'insurance', 'mortgage', 'rent', 'loan', 'tax', 'salary', 'investment', 'other_fixed', 'variable')`);
         await queryRunner.query(`ALTER TABLE "expense_plan_suggestions" ALTER COLUMN "expense_type" TYPE "public"."expense_plan_suggestions_expense_type_enum" USING "expense_type"::"text"::"public"."expense_plan_suggestions_expense_type_enum"`);
         await queryRunner.query(`DROP TYPE "public"."expense_type_enum_old"`);
+        // Rename shared frequency_type_enum to old (used by both expense_plan_suggestions and detected_patterns)
         await queryRunner.query(`ALTER TYPE "public"."frequency_type_enum" RENAME TO "frequency_type_enum_old"`);
+
+        // Create new enums for both tables
         await queryRunner.query(`CREATE TYPE "public"."expense_plan_suggestions_frequency_type_enum" AS ENUM('weekly', 'biweekly', 'monthly', 'quarterly', 'semiannual', 'annual')`);
+        await queryRunner.query(`CREATE TYPE "public"."detected_patterns_frequency_type_enum" AS ENUM('weekly', 'biweekly', 'monthly', 'quarterly', 'semiannual', 'annual')`);
+
+        // Migrate both columns BEFORE dropping the old enum
         await queryRunner.query(`ALTER TABLE "expense_plan_suggestions" ALTER COLUMN "frequency_type" TYPE "public"."expense_plan_suggestions_frequency_type_enum" USING "frequency_type"::"text"::"public"."expense_plan_suggestions_frequency_type_enum"`);
+        await queryRunner.query(`ALTER TABLE "detected_patterns" ALTER COLUMN "frequency_type" TYPE "public"."detected_patterns_frequency_type_enum" USING "frequency_type"::"text"::"public"."detected_patterns_frequency_type_enum"`);
+
+        // Now safe to drop the old enum
         await queryRunner.query(`DROP TYPE "public"."frequency_type_enum_old"`);
+
         await queryRunner.query(`ALTER TABLE "expense_plan_suggestions" ALTER COLUMN "created_at" SET DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "expense_plan_suggestions" ALTER COLUMN "updated_at" SET DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" DROP COLUMN "merchant_name"`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" ADD "merchant_name" character varying`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" DROP COLUMN "representative_description"`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" ADD "representative_description" character varying NOT NULL`);
-        await queryRunner.query(`ALTER TYPE "public"."frequency_type_enum" RENAME TO "frequency_type_enum_old"`);
-        await queryRunner.query(`CREATE TYPE "public"."detected_patterns_frequency_type_enum" AS ENUM('weekly', 'biweekly', 'monthly', 'quarterly', 'semiannual', 'annual')`);
-        await queryRunner.query(`ALTER TABLE "detected_patterns" ALTER COLUMN "frequency_type" TYPE "public"."detected_patterns_frequency_type_enum" USING "frequency_type"::"text"::"public"."detected_patterns_frequency_type_enum"`);
-        await queryRunner.query(`DROP TYPE "public"."frequency_type_enum_old"`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" ALTER COLUMN "created_at" SET DEFAULT now()`);
         await queryRunner.query(`ALTER TABLE "detected_patterns" ALTER COLUMN "updated_at" SET DEFAULT now()`);
         await queryRunner.query(`ALTER TYPE "public"."gocardless_connection_status_enum" RENAME TO "gocardless_connection_status_enum_old"`);

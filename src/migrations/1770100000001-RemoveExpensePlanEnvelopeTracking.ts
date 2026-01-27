@@ -6,7 +6,21 @@ export class RemoveExpensePlanEnvelopeTracking1770100000001
   name = 'RemoveExpensePlanEnvelopeTracking1770100000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Drop the expense_plan_transactions table
+    // First, drop the foreign key constraint from transaction_link_suggestions
+    // that references expense_plan_transactions
+    await queryRunner.query(
+      `ALTER TABLE "transaction_link_suggestions" DROP CONSTRAINT IF EXISTS "FK_0d8165c8b8ec5cc9bf467676301"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "transaction_link_suggestions" DROP CONSTRAINT IF EXISTS "FK_transaction_link_suggestions_plan_transaction"`,
+    );
+
+    // Drop the column that referenced expense_plan_transactions
+    await queryRunner.query(
+      `ALTER TABLE "transaction_link_suggestions" DROP COLUMN IF EXISTS "expensePlanTransactionId"`,
+    );
+
+    // Now safe to drop the expense_plan_transactions table
     await queryRunner.query(`DROP TABLE IF EXISTS "expense_plan_transactions"`);
 
     // Remove envelope-related columns from expense_plans table
