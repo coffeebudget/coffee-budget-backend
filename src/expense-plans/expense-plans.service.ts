@@ -877,14 +877,22 @@ export class ExpensePlansService {
               ? this.daysBetween(today, new Date(p.nextDueDate))
               : 0,
             icon: p.icon,
+            obligationType: this.getObligationType(p),
           }))
         : [];
+
+      // Determine balance source from GoCardless integration
+      const balanceSource = account.gocardlessAccountId
+        ? 'gocardless'
+        : 'manual';
 
       accountCoverages.push({
         accountId: account.id,
         accountName: account.name,
         institution: null, // BankAccount doesn't have institution field
         currentBalance,
+        balanceSource,
+        balanceLastUpdated: null, // TODO: Track balance update timestamps
         upcomingPlansTotal: upcomingTotal,
         planCount: accountPlans.length,
         projectedBalance,
@@ -913,6 +921,7 @@ export class ExpensePlansService {
           ? this.daysBetween(today, new Date(p.nextDueDate))
           : 0,
         icon: p.icon,
+        obligationType: this.getObligationType(p),
       })),
     };
 
@@ -1079,10 +1088,17 @@ export class ExpensePlansService {
       healthStatus = 'healthy';
     }
 
+    // Determine balance source from GoCardless integration
+    const balanceSource = account.gocardlessAccountId
+      ? 'gocardless'
+      : 'manual';
+
     return {
       accountId: account.id,
       accountName: account.name,
       currentBalance,
+      balanceSource,
+      balanceLastUpdated: null, // TODO: Track balance update timestamps
       totalRequiredToday,
       shortfall,
       surplus,
@@ -1278,6 +1294,28 @@ export class ExpensePlansService {
       (endDate.getFullYear() - startDate.getFullYear()) * 12 +
       (endDate.getMonth() - startDate.getMonth());
     return Math.max(1, months);
+  }
+
+  /**
+   * Determine the obligation type for a plan.
+   * - 'fixed': Known exact amount (fixed_monthly, yearly_fixed)
+   * - 'estimated': Amount based on historical data or estimates (yearly_variable, seasonal)
+   * - 'prorated': Amount calculated as progress toward a goal (sinking funds)
+   */
+  private getObligationType(
+    plan: ExpensePlan,
+  ): 'fixed' | 'estimated' | 'prorated' {
+    switch (plan.planType) {
+      case 'fixed_monthly':
+      case 'yearly_fixed':
+        return 'fixed';
+      case 'yearly_variable':
+      case 'seasonal':
+        return 'estimated';
+      default:
+        // Sinking funds and goals use prorated calculation
+        return plan.purpose === 'sinking_fund' ? 'prorated' : 'fixed';
+    }
   }
 
   /**

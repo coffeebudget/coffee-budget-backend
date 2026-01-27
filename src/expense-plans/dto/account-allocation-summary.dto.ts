@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PeriodRange } from './coverage-period.dto';
+import { BalanceSource } from './coverage-summary.dto';
 
 /**
  * Individual fixed monthly plan allocation within the account summary.
@@ -109,6 +110,19 @@ export class AccountAllocationSummary {
     example: 4154.57,
   })
   currentBalance: number;
+
+  @ApiProperty({
+    description: 'Source of the balance information',
+    enum: ['gocardless', 'manual', 'unknown'],
+    example: 'gocardless',
+  })
+  balanceSource: BalanceSource;
+
+  @ApiPropertyOptional({
+    description: 'When the balance was last updated',
+    example: '2026-01-27T10:30:00Z',
+  })
+  balanceLastUpdated: string | null;
 
   @ApiProperty({
     description: 'Total amount that should be allocated today',

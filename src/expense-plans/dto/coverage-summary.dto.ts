@@ -2,6 +2,16 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PeriodRange } from './coverage-period.dto';
 
 /**
+ * Source of the balance information
+ */
+export type BalanceSource = 'gocardless' | 'manual' | 'unknown';
+
+/**
+ * Type of obligation calculation
+ */
+export type ObligationType = 'fixed' | 'estimated' | 'prorated';
+
+/**
  * Represents an expense plan at risk of not being covered
  */
 export class PlanAtRisk {
@@ -40,6 +50,13 @@ export class PlanAtRisk {
     example: '🚗',
   })
   icon: string | null;
+
+  @ApiProperty({
+    description: 'Type of obligation calculation',
+    enum: ['fixed', 'estimated', 'prorated'],
+    example: 'fixed',
+  })
+  obligationType: ObligationType;
 }
 
 /**
@@ -69,6 +86,19 @@ export class AccountCoverage {
     example: 2500,
   })
   currentBalance: number;
+
+  @ApiProperty({
+    description: 'Source of the balance information',
+    enum: ['gocardless', 'manual', 'unknown'],
+    example: 'gocardless',
+  })
+  balanceSource: BalanceSource;
+
+  @ApiPropertyOptional({
+    description: 'When the balance was last updated',
+    example: '2026-01-27T10:30:00Z',
+  })
+  balanceLastUpdated: string | null;
 
   @ApiProperty({
     description: 'Total amount of upcoming plans in next 30 days',
