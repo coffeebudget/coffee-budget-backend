@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
@@ -805,23 +805,31 @@ export class ExpensePlansService {
     const periodEnd = new Date(period.end);
     periodEnd.setHours(23, 59, 59, 999);
 
-    // Get all active expense plans with next due date in the period
+    // Get ALL active expense plans (not filtered by nextDueDate anymore)
     const plans = await this.expensePlanRepository.find({
       where: {
         userId,
         status: 'active',
-        nextDueDate: LessThanOrEqual(periodEnd),
       },
       relations: ['paymentAccount'],
     });
 
-    // Filter only plans with due dates within the period
-    const upcomingPlans = plans.filter((plan) => {
-      if (!plan.nextDueDate) return false;
-      const dueDate = new Date(plan.nextDueDate);
-      dueDate.setHours(0, 0, 0, 0);
-      return dueDate >= periodStart && dueDate <= periodEnd;
-    });
+    // Calculate obligation for each plan in the period
+    // Store plan + obligation data together
+    interface PlanWithObligation {
+      plan: ExpensePlan;
+      obligation: { amount: number; hasObligation: boolean; occurrences: number };
+    }
+
+    const plansWithObligations: PlanWithObligation[] = plans.map((plan) => ({
+      plan,
+      obligation: this.calculateObligationForPeriod(plan, periodStart, periodEnd),
+    }));
+
+    // Filter to only plans with obligations in this period
+    const upcomingPlans = plansWithObligations.filter(
+      (po) => po.obligation.hasObligation,
+    );
 
     // Get all user's bank accounts
     const bankAccounts = await this.bankAccountRepository.find({
@@ -829,14 +837,17 @@ export class ExpensePlansService {
     });
 
     // Group plans by account
-    const plansByAccountId = new Map<number | 'unassigned', ExpensePlan[]>();
+    const plansByAccountId = new Map<
+      number | 'unassigned',
+      PlanWithObligation[]
+    >();
 
-    for (const plan of upcomingPlans) {
-      const key = plan.paymentAccountId ?? 'unassigned';
+    for (const po of upcomingPlans) {
+      const key = po.plan.paymentAccountId ?? 'unassigned';
       if (!plansByAccountId.has(key)) {
         plansByAccountId.set(key, []);
       }
-      plansByAccountId.get(key)!.push(plan);
+      plansByAccountId.get(key)!.push(po);
     }
 
     // Calculate coverage for each account that has plans linked
@@ -848,8 +859,9 @@ export class ExpensePlansService {
       // Only include accounts that have upcoming plans
       if (accountPlans.length === 0) continue;
 
+      // Use the calculated obligation amounts instead of getUpcomingAmount
       const upcomingTotal = accountPlans.reduce(
-        (sum, p) => sum + this.getUpcomingAmount(p),
+        (sum, po) => sum + po.obligation.amount,
         0,
       );
       const currentBalance = Number(account.balance);
@@ -859,25 +871,29 @@ export class ExpensePlansService {
 
       // Sort plans by due date (soonest first)
       const sortedPlans = [...accountPlans].sort((a, b) => {
-        const dateA = a.nextDueDate ? new Date(a.nextDueDate).getTime() : 0;
-        const dateB = b.nextDueDate ? new Date(b.nextDueDate).getTime() : 0;
+        const dateA = a.plan.nextDueDate
+          ? new Date(a.plan.nextDueDate).getTime()
+          : 0;
+        const dateB = b.plan.nextDueDate
+          ? new Date(b.plan.nextDueDate).getTime()
+          : 0;
         return dateA - dateB;
       });
 
-      // Calculate plans at risk
+      // Calculate plans at risk (using obligation amounts)
       const plansAtRisk: PlanAtRisk[] = hasShortfall
-        ? sortedPlans.map((p) => ({
-            id: p.id,
-            name: p.name,
-            amount: this.getUpcomingAmount(p),
-            nextDueDate: p.nextDueDate
-              ? new Date(p.nextDueDate).toISOString().split('T')[0]
+        ? sortedPlans.map((po) => ({
+            id: po.plan.id,
+            name: po.plan.name,
+            amount: po.obligation.amount,
+            nextDueDate: po.plan.nextDueDate
+              ? new Date(po.plan.nextDueDate).toISOString().split('T')[0]
               : null,
-            daysUntilDue: p.nextDueDate
-              ? this.daysBetween(today, new Date(p.nextDueDate))
+            daysUntilDue: po.plan.nextDueDate
+              ? this.daysBetween(today, new Date(po.plan.nextDueDate))
               : 0,
-            icon: p.icon,
-            obligationType: this.getObligationType(p),
+            icon: po.plan.icon,
+            obligationType: this.getObligationType(po.plan),
           }))
         : [];
 
@@ -907,21 +923,21 @@ export class ExpensePlansService {
     const unassignedSummary: UnassignedPlanSummary = {
       count: unassignedPlans.length,
       totalAmount: unassignedPlans.reduce(
-        (sum, p) => sum + this.getUpcomingAmount(p),
+        (sum, po) => sum + po.obligation.amount,
         0,
       ),
-      plans: unassignedPlans.map((p) => ({
-        id: p.id,
-        name: p.name,
-        amount: this.getUpcomingAmount(p),
-        nextDueDate: p.nextDueDate
-          ? new Date(p.nextDueDate).toISOString().split('T')[0]
+      plans: unassignedPlans.map((po) => ({
+        id: po.plan.id,
+        name: po.plan.name,
+        amount: po.obligation.amount,
+        nextDueDate: po.plan.nextDueDate
+          ? new Date(po.plan.nextDueDate).toISOString().split('T')[0]
           : null,
-        daysUntilDue: p.nextDueDate
-          ? this.daysBetween(today, new Date(p.nextDueDate))
+        daysUntilDue: po.plan.nextDueDate
+          ? this.daysBetween(today, new Date(po.plan.nextDueDate))
           : 0,
-        icon: p.icon,
-        obligationType: this.getObligationType(p),
+        icon: po.plan.icon,
+        obligationType: this.getObligationType(po.plan),
       })),
     };
 
@@ -1337,5 +1353,269 @@ export class ExpensePlansService {
         // Other frequencies: the upcoming expense is the target amount
         return Number(plan.targetAmount);
     }
+  }
+
+  /**
+   * Calculate the obligation amount for a plan within a specific period.
+   * Returns { amount, hasObligation } where:
+   * - amount: the total obligation in this period
+   * - hasObligation: whether the plan has any obligation in this period
+   *
+   * Handles all plan types appropriately:
+   * - fixed_monthly: counts occurrences in period
+   * - yearly_fixed/yearly_variable: checks if due date is in period
+   * - multi_year: checks if target date is in period
+   * - seasonal: checks if any seasonal months fall in period
+   * - emergency_fund: no periodic obligation
+   * - goal: monthly contribution × months in period
+   */
+  calculateObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    switch (plan.planType) {
+      case 'fixed_monthly':
+        return this.calculateFixedMonthlyObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'yearly_fixed':
+      case 'yearly_variable':
+        return this.calculateYearlyObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'multi_year':
+        return this.calculateMultiYearObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'seasonal':
+        return this.calculateSeasonalObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      case 'emergency_fund':
+        // Emergency funds don't have periodic obligations
+        // (they are for maintaining a buffer)
+        return { amount: 0, hasObligation: false, occurrences: 0 };
+
+      case 'goal':
+        return this.calculateGoalObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+
+      default:
+        // Fallback: check if nextDueDate is in period
+        return this.calculateDefaultObligationForPeriod(
+          plan,
+          periodStart,
+          periodEnd,
+        );
+    }
+  }
+
+  /**
+   * Fixed monthly plans: count how many months fall in the period
+   * and multiply by the target amount (not monthly contribution).
+   */
+  private calculateFixedMonthlyObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+    const dueDay = plan.dueDay || 1;
+
+    // Count how many payment dates fall within the period
+    let occurrences = 0;
+    const current = new Date(periodStart);
+    current.setDate(dueDay);
+
+    // If we're past the due day in the start month, start from next month
+    if (current < periodStart) {
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    while (current <= periodEnd) {
+      occurrences++;
+      current.setMonth(current.getMonth() + 1);
+    }
+
+    return {
+      amount: occurrences * targetAmount,
+      hasObligation: occurrences > 0,
+      occurrences,
+    };
+  }
+
+  /**
+   * Yearly plans: check if the due date falls within the period.
+   */
+  private calculateYearlyObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+
+    // Check nextDueDate first
+    if (plan.nextDueDate) {
+      const dueDate = new Date(plan.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      if (dueDate >= periodStart && dueDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    // Fallback: check if dueMonth/dueDay combination falls in period
+    if (plan.dueMonth !== null && plan.dueDay !== null) {
+      // Check current year and next year
+      for (const year of [periodStart.getFullYear(), periodEnd.getFullYear()]) {
+        const dueDate = new Date(year, plan.dueMonth - 1, plan.dueDay);
+        if (dueDate >= periodStart && dueDate <= periodEnd) {
+          return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+        }
+      }
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Multi-year plans: check if target date falls in period.
+   */
+  private calculateMultiYearObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+
+    // Check targetDate
+    if (plan.targetDate) {
+      const targetDate = new Date(plan.targetDate);
+      targetDate.setHours(0, 0, 0, 0);
+      if (targetDate >= periodStart && targetDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    // Check nextDueDate as fallback
+    if (plan.nextDueDate) {
+      const dueDate = new Date(plan.nextDueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      if (dueDate >= periodStart && dueDate <= periodEnd) {
+        return { amount: targetAmount, hasObligation: true, occurrences: 1 };
+      }
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Seasonal plans: check if any seasonal months fall in the period.
+   */
+  private calculateSeasonalObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const targetAmount = Number(plan.targetAmount);
+    const seasonalMonths = plan.seasonalMonths || [];
+
+    if (seasonalMonths.length === 0) {
+      return { amount: 0, hasObligation: false, occurrences: 0 };
+    }
+
+    // Count how many seasonal months fall in the period
+    let occurrences = 0;
+    const current = new Date(periodStart);
+
+    while (current <= periodEnd) {
+      const month = current.getMonth() + 1; // 1-indexed
+      if (seasonalMonths.includes(month)) {
+        occurrences++;
+      }
+      current.setMonth(current.getMonth() + 1);
+      current.setDate(1); // Move to first of next month
+    }
+
+    // For seasonal, the amount per occurrence might be targetAmount / seasonalMonths.length
+    // or just targetAmount per season. We'll use targetAmount per occurrence.
+    return {
+      amount: occurrences * targetAmount,
+      hasObligation: occurrences > 0,
+      occurrences,
+    };
+  }
+
+  /**
+   * Goal plans: calculate monthly contribution × months in period.
+   */
+  private calculateGoalObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    const monthlyContribution = Number(plan.monthlyContribution);
+
+    // Count months in period
+    const months = this.countMonthsInPeriod(periodStart, periodEnd);
+
+    return {
+      amount: months * monthlyContribution,
+      hasObligation: months > 0,
+      occurrences: months,
+    };
+  }
+
+  /**
+   * Default: check if nextDueDate is in period.
+   */
+  private calculateDefaultObligationForPeriod(
+    plan: ExpensePlan,
+    periodStart: Date,
+    periodEnd: Date,
+  ): { amount: number; hasObligation: boolean; occurrences: number } {
+    if (!plan.nextDueDate) {
+      return { amount: 0, hasObligation: false, occurrences: 0 };
+    }
+
+    const dueDate = new Date(plan.nextDueDate);
+    dueDate.setHours(0, 0, 0, 0);
+
+    if (dueDate >= periodStart && dueDate <= periodEnd) {
+      return {
+        amount: Number(plan.targetAmount),
+        hasObligation: true,
+        occurrences: 1,
+      };
+    }
+
+    return { amount: 0, hasObligation: false, occurrences: 0 };
+  }
+
+  /**
+   * Count the number of months (or partial months) in a period.
+   */
+  private countMonthsInPeriod(periodStart: Date, periodEnd: Date): number {
+    const startYear = periodStart.getFullYear();
+    const startMonth = periodStart.getMonth();
+    const endYear = periodEnd.getFullYear();
+    const endMonth = periodEnd.getMonth();
+
+    return (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
   }
 }
