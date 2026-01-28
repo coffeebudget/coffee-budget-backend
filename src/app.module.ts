@@ -26,6 +26,7 @@ import { PaymentActivitiesModule } from './payment-activities/payment-activities
 import { ExpensePlansModule } from './expense-plans/expense-plans.module';
 import { SmartRecurrenceModule } from './smart-recurrence/smart-recurrence.module';
 import { IncomePlansModule } from './income-plans/income-plans.module';
+import { FreeToSpendModule } from './free-to-spend/free-to-spend.module';
 
 import databaseConfig from './config/database.config';
 
@@ -91,6 +92,7 @@ import databaseConfig from './config/database.config';
     ExpensePlansModule,
     SmartRecurrenceModule,
     IncomePlansModule,
+    FreeToSpendModule,
   ],
   controllers: [AppController],
   providers: [
