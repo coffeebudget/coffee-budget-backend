@@ -628,4 +628,39 @@ export class ExpensePlansController {
   ): Promise<void> {
     await this.linkingService.deletePayment(paymentId, user.id);
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSACTION LINK INFO
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Post('linked-plans-by-transactions')
+  @ApiOperation({
+    summary: 'Get linked expense plans for transactions',
+    description:
+      'Returns which expense plans are linked to the provided transaction IDs',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Linked plans retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getLinkedPlansByTransactions(
+    @Body('transactionIds') transactionIds: number[],
+    @CurrentUser() user: any,
+  ): Promise<Record<number, { planId: number; planName: string; planIcon: string | null }[]>> {
+    const result = await this.linkingService.getLinkedPlansForTransactions(
+      transactionIds || [],
+      user.id,
+    );
+
+    // Convert Map to plain object for JSON serialization
+    const response: Record<number, { planId: number; planName: string; planIcon: string | null }[]> = {};
+    for (const [key, value] of result.entries()) {
+      response[key] = value;
+    }
+    return response;
+  }
 }

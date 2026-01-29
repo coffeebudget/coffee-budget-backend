@@ -290,4 +290,49 @@ export class TransactionLinkingService {
 
     return Number(result?.total || 0);
   }
+
+  /**
+   * Get linked expense plans for multiple transactions
+   * Returns a map of transactionId -> linked expense plan info
+   */
+  async getLinkedPlansForTransactions(
+    transactionIds: number[],
+    userId: number,
+  ): Promise<
+    Map<
+      number,
+      { planId: number; planName: string; planIcon: string | null }[]
+    >
+  > {
+    if (transactionIds.length === 0) {
+      return new Map();
+    }
+
+    const payments = await this.paymentRepository
+      .createQueryBuilder('payment')
+      .innerJoinAndSelect('payment.expensePlan', 'plan')
+      .where('payment.transactionId IN (:...transactionIds)', { transactionIds })
+      .andWhere('plan.userId = :userId', { userId })
+      .andWhere('payment.paymentType != :unlinked', { unlinked: 'unlinked' })
+      .getMany();
+
+    const result = new Map<
+      number,
+      { planId: number; planName: string; planIcon: string | null }[]
+    >();
+
+    for (const payment of payments) {
+      if (!payment.transactionId) continue;
+
+      const existing = result.get(payment.transactionId) || [];
+      existing.push({
+        planId: payment.expensePlanId,
+        planName: payment.expensePlan.name,
+        planIcon: payment.expensePlan.icon,
+      });
+      result.set(payment.transactionId, existing);
+    }
+
+    return result;
+  }
 }
