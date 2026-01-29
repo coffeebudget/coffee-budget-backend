@@ -4,6 +4,7 @@ import { SuggestionGeneratorService } from './suggestion-generator.service';
 import { PatternDetectionService } from './pattern-detection.service';
 import { PatternClassificationService } from './pattern-classification.service';
 import { CategoryFallbackSuggestionService } from './category-fallback-suggestion.service';
+import { TemplateDetectorService } from './template-detector.service';
 import { ExpensePlanSuggestion } from '../entities/expense-plan-suggestion.entity';
 import { ExpensePlan } from '../../expense-plans/entities/expense-plan.entity';
 import { Category } from '../../categories/entities/category.entity';
@@ -121,6 +122,17 @@ describe('SuggestionGeneratorService', () => {
             checkPatternDiscrepancy: jest.fn().mockResolvedValue({
               hasDiscrepancy: false,
               discrepancyPercentage: 0,
+            }),
+          },
+        },
+        {
+          provide: TemplateDetectorService,
+          useValue: {
+            detectTemplate: jest.fn().mockReturnValue({
+              templateId: 'monthly-bill',
+              confidence: 85,
+              reasons: ['Monthly payments detected'],
+              suggestedConfig: { dueDay: 15 },
             }),
           },
         },

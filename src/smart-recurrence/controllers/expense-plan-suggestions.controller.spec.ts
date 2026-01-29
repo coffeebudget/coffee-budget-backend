@@ -44,6 +44,11 @@ describe('ExpensePlanSuggestionsController', () => {
     hasDiscrepancyWarning: false,
     status: 'pending' as const,
     createdAt: new Date(),
+    // v4: Template detection fields
+    suggestedTemplate: 'monthly-bill',
+    templateConfidence: 85,
+    templateReasons: ['Monthly payments detected', 'Very consistent amounts'],
+    suggestedConfig: { dueDay: 15, autoTrackCategory: true },
   };
 
   beforeEach(async () => {

@@ -29,6 +29,7 @@ import {
 } from '../interfaces/classification.interface';
 import { FrequencyType } from '../interfaces/frequency.interface';
 import { CategoryAggregation } from '../interfaces/category-aggregation.interface';
+import { TemplateDetectorService } from './template-detector.service';
 import {
   GenerateSuggestionsDto,
   GenerateSuggestionsResponseDto,
@@ -55,6 +56,7 @@ export class SuggestionGeneratorService {
     private readonly patternClassification: PatternClassificationService,
     private readonly expensePlanAdjustmentService: ExpensePlanAdjustmentService,
     private readonly categoryFallbackService: CategoryFallbackSuggestionService,
+    private readonly templateDetector: TemplateDetectorService,
   ) {}
 
   // ─────────────────────────────────────────────────────────────
@@ -258,6 +260,19 @@ export class SuggestionGeneratorService {
       suggestion.discrepancyPercentage = null;
       suggestion.hasDiscrepancyWarning = false;
 
+      // v4: Template detection (PRD-006)
+      const sourcePattern = agg.sourcePatterns[0];
+      if (sourcePattern) {
+        const templateResult = this.templateDetector.detectTemplate(
+          sourcePattern,
+          agg.expenseType,
+        );
+        suggestion.suggestedTemplate = templateResult.templateId;
+        suggestion.templateConfidence = templateResult.confidence;
+        suggestion.templateReasons = templateResult.reasons;
+        suggestion.suggestedConfig = templateResult.suggestedConfig;
+      }
+
       suggestion.patternConfidence = agg.averageConfidence;
       suggestion.classificationConfidence = agg.averageConfidence;
       suggestion.overallConfidence = agg.averageConfidence;
@@ -349,6 +364,14 @@ export class SuggestionGeneratorService {
       suggestion.metadata = {
         patternId: `fallback-${fb.categoryId}`,
         sourceVersion: '3.0',
+      };
+
+      // v4: Default template for fallback suggestions (no pattern to analyze)
+      suggestion.suggestedTemplate = 'monthly-budget';
+      suggestion.templateConfidence = 50;
+      suggestion.templateReasons = ['Based on category average (no recurring pattern detected)'];
+      suggestion.suggestedConfig = {
+        autoTrackCategory: true,
       };
 
       return suggestion;
@@ -1104,6 +1127,11 @@ export class SuggestionGeneratorService {
       hasDiscrepancyWarning: suggestion.hasDiscrepancyWarning,
       status: suggestion.status,
       createdAt: suggestion.createdAt,
+      // v4: Template detection fields (PRD-006)
+      suggestedTemplate: suggestion.suggestedTemplate,
+      templateConfidence: suggestion.templateConfidence,
+      templateReasons: suggestion.templateReasons,
+      suggestedConfig: suggestion.suggestedConfig,
     };
   }
 

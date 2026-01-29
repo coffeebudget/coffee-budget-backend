@@ -230,6 +230,40 @@ export class SuggestionResponseDto {
 
   @ApiProperty()
   createdAt: Date;
+
+  // v4: Template detection (PRD-006)
+  @ApiPropertyOptional({
+    description: 'Suggested expense plan template ID',
+    example: 'monthly-bill',
+  })
+  suggestedTemplate: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Confidence score for template suggestion (0-100)',
+    minimum: 0,
+    maximum: 100,
+  })
+  templateConfidence: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Reasons explaining why this template was suggested',
+    type: [String],
+    example: ['Monthly payments detected', 'Very consistent amounts'],
+  })
+  templateReasons: string[] | null;
+
+  @ApiPropertyOptional({
+    description: 'Pre-filled configuration for the suggested template',
+    example: { dueDay: 15, autoTrackCategory: true },
+  })
+  suggestedConfig: {
+    dueDay?: number;
+    dueMonth?: number;
+    paymentSchedule?: { month: number; estimatedAmount: number }[];
+    spendingWindows?: number[];
+    autoTrackCategory?: boolean;
+    paymentAccountId?: number;
+  } | null;
 }
 
 export class GenerateSuggestionsResponseDto {

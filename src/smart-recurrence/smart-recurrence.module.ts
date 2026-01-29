@@ -14,6 +14,7 @@ import { CategoryFallbackSuggestionService } from './services/category-fallback-
 import { ExpensePlanSuggestionsController } from './controllers/expense-plan-suggestions.controller';
 import { ExpensePlansModule } from '../expense-plans/expense-plans.module';
 import { ExpensePlanEventHandler } from './event-handlers/expense-plan.event-handler';
+import { TemplateDetectorService } from './services/template-detector.service';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { ExpensePlanEventHandler } from './event-handlers/expense-plan.event-han
     SuggestionGeneratorService,
     CategoryFallbackSuggestionService,
     ExpensePlanEventHandler,
+    TemplateDetectorService,
   ],
   exports: [
     SimilarityScorerService,
@@ -43,6 +45,7 @@ import { ExpensePlanEventHandler } from './event-handlers/expense-plan.event-han
     PatternClassificationService,
     SuggestionGeneratorService,
     CategoryFallbackSuggestionService,
+    TemplateDetectorService,
   ],
 })
 export class SmartRecurrenceModule {}

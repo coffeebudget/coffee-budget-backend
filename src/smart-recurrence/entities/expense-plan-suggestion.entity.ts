@@ -159,6 +159,46 @@ export class ExpensePlanSuggestion {
   hasDiscrepancyWarning: boolean;
 
   // ─────────────────────────────────────────────────────────────
+  // TEMPLATE DETECTION (v4: PRD-006)
+  // ─────────────────────────────────────────────────────────────
+
+  @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    name: 'suggested_template',
+  })
+  suggestedTemplate: string | null;
+
+  @Column({
+    type: 'int',
+    nullable: true,
+    name: 'template_confidence',
+  })
+  templateConfidence: number | null; // 0-100
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    name: 'template_reasons',
+  })
+  templateReasons: string[] | null;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    name: 'suggested_config',
+  })
+  suggestedConfig: {
+    dueDay?: number;
+    dueMonth?: number;
+    paymentSchedule?: { month: number; estimatedAmount: number }[];
+    spendingWindows?: number[];
+    autoTrackCategory?: boolean;
+    paymentAccountId?: number;
+  } | null;
+
+  // ─────────────────────────────────────────────────────────────
   // CONFIDENCE METRICS
   // ─────────────────────────────────────────────────────────────
 
