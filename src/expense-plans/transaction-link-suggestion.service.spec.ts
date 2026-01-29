@@ -7,12 +7,14 @@ import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
+import { TransactionLinkingService } from './transaction-linking.service';
 
 describe('TransactionLinkSuggestionService', () => {
   let service: TransactionLinkSuggestionService;
   let suggestionRepository: Repository<TransactionLinkSuggestion>;
   let expensePlanRepository: Repository<ExpensePlan>;
   let transactionRepository: Repository<Transaction>;
+  let linkingService: jest.Mocked<TransactionLinkingService>;
   let module: TestingModule;
 
   const mockUser = {
@@ -67,6 +69,10 @@ describe('TransactionLinkSuggestionService', () => {
   };
 
   beforeEach(async () => {
+    const mockLinkingService = {
+      linkTransaction: jest.fn().mockResolvedValue({ id: 1 }),
+    };
+
     module = await Test.createTestingModule({
       providers: [
         TransactionLinkSuggestionService,
@@ -75,6 +81,10 @@ describe('TransactionLinkSuggestionService', () => {
         ),
         RepositoryMockFactory.createRepositoryProvider(ExpensePlan),
         RepositoryMockFactory.createRepositoryProvider(Transaction),
+        {
+          provide: TransactionLinkingService,
+          useValue: mockLinkingService,
+        },
       ],
     }).compile();
 
@@ -86,6 +96,7 @@ describe('TransactionLinkSuggestionService', () => {
     );
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
     transactionRepository = module.get(getRepositoryToken(Transaction));
+    linkingService = module.get(TransactionLinkingService);
   });
 
   afterEach(async () => {
@@ -226,6 +237,13 @@ describe('TransactionLinkSuggestionService', () => {
       const result = await service.approve(1, 1);
 
       expect(result.success).toBe(true);
+      // Verify the linking service was called to create the payment
+      expect(linkingService.linkTransaction).toHaveBeenCalledWith(
+        mockSuggestion.expensePlanId,
+        mockSuggestion.transactionId,
+        1, // userId
+        'Linked via suggestion #1',
+      );
       expect(suggestionRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 'approved',

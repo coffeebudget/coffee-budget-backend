@@ -24,7 +24,7 @@ import {
   SuggestionCountsDto,
   ApproveLinkSuggestionDto,
   RejectLinkSuggestionDto,
-  ApprovalResultDto,
+  LinkApprovalResultDto,
   BulkApproveSuggestionsDto,
   BulkRejectSuggestionsDto,
   BulkApprovalResultDto,
@@ -102,7 +102,7 @@ export class TransactionLinkSuggestionsController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Suggestion approved and transaction linked successfully',
-    type: ApprovalResultDto,
+    type: LinkApprovalResultDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -120,7 +120,7 @@ export class TransactionLinkSuggestionsController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: ApproveLinkSuggestionDto,
     @CurrentUser() user: any,
-  ): Promise<ApprovalResultDto> {
+  ): Promise<LinkApprovalResultDto> {
     return this.suggestionService.approve(id, user.id, dto.customAmount);
   }
 

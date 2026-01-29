@@ -48,6 +48,19 @@ import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
 import { TransactionLinkingService } from './transaction-linking.service';
 
+// Helper to safely convert date to ISO string (handles both Date objects and strings from DB)
+function toDateString(date: Date | string | null): string | null {
+  if (!date) return null;
+  if (date instanceof Date) return date.toISOString().split('T')[0];
+  return String(date).split('T')[0];
+}
+
+function toISOString(date: Date | string | null): string | null {
+  if (!date) return null;
+  if (date instanceof Date) return date.toISOString();
+  return String(date);
+}
+
 @ApiTags('Expense Plans')
 @ApiBearerAuth()
 @Controller('expense-plans')
@@ -246,7 +259,8 @@ export class ExpensePlansController {
     name: 'period',
     required: false,
     enum: VALID_COVERAGE_PERIODS,
-    description: 'Time period for allocation calculation (defaults to this_month)',
+    description:
+      'Time period for allocation calculation (defaults to this_month)',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -261,7 +275,10 @@ export class ExpensePlansController {
     @CurrentUser() user: any,
     @Query('period') period?: CoveragePeriodType,
   ): Promise<AccountAllocationSummaryResponse> {
-    return this.expensePlansService.getAccountAllocationSummary(user.id, period);
+    return this.expensePlansService.getAccountAllocationSummary(
+      user.id,
+      period,
+    );
   }
 
   @Get(':id')
@@ -522,7 +539,7 @@ export class ExpensePlansController {
       month: payment.month,
       period: payment.getPeriod(),
       amount: Number(payment.amount),
-      paymentDate: payment.paymentDate.toISOString().split('T')[0],
+      paymentDate: toDateString(payment.paymentDate)!,
       paymentType: payment.paymentType,
       transactionId: payment.transactionId,
       transaction: payment.transaction
@@ -530,13 +547,11 @@ export class ExpensePlansController {
             id: payment.transaction.id,
             description: payment.transaction.description,
             amount: Number(payment.transaction.amount),
-            executionDate: payment.transaction.executionDate
-              ? payment.transaction.executionDate.toISOString().split('T')[0]
-              : null,
+            executionDate: toDateString(payment.transaction.executionDate),
           }
         : null,
       notes: payment.notes,
-      createdAt: payment.createdAt.toISOString(),
+      createdAt: toISOString(payment.createdAt)!,
     }));
   }
 
@@ -583,12 +598,12 @@ export class ExpensePlansController {
       month: payment.month,
       period: payment.getPeriod(),
       amount: Number(payment.amount),
-      paymentDate: payment.paymentDate.toISOString().split('T')[0],
+      paymentDate: toDateString(payment.paymentDate)!,
       paymentType: payment.paymentType,
       transactionId: payment.transactionId,
       transaction: null, // Not loaded in linkTransaction
       notes: payment.notes,
-      createdAt: payment.createdAt.toISOString(),
+      createdAt: toISOString(payment.createdAt)!,
     };
   }
 
@@ -650,14 +665,22 @@ export class ExpensePlansController {
   async getLinkedPlansByTransactions(
     @Body('transactionIds') transactionIds: number[],
     @CurrentUser() user: any,
-  ): Promise<Record<number, { planId: number; planName: string; planIcon: string | null }[]>> {
+  ): Promise<
+    Record<
+      number,
+      { planId: number; planName: string; planIcon: string | null }[]
+    >
+  > {
     const result = await this.linkingService.getLinkedPlansForTransactions(
       transactionIds || [],
       user.id,
     );
 
     // Convert Map to plain object for JSON serialization
-    const response: Record<number, { planId: number; planName: string; planIcon: string | null }[]> = {};
+    const response: Record<
+      number,
+      { planId: number; planName: string; planIcon: string | null }[]
+    > = {};
     for (const [key, value] of result.entries()) {
       response[key] = value;
     }

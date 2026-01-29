@@ -15,10 +15,11 @@ import { Transaction } from '../transactions/transaction.entity';
 import {
   TransactionLinkSuggestionResponseDto,
   SuggestionCountsDto,
-  ApprovalResultDto,
+  LinkApprovalResultDto,
   BulkApprovalResultDto,
   BulkRejectionResultDto,
 } from './dto/transaction-link-suggestion.dto';
+import { TransactionLinkingService } from './transaction-linking.service';
 
 @Injectable()
 export class TransactionLinkSuggestionService {
@@ -31,6 +32,7 @@ export class TransactionLinkSuggestionService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    private readonly linkingService: TransactionLinkingService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -132,7 +134,7 @@ export class TransactionLinkSuggestionService {
     id: number,
     userId: number,
     _customAmount?: number,
-  ): Promise<ApprovalResultDto> {
+  ): Promise<LinkApprovalResultDto> {
     const suggestion = await this.findById(id, userId);
 
     if (suggestion.status !== 'pending') {
@@ -141,7 +143,15 @@ export class TransactionLinkSuggestionService {
       );
     }
 
-    // Update suggestion status (no balance tracking anymore)
+    // Create the payment record by linking the transaction
+    await this.linkingService.linkTransaction(
+      suggestion.expensePlanId,
+      suggestion.transactionId,
+      userId,
+      `Linked via suggestion #${id}`,
+    );
+
+    // Update suggestion status
     suggestion.status = 'approved';
     suggestion.reviewedAt = new Date();
     await this.suggestionRepository.save(suggestion);

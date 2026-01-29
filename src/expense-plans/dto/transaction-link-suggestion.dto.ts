@@ -140,7 +140,7 @@ export class SuggestionCountsDto {
   total: number;
 }
 
-export class ApprovalResultDto {
+export class LinkApprovalResultDto {
   @ApiProperty({ description: 'Whether the approval was successful' })
   success: boolean;
 }
