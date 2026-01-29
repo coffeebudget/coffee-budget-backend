@@ -9,7 +9,10 @@ import { ExpensePlanAdjustmentSchedulerService } from './expense-plan-adjustment
 import { TransactionLinkSuggestionService } from './transaction-link-suggestion.service';
 import { TransactionLinkSuggestionsController } from './transaction-link-suggestions.controller';
 import { TransactionLinkSuggestionEventHandler } from './event-handlers/transaction-link-suggestion.event-handler';
+import { TransactionLinkingService } from './transaction-linking.service';
+import { TransactionAutoLinkingEventHandler } from './event-handlers/transaction-auto-linking.event-handler';
 import { ExpensePlan } from './entities/expense-plan.entity';
+import { ExpensePlanPayment } from './entities/expense-plan-payment.entity';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
 import { TransactionLinkSuggestion } from './entities/transaction-link-suggestion.entity';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
@@ -21,6 +24,7 @@ import { SharedModule } from '../shared/shared.module';
   imports: [
     TypeOrmModule.forFeature([
       ExpensePlan,
+      ExpensePlanPayment,
       IncomeDistributionRule,
       TransactionLinkSuggestion,
       BankAccount,
@@ -41,12 +45,15 @@ import { SharedModule } from '../shared/shared.module';
     ExpensePlanAdjustmentSchedulerService,
     TransactionLinkSuggestionService,
     TransactionLinkSuggestionEventHandler,
+    TransactionLinkingService,
+    TransactionAutoLinkingEventHandler,
   ],
   exports: [
     ExpensePlansService,
     IncomeDistributionService,
     ExpensePlanAdjustmentService,
     TransactionLinkSuggestionService,
+    TransactionLinkingService,
     TypeOrmModule,
   ],
 })

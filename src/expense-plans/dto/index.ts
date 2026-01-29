@@ -6,3 +6,4 @@ export * from './coverage-summary.dto';
 export * from './expense-plan-response.dto';
 export * from './transaction-link-suggestion.dto';
 export * from './account-allocation-summary.dto';
+export * from './expense-plan-payment.dto';

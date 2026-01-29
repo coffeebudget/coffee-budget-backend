@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -36,6 +37,8 @@ import {
   AccountAllocationSummaryResponse,
   CoveragePeriodType,
   VALID_COVERAGE_PERIODS,
+  LinkTransactionDto,
+  ExpensePlanPaymentResponseDto,
 } from './dto';
 import {
   AcceptAdjustmentDto,
@@ -43,6 +46,7 @@ import {
 } from './dto/adjustment-action.dto';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
+import { TransactionLinkingService } from './transaction-linking.service';
 
 @ApiTags('Expense Plans')
 @ApiBearerAuth()
@@ -52,6 +56,7 @@ export class ExpensePlansController {
   constructor(
     private readonly expensePlansService: ExpensePlansService,
     private readonly adjustmentService: ExpensePlanAdjustmentService,
+    private readonly linkingService: TransactionLinkingService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -447,5 +452,180 @@ export class ExpensePlansController {
   })
   async reviewAdjustments(@CurrentUser() user: any): Promise<ReviewSummaryDto> {
     return this.adjustmentService.reviewAllPlansForUser(user.id);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PAYMENT LINKING
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get(':id/payments')
+  @ApiOperation({
+    summary: 'Get payments for an expense plan',
+    description:
+      'Retrieve all linked payments/transactions for an expense plan',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    type: Number,
+    description: 'Filter by year',
+    example: 2025,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    type: Number,
+    description: 'Filter by month (1-12)',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Payments retrieved successfully',
+    type: [ExpensePlanPaymentResponseDto],
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Expense plan not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getPayments(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('year') year: number | undefined,
+    @Query('month') month: number | undefined,
+    @CurrentUser() user: any,
+  ): Promise<ExpensePlanPaymentResponseDto[]> {
+    let payments;
+
+    if (year && month) {
+      payments = await this.linkingService.getPaymentsForPeriod(
+        id,
+        year,
+        month,
+        user.id,
+      );
+    } else {
+      payments = await this.linkingService.getPaymentsForPlan(id, user.id);
+    }
+
+    return payments.map((payment) => ({
+      id: payment.id,
+      expensePlanId: payment.expensePlanId,
+      year: payment.year,
+      month: payment.month,
+      period: payment.getPeriod(),
+      amount: Number(payment.amount),
+      paymentDate: payment.paymentDate.toISOString().split('T')[0],
+      paymentType: payment.paymentType,
+      transactionId: payment.transactionId,
+      transaction: payment.transaction
+        ? {
+            id: payment.transaction.id,
+            description: payment.transaction.description,
+            amount: Number(payment.transaction.amount),
+            executionDate: payment.transaction.executionDate
+              ? payment.transaction.executionDate.toISOString().split('T')[0]
+              : null,
+          }
+        : null,
+      notes: payment.notes,
+      createdAt: payment.createdAt.toISOString(),
+    }));
+  }
+
+  @Post(':id/link-transaction')
+  @ApiOperation({
+    summary: 'Link a transaction to an expense plan',
+    description:
+      'Manually link a transaction as a payment against an expense plan',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Transaction linked successfully',
+    type: ExpensePlanPaymentResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Expense plan or transaction not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async linkTransaction(
+    @Param('id', ParseIntPipe) id: number,
+    @Body(new ValidationPipe()) dto: LinkTransactionDto,
+    @CurrentUser() user: any,
+  ): Promise<ExpensePlanPaymentResponseDto> {
+    const payment = await this.linkingService.linkTransaction(
+      id,
+      dto.transactionId,
+      user.id,
+      dto.notes,
+    );
+
+    return {
+      id: payment.id,
+      expensePlanId: payment.expensePlanId,
+      year: payment.year,
+      month: payment.month,
+      period: payment.getPeriod(),
+      amount: Number(payment.amount),
+      paymentDate: payment.paymentDate.toISOString().split('T')[0],
+      paymentType: payment.paymentType,
+      transactionId: payment.transactionId,
+      transaction: null, // Not loaded in linkTransaction
+      notes: payment.notes,
+      createdAt: payment.createdAt.toISOString(),
+    };
+  }
+
+  @Delete(':planId/payments/:paymentId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Delete a payment link',
+    description:
+      'Remove a linked payment from an expense plan. The transaction is not deleted.',
+  })
+  @ApiParam({
+    name: 'planId',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiParam({
+    name: 'paymentId',
+    description: 'Payment ID',
+    example: 42,
+  })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Payment link deleted successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Payment not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async deletePayment(
+    @Param('planId', ParseIntPipe) _planId: number,
+    @Param('paymentId', ParseIntPipe) paymentId: number,
+    @CurrentUser() user: any,
+  ): Promise<void> {
+    await this.linkingService.deletePayment(paymentId, user.id);
   }
 }
