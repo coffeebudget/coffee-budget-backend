@@ -842,7 +842,6 @@ describe('ExpensePlansService', () => {
       // Assert
       expect(result).toBe(100); // 600 / 6
     });
-
   });
 
   describe('calculateStatus', () => {

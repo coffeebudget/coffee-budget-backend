@@ -255,6 +255,9 @@ export class ExpensePlansService {
     const targetAmount = Number(plan.targetAmount);
     const monthlyContribution = Number(plan.monthlyContribution);
 
+    // For seasonal plans, use per-occurrence amount for funding calculations
+    const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
+
     // Calculate funding status (only for sinking funds)
     let fundingStatus: FundingStatus = null;
     let monthsUntilDue: number | null = null;
@@ -263,7 +266,7 @@ export class ExpensePlansService {
 
     if (plan.purpose === 'sinking_fund') {
       fundingStatus = this.calculateStatus(plan);
-      amountNeeded = targetAmount;
+      amountNeeded = effectiveTarget; // Use effective target for next due
 
       if (plan.nextDueDate) {
         monthsUntilDue = this.monthsBetween(
@@ -271,9 +274,9 @@ export class ExpensePlansService {
           new Date(plan.nextDueDate),
         );
         if (monthsUntilDue > 0) {
-          requiredMonthlyContribution = targetAmount / monthsUntilDue;
+          requiredMonthlyContribution = effectiveTarget / monthsUntilDue;
         } else {
-          requiredMonthlyContribution = targetAmount; // Due now, need full amount
+          requiredMonthlyContribution = effectiveTarget; // Due now, need full amount
         }
       }
     }
@@ -305,9 +308,10 @@ export class ExpensePlansService {
     }
 
     // Calculate progress based on time rather than balance
+    // Use effectiveTarget (per-occurrence for seasonal) for progress calculation
     const progressPercent =
       plan.purpose === 'sinking_fund' && expectedFundedByNow !== null
-        ? (expectedFundedByNow / targetAmount) * 100
+        ? (expectedFundedByNow / effectiveTarget) * 100
         : 0;
 
     // Return all plan fields plus calculated status fields
@@ -597,6 +601,27 @@ export class ExpensePlansService {
   }
 
   /**
+   * Get the effective target amount for the next due date.
+   * For seasonal plans, this is the per-occurrence amount (targetAmount / seasonalMonths.length).
+   * For other plans, this is the full targetAmount.
+   */
+  private getEffectiveTargetForNextDue(plan: ExpensePlan): number {
+    const targetAmount = Number(plan.targetAmount);
+
+    if (
+      plan.frequency === 'seasonal' &&
+      plan.seasonalMonths &&
+      plan.seasonalMonths.length > 0
+    ) {
+      // For seasonal plans, targetAmount is the yearly total
+      // Divide by number of occurrences to get per-occurrence amount
+      return targetAmount / plan.seasonalMonths.length;
+    }
+
+    return targetAmount;
+  }
+
+  /**
    * Calculate the status of a plan based on contribution rate vs required rate.
    * No longer depends on currentBalance.
    */
@@ -612,31 +637,28 @@ export class ExpensePlansService {
       new Date(plan.nextDueDate),
     );
 
+    // Use effective target (per-occurrence for seasonal plans)
+    const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
+
     // If due date is very close (less than 1 month), check if almost ready
     if (monthsUntilDue <= 1) {
       // Check if configured contribution would cover the target
       const expectedFunded = this.calculateExpectedFundedByNow(plan);
-      if (
-        expectedFunded !== null &&
-        expectedFunded >= Number(plan.targetAmount) * 0.8
-      ) {
-        return expectedFunded >= Number(plan.targetAmount)
-          ? 'funded'
-          : 'almost_ready';
+      if (expectedFunded !== null && expectedFunded >= effectiveTarget * 0.8) {
+        return expectedFunded >= effectiveTarget ? 'funded' : 'almost_ready';
       }
       return 'behind';
     }
 
     // Calculate required monthly vs configured monthly
-    const targetAmount = Number(plan.targetAmount);
-    const requiredMonthly = targetAmount / monthsUntilDue;
+    const requiredMonthly = effectiveTarget / monthsUntilDue;
     const configuredMonthly = Number(plan.monthlyContribution);
 
     // 10% tolerance
     if (configuredMonthly >= requiredMonthly * 0.9) {
       // Check if almost ready (more than 80% of time elapsed)
       const expectedFunded = this.calculateExpectedFundedByNow(plan);
-      if (expectedFunded !== null && expectedFunded >= targetAmount * 0.8) {
+      if (expectedFunded !== null && expectedFunded >= effectiveTarget * 0.8) {
         return 'almost_ready';
       }
       return 'on_track';
@@ -1192,13 +1214,16 @@ export class ExpensePlansService {
     const targetAmount = Number(plan.targetAmount);
     const monthlyContribution = Number(plan.monthlyContribution);
 
+    // Use effective target (per-occurrence for seasonal plans)
+    const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
+
     // Calculate expected funded by now
     const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
     // If we can't calculate expected, use 0 (shouldn't contribute to required)
     const requiredToday = expectedFundedByNow ?? 0;
 
     const progressPercent =
-      targetAmount > 0 ? (requiredToday / targetAmount) * 100 : 0;
+      effectiveTarget > 0 ? (requiredToday / effectiveTarget) * 100 : 0;
 
     // Calculate months until due
     let monthsUntilDue: number | null = null;
@@ -1265,6 +1290,9 @@ export class ExpensePlansService {
       return null;
     }
 
+    // Use effective target (per-occurrence for seasonal plans)
+    const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
+
     const now = new Date();
 
     // Get the due date (prefer nextDueDate, fall back to targetDate)
@@ -1279,8 +1307,8 @@ export class ExpensePlansService {
       return null;
     }
 
-    // Calculate how many months are needed to save the full target
-    const monthsNeededToSave = targetAmount / monthlyContribution;
+    // Calculate how many months are needed to save the effective target
+    const monthsNeededToSave = effectiveTarget / monthlyContribution;
 
     // Calculate when saving should have started
     const savingStartDate = new Date(dueDate);
@@ -1297,10 +1325,10 @@ export class ExpensePlansService {
     const monthsElapsed = this.monthsBetweenDecimal(savingStartDate, now);
 
     // Expected funded amount = months elapsed × monthly contribution
-    // Capped at target amount
+    // Capped at effective target (per-occurrence for seasonal)
     const expectedFundedByNow = Math.min(
       monthsElapsed * monthlyContribution,
-      targetAmount,
+      effectiveTarget,
     );
 
     return Math.round(expectedFundedByNow * 100) / 100;
@@ -1461,14 +1489,20 @@ export class ExpensePlansService {
 
   /**
    * Fixed monthly plans: count how many months fall in the period
-   * and multiply by the target amount (not monthly contribution).
+   * and multiply by the monthly contribution.
+   *
+   * Note: For fixed_monthly plans, we use monthlyContribution (not targetAmount) because:
+   * - Some plans track aggregated category expenses where targetAmount = yearly total
+   * - The actual monthly obligation is the monthlyContribution amount
    */
   private calculateFixedMonthlyObligationForPeriod(
     plan: ExpensePlan,
     periodStart: Date,
     periodEnd: Date,
   ): { amount: number; hasObligation: boolean; occurrences: number } {
-    const targetAmount = Number(plan.targetAmount);
+    // Use monthlyContribution as the per-occurrence amount for fixed monthly plans
+    // This handles both true monthly bills and aggregated category expenses
+    const monthlyAmount = Number(plan.monthlyContribution);
     const dueDay = plan.dueDay || 1;
 
     // Count how many payment dates fall within the period
@@ -1487,7 +1521,7 @@ export class ExpensePlansService {
     }
 
     return {
-      amount: occurrences * targetAmount,
+      amount: occurrences * monthlyAmount,
       hasObligation: occurrences > 0,
       occurrences,
     };
