@@ -1528,7 +1528,14 @@ export class ExpensePlansService {
   }
 
   /**
-   * Yearly plans: check if the due date falls within the period.
+   * Yearly plans: calculate obligation for the period.
+   *
+   * For spending_budget plans: These track ongoing expenses (e.g., monthly school fees).
+   * The targetAmount is a yearly total, but expenses are ongoing.
+   * Use monthlyContribution × months in period.
+   *
+   * For sinking_fund plans: These save for one-time payments (e.g., annual insurance).
+   * Use targetAmount when the due date falls in the period.
    */
   private calculateYearlyObligationForPeriod(
     plan: ExpensePlan,
@@ -1536,8 +1543,33 @@ export class ExpensePlansService {
     periodEnd: Date,
   ): { amount: number; hasObligation: boolean; occurrences: number } {
     const targetAmount = Number(plan.targetAmount);
+    const monthlyContribution = Number(plan.monthlyContribution);
 
-    // Check nextDueDate first
+    // For spending_budget plans, calculate monthly obligation similar to fixed_monthly
+    // These are ongoing expenses where targetAmount is yearly total
+    if (plan.purpose === 'spending_budget') {
+      // Count how many months fall within the period
+      let occurrences = 0;
+      const current = new Date(periodStart);
+      current.setDate(1); // Start from first of month
+
+      while (current <= periodEnd) {
+        occurrences++;
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      // Cap at 1 occurrence for 30-day periods (typical coverage period)
+      occurrences = Math.min(occurrences, 1);
+
+      return {
+        amount: occurrences * monthlyContribution,
+        hasObligation: occurrences > 0,
+        occurrences,
+      };
+    }
+
+    // For sinking_fund plans, check if the due date falls within the period
+    // These are saving for one-time payments
     if (plan.nextDueDate) {
       const dueDate = new Date(plan.nextDueDate);
       dueDate.setHours(0, 0, 0, 0);
