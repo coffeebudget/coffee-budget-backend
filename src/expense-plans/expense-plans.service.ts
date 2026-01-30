@@ -1593,6 +1593,7 @@ export class ExpensePlansService {
 
   /**
    * Seasonal plans: check if any seasonal months fall in the period.
+   * Uses per-occurrence amount (targetAmount / seasonalMonths.length).
    */
   private calculateSeasonalObligationForPeriod(
     plan: ExpensePlan,
@@ -1605,6 +1606,9 @@ export class ExpensePlansService {
     if (seasonalMonths.length === 0) {
       return { amount: 0, hasObligation: false, occurrences: 0 };
     }
+
+    // Calculate per-occurrence amount (targetAmount is yearly total)
+    const perOccurrenceAmount = targetAmount / seasonalMonths.length;
 
     // Count how many seasonal months fall in the period
     let occurrences = 0;
@@ -1619,10 +1623,9 @@ export class ExpensePlansService {
       current.setDate(1); // Move to first of next month
     }
 
-    // For seasonal, the amount per occurrence might be targetAmount / seasonalMonths.length
-    // or just targetAmount per season. We'll use targetAmount per occurrence.
+    // Use per-occurrence amount (targetAmount / seasonalMonths.length)
     return {
-      amount: occurrences * targetAmount,
+      amount: occurrences * perOccurrenceAmount,
       hasObligation: occurrences > 0,
       occurrences,
     };
