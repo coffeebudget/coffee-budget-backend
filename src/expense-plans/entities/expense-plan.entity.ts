@@ -134,7 +134,19 @@ export class ExpensePlan {
   @Column({ type: 'date', nullable: true })
   targetDate: Date | null;
 
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({
+    type: 'simple-array',
+    nullable: true,
+    transformer: {
+      to: (value: number[] | null) => value,
+      from: (value: string[] | null) => {
+        if (!value || value.length === 0) return null;
+        // Filter out empty strings and convert to numbers
+        const numbers = value.filter((v) => v !== '').map((v) => parseInt(v, 10));
+        return numbers.length > 0 ? numbers : null;
+      },
+    },
+  })
   seasonalMonths: number[] | null;
 
   @Column({ type: 'date', nullable: true })

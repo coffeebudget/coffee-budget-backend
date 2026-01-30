@@ -411,6 +411,19 @@ export class ExpensePlansService {
       plan.paymentAccountType = paymentAccountType;
     }
 
+    // Recalculate nextDueDate if timing fields changed
+    const timingFieldsChanged =
+      dto.frequency !== undefined ||
+      dto.dueMonth !== undefined ||
+      dto.dueDay !== undefined ||
+      dto.seasonalMonths !== undefined ||
+      dto.targetDate !== undefined;
+
+    let nextDueDate: Date | null | undefined = undefined;
+    if (timingFieldsChanged) {
+      nextDueDate = this.calculateNextDueDate(plan);
+    }
+
     // Use update instead of save for fields managed by relations
     await this.expensePlanRepository.update(
       { id, userId },
@@ -418,6 +431,7 @@ export class ExpensePlansService {
         ...restDto,
         ...(paymentAccountId !== undefined && { paymentAccountId }),
         ...(paymentAccountType !== undefined && { paymentAccountType }),
+        ...(nextDueDate !== undefined && { nextDueDate }),
       },
     );
 
@@ -602,7 +616,10 @@ export class ExpensePlansService {
     if (monthsUntilDue <= 1) {
       // Check if configured contribution would cover the target
       const expectedFunded = this.calculateExpectedFundedByNow(plan);
-      if (expectedFunded !== null && expectedFunded >= Number(plan.targetAmount) * 0.8) {
+      if (
+        expectedFunded !== null &&
+        expectedFunded >= Number(plan.targetAmount) * 0.8
+      ) {
         return expectedFunded >= Number(plan.targetAmount)
           ? 'funded'
           : 'almost_ready';
@@ -712,18 +729,28 @@ export class ExpensePlansService {
         return null;
 
       case 'seasonal':
-        // Return start of next seasonal period
+        // Return next seasonal period, using dueDay if set
         if (plan.seasonalMonths && plan.seasonalMonths.length > 0) {
           const sortedMonths = [...plan.seasonalMonths].sort((a, b) => a - b);
           const currentMonth = today.getMonth() + 1; // 1-indexed
+          const day = plan.dueDay || 1; // Use dueDay if set, otherwise 1st of month
 
+          // Check if current month is seasonal and due date hasn't passed yet
+          if (sortedMonths.includes(currentMonth)) {
+            const currentMonthDue = new Date(today.getFullYear(), currentMonth - 1, day);
+            if (currentMonthDue > today) {
+              return currentMonthDue;
+            }
+          }
+
+          // Find next seasonal month after current month
           for (const month of sortedMonths) {
             if (month > currentMonth) {
-              return new Date(today.getFullYear(), month - 1, 1);
+              return new Date(today.getFullYear(), month - 1, day);
             }
           }
           // Next year's first seasonal month
-          return new Date(today.getFullYear() + 1, sortedMonths[0] - 1, 1);
+          return new Date(today.getFullYear() + 1, sortedMonths[0] - 1, day);
         }
         return null;
 
@@ -818,12 +845,20 @@ export class ExpensePlansService {
     // Store plan + obligation data together
     interface PlanWithObligation {
       plan: ExpensePlan;
-      obligation: { amount: number; hasObligation: boolean; occurrences: number };
+      obligation: {
+        amount: number;
+        hasObligation: boolean;
+        occurrences: number;
+      };
     }
 
     const plansWithObligations: PlanWithObligation[] = plans.map((plan) => ({
       plan,
-      obligation: this.calculateObligationForPeriod(plan, periodStart, periodEnd),
+      obligation: this.calculateObligationForPeriod(
+        plan,
+        periodStart,
+        periodEnd,
+      ),
     }));
 
     // Filter to only plans with obligations in this period
@@ -1105,9 +1140,7 @@ export class ExpensePlansService {
     }
 
     // Determine balance source from GoCardless integration
-    const balanceSource = account.gocardlessAccountId
-      ? 'gocardless'
-      : 'manual';
+    const balanceSource = account.gocardlessAccountId ? 'gocardless' : 'manual';
 
     return {
       accountId: account.id,
