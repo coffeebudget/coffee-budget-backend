@@ -4,6 +4,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { ExpensePlan } from '../expense-plans/entities/expense-plan.entity';
 import { IncomePlansService } from '../income-plans/income-plans.service';
 import { ExpensePlansService } from '../expense-plans/expense-plans.service';
+import { EnvelopeBalanceService } from '../expense-plans/envelope-balance.service';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +15,7 @@ describe('FreeToSpendService', () => {
   let expensePlanRepository: Repository<ExpensePlan>;
   let incomePlansService: IncomePlansService;
   let expensePlansService: ExpensePlansService;
+  let envelopeBalanceService: EnvelopeBalanceService;
   let module: TestingModule;
 
   const mockUser = {
@@ -72,6 +74,7 @@ describe('FreeToSpendService', () => {
       purpose: 'sinking_fund',
       priority: 'essential',
       targetAmount: 1200,
+      monthlyContribution: 1200, // Fixed monthly plans have contribution = target
       categoryId: 10,
       dueDay: 1,
     },
@@ -84,6 +87,7 @@ describe('FreeToSpendService', () => {
       purpose: 'sinking_fund',
       priority: 'essential',
       targetAmount: 150,
+      monthlyContribution: 150,
       categoryId: 11,
       dueDay: 15,
     },
@@ -108,6 +112,7 @@ describe('FreeToSpendService', () => {
       purpose: 'spending_budget',
       priority: 'essential',
       targetAmount: 400,
+      monthlyContribution: 400,
       categoryId: 12,
       dueDay: 1,
     },
@@ -148,6 +153,33 @@ describe('FreeToSpendService', () => {
     },
   ];
 
+  // Default mock for envelope balance service
+  const mockEnvelopeBufferSummary = {
+    year: 2026,
+    month: 1,
+    totalBuffer: 200,
+    totalPositiveBalance: 200,
+    planBuffers: [
+      {
+        planId: 1,
+        planName: 'Rent',
+        planIcon: '🏠',
+        purpose: 'sinking_fund',
+        previousBalance: 0,
+        monthlyAllocation: 1200,
+        actualSpending: 1000,
+        currentBalance: 200,
+        rolloverSurplus: true,
+        status: 'under_budget',
+        utilizationPercent: 83.3,
+      },
+    ],
+    byPurpose: {
+      sinkingFunds: [],
+      spendingBudgets: [],
+    },
+  };
+
   beforeEach(async () => {
     module = await Test.createTestingModule({
       providers: [
@@ -164,16 +196,16 @@ describe('FreeToSpendService', () => {
           provide: ExpensePlansService,
           useValue: {
             findActiveByUser: jest.fn().mockResolvedValue(mockExpensePlans),
-            calculateObligationForPeriod: jest.fn().mockImplementation((plan) => {
-              // Return obligations based on plan type
-              if (plan.planType === 'fixed_monthly') {
-                return { amount: plan.targetAmount, hasObligation: true, occurrences: 1 };
-              }
-              if (plan.planType === 'goal') {
-                return { amount: plan.monthlyContribution || 0, hasObligation: true, occurrences: 1 };
-              }
-              return { amount: 0, hasObligation: false, occurrences: 0 };
-            }),
+            // Note: calculateObligationForPeriod is no longer used by FreeToSpendService
+            // as it now uses monthlyContribution directly for all plans
+          },
+        },
+        {
+          provide: EnvelopeBalanceService,
+          useValue: {
+            getTotalEnvelopeBuffer: jest
+              .fn()
+              .mockResolvedValue(mockEnvelopeBufferSummary),
           },
         },
       ],
@@ -184,6 +216,9 @@ describe('FreeToSpendService', () => {
     expensePlanRepository = module.get(getRepositoryToken(ExpensePlan));
     incomePlansService = module.get<IncomePlansService>(IncomePlansService);
     expensePlansService = module.get<ExpensePlansService>(ExpensePlansService);
+    envelopeBalanceService = module.get<EnvelopeBalanceService>(
+      EnvelopeBalanceService,
+    );
   });
 
   afterEach(async () => {
@@ -193,7 +228,9 @@ describe('FreeToSpendService', () => {
   describe('calculate', () => {
     beforeEach(() => {
       // Setup transaction repository mock
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
       (transactionRepository.count as jest.Mock).mockResolvedValue(0);
       (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
     });
@@ -278,7 +315,11 @@ describe('FreeToSpendService', () => {
 
       // Assert
       expect(result.month).toBe('2026-01');
-      expect(incomePlansService.getMonthlySummary).toHaveBeenCalledWith(userId, 2026, 1);
+      expect(incomePlansService.getMonthlySummary).toHaveBeenCalledWith(
+        userId,
+        2026,
+        1,
+      );
     });
 
     it('should include income breakdown with sources', async () => {
@@ -325,7 +366,9 @@ describe('FreeToSpendService', () => {
 
       // Assert
       expect(result.discretionarySpending.topCategories).toBeDefined();
-      expect(result.discretionarySpending.topCategories.length).toBeLessThanOrEqual(5);
+      expect(
+        result.discretionarySpending.topCategories.length,
+      ).toBeLessThanOrEqual(5);
       // Dining Out should be first (50 + 100 = 150)
       expect(result.discretionarySpending.topCategories[0]).toEqual({
         category: 'Dining Out',
@@ -391,7 +434,9 @@ describe('FreeToSpendService', () => {
     it('should calculate correctly when no expense plans exist', async () => {
       // Arrange
       (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue([]);
-      (transactionRepository.find as jest.Mock).mockResolvedValue(mockTransactions);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       // Act
       const result = await service.calculate(1, '2026-01');
@@ -458,7 +503,160 @@ describe('FreeToSpendService', () => {
       await service.calculate(userId, '2026-12');
 
       // Assert
-      expect(incomePlansService.getMonthlySummary).toHaveBeenCalledWith(userId, 2026, 12);
+      expect(incomePlansService.getMonthlySummary).toHaveBeenCalledWith(
+        userId,
+        2026,
+        12,
+      );
+    });
+  });
+
+  describe('seasonal plans handling', () => {
+    it('should include seasonal plan monthlyContribution even when current month is not in seasonalMonths', async () => {
+      // Arrange: February 2026, seasonal plan for summer (June, July, August)
+      const seasonalPlan: Partial<ExpensePlan> = {
+        id: 5,
+        userId: 1,
+        name: 'Summer Vacation',
+        icon: '🏖️',
+        planType: 'seasonal',
+        purpose: 'sinking_fund',
+        priority: 'discretionary',
+        targetAmount: 4000, // Total for summer
+        monthlyContribution: 400, // Saving €400/month to reach target
+        categoryId: null,
+        seasonalMonths: [6, 7, 8], // June, July, August
+      };
+
+      const plansWithSeasonal = [...mockExpensePlans, seasonalPlan];
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue(
+        plansWithSeasonal,
+      );
+      (transactionRepository.find as jest.Mock).mockResolvedValue([]);
+      (transactionRepository.count as jest.Mock).mockResolvedValue(0);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
+
+      // Act: Calculate for February (not a seasonal month)
+      const result = await service.calculate(1, '2026-02');
+
+      // Assert: Seasonal plan's monthlyContribution should be included
+      // Total obligations = Rent(1200) + Utilities(150) + Emergency(200) + Groceries(400) + Summer(400) = 2350
+      expect(result.obligations.total).toBe(2350);
+
+      // Verify seasonal plan is in the items
+      const seasonalItem = result.obligations.items.find(
+        (item) => item.name === 'Summer Vacation',
+      );
+      expect(seasonalItem).toBeDefined();
+      expect(seasonalItem?.amount).toBe(400);
+    });
+
+    it('should skip plans with zero monthlyContribution', async () => {
+      // Arrange
+      const zeroPlan: Partial<ExpensePlan> = {
+        id: 6,
+        userId: 1,
+        name: 'Empty Plan',
+        planType: 'fixed_monthly',
+        purpose: 'sinking_fund',
+        monthlyContribution: 0,
+        targetAmount: 0,
+        categoryId: null,
+      };
+
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue([
+        zeroPlan,
+      ]);
+      (transactionRepository.find as jest.Mock).mockResolvedValue([]);
+
+      // Act
+      const result = await service.calculate(1, '2026-01');
+
+      // Assert
+      expect(result.obligations.total).toBe(0);
+      expect(result.obligations.items).toHaveLength(0);
+    });
+  });
+
+  describe('envelope buffer integration', () => {
+    beforeEach(() => {
+      (transactionRepository.find as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
+      (transactionRepository.count as jest.Mock).mockResolvedValue(0);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
+    });
+
+    it('should include envelope buffer in response', async () => {
+      // Act
+      const result = await service.calculate(1, '2026-01');
+
+      // Assert
+      expect(result.envelopeBuffer).toBeDefined();
+      expect(result.envelopeBuffer?.total).toBe(200);
+      expect(result.envelopeBuffer?.breakdown).toHaveLength(1);
+      expect(result.envelopeBuffer?.breakdown[0].planName).toBe('Rent');
+    });
+
+    it('should calculate trulyAvailable when freeToSpend is positive', async () => {
+      // Arrange: freeToSpend = 5000 - 1950 - 180 = 2870
+      // envelopeBuffer = 200
+      // Act
+      const result = await service.calculate(1, '2026-01');
+
+      // Assert: trulyAvailable = freeToSpend + buffer = 2870 + 200 = 3070
+      expect(result.freeToSpend).toBe(2870);
+      expect(result.trulyAvailable).toBe(3070);
+    });
+
+    it('should calculate trulyAvailable when freeToSpend is negative (deficit)', async () => {
+      // Arrange: Very low income creating a deficit
+      (incomePlansService.getMonthlySummary as jest.Mock).mockResolvedValue({
+        ...mockMonthlySummary,
+        guaranteedTotal: 2000, // Low income
+        totalIncome: 2000,
+      });
+
+      // Mock envelope buffer with €248
+      (envelopeBalanceService.getTotalEnvelopeBuffer as jest.Mock).mockResolvedValue({
+        ...mockEnvelopeBufferSummary,
+        totalPositiveBalance: 248,
+      });
+
+      // Act
+      const result = await service.calculate(1, '2026-01');
+
+      // Assert:
+      // freeToSpend = 2000 - 1950 - 180 = -130 (deficit)
+      // envelopeBuffer = 248
+      // trulyAvailable = max(0, 248 + (-130)) = max(0, 118) = 118
+      expect(result.freeToSpend).toBe(-130);
+      expect(result.trulyAvailable).toBe(118);
+    });
+
+    it('should return 0 trulyAvailable when deficit exceeds buffer', async () => {
+      // Arrange: Large deficit that exceeds buffer
+      (incomePlansService.getMonthlySummary as jest.Mock).mockResolvedValue({
+        ...mockMonthlySummary,
+        guaranteedTotal: 1000, // Very low income
+        totalIncome: 1000,
+      });
+
+      // Mock envelope buffer with €100
+      (envelopeBalanceService.getTotalEnvelopeBuffer as jest.Mock).mockResolvedValue({
+        ...mockEnvelopeBufferSummary,
+        totalPositiveBalance: 100,
+      });
+
+      // Act
+      const result = await service.calculate(1, '2026-01');
+
+      // Assert:
+      // freeToSpend = 1000 - 1950 - 180 = -1130 (large deficit)
+      // envelopeBuffer = 100
+      // trulyAvailable = max(0, 100 + (-1130)) = max(0, -1030) = 0
+      expect(result.freeToSpend).toBe(-1130);
+      expect(result.trulyAvailable).toBe(0);
     });
   });
 });

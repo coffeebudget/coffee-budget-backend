@@ -46,8 +46,7 @@ export class FreeToSpendController {
     @Query('month') month?: string,
   ): Promise<FreeToSpendResponseDto> {
     // Default to current month if not specified
-    const targetMonth =
-      month ?? new Date().toISOString().slice(0, 7); // YYYY-MM format
+    const targetMonth = month ?? new Date().toISOString().slice(0, 7); // YYYY-MM format
 
     return this.freeToSpendService.calculate(user.id, targetMonth);
   }

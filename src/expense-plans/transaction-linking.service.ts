@@ -159,10 +159,7 @@ export class TransactionLinkingService {
   /**
    * Unlink a transaction from an expense plan
    */
-  async unlinkTransaction(
-    paymentId: number,
-    userId: number,
-  ): Promise<void> {
+  async unlinkTransaction(paymentId: number, userId: number): Promise<void> {
     const payment = await this.paymentRepository.findOne({
       where: { id: paymentId },
       relations: ['expensePlan'],
@@ -299,10 +296,7 @@ export class TransactionLinkingService {
     transactionIds: number[],
     userId: number,
   ): Promise<
-    Map<
-      number,
-      { planId: number; planName: string; planIcon: string | null }[]
-    >
+    Map<number, { planId: number; planName: string; planIcon: string | null }[]>
   > {
     if (transactionIds.length === 0) {
       return new Map();
@@ -311,7 +305,9 @@ export class TransactionLinkingService {
     const payments = await this.paymentRepository
       .createQueryBuilder('payment')
       .innerJoinAndSelect('payment.expensePlan', 'plan')
-      .where('payment.transactionId IN (:...transactionIds)', { transactionIds })
+      .where('payment.transactionId IN (:...transactionIds)', {
+        transactionIds,
+      })
       .andWhere('plan.userId = :userId', { userId })
       .andWhere('payment.paymentType != :unlinked', { unlinked: 'unlinked' })
       .getMany();

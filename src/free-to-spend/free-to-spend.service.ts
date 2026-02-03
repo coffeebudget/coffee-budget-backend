@@ -5,6 +5,7 @@ import { Transaction } from '../transactions/transaction.entity';
 import { ExpensePlan } from '../expense-plans/entities/expense-plan.entity';
 import { IncomePlansService } from '../income-plans/income-plans.service';
 import { ExpensePlansService } from '../expense-plans/expense-plans.service';
+import { EnvelopeBalanceService } from '../expense-plans/envelope-balance.service';
 import {
   FreeToSpendResponseDto,
   FreeToSpendStatus,
@@ -15,6 +16,8 @@ import {
   ObligationsByTypeDto,
   DiscretionarySpendingDto,
   CategorySpendingDto,
+  EnvelopeBufferDto,
+  EnvelopeBufferItemDto,
 } from './dto/free-to-spend.dto';
 
 @Injectable()
@@ -26,11 +29,17 @@ export class FreeToSpendService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     private readonly incomePlansService: IncomePlansService,
     private readonly expensePlansService: ExpensePlansService,
+    private readonly envelopeBalanceService: EnvelopeBalanceService,
   ) {}
 
   /**
    * Calculate the "Free to Spend" amount for a given month.
    * Formula: Free to Spend = Income - Obligations - Already Spent (discretionary)
+   *
+   * Enhanced with envelope buffer tracking:
+   * - envelopeBuffer: Shows unspent allocations across expense plans
+   * - trulyAvailable: If freeToSpend is negative (deficit), shows how much
+   *   envelope buffer can cover the deficit
    */
   async calculate(
     userId: number,
@@ -42,11 +51,17 @@ export class FreeToSpendService {
     const periodEnd = new Date(year, monthNum, 0, 23, 59, 59, 999);
 
     // Get all components in parallel
-    const [income, obligations, discretionarySpending] = await Promise.all([
-      this.getIncome(userId, year, monthNum),
-      this.getObligations(userId, periodStart, periodEnd),
-      this.getDiscretionarySpending(userId, periodStart, periodEnd),
-    ]);
+    const [income, obligations, discretionarySpending, envelopeBufferSummary] =
+      await Promise.all([
+        this.getIncome(userId, year, monthNum),
+        this.getObligations(userId, periodStart, periodEnd),
+        this.getDiscretionarySpending(userId, periodStart, periodEnd),
+        this.envelopeBalanceService.getTotalEnvelopeBuffer(
+          userId,
+          year,
+          monthNum,
+        ),
+      ]);
 
     // Calculate free to spend
     // Use guaranteed income as the base (conservative approach)
@@ -56,6 +71,31 @@ export class FreeToSpendService {
     // Determine status based on percentage of income remaining
     const status = this.getStatus(freeToSpend, income.guaranteed);
 
+    // Build envelope buffer breakdown
+    const envelopeBuffer: EnvelopeBufferDto = {
+      total: envelopeBufferSummary.totalPositiveBalance,
+      breakdown: envelopeBufferSummary.planBuffers.map((b) => ({
+        planId: b.planId,
+        planName: b.planName,
+        planIcon: b.planIcon,
+        currentBalance: b.currentBalance,
+        utilizationPercent: b.utilizationPercent,
+        status: b.status,
+      })),
+    };
+
+    // Calculate truly available:
+    // If freeToSpend is negative (deficit), see how much buffer can cover it
+    // If freeToSpend is positive, add the buffer to show total flexibility
+    let trulyAvailable: number;
+    if (freeToSpend < 0) {
+      // Deficit scenario: buffer can cover some or all of deficit
+      trulyAvailable = Math.max(0, envelopeBuffer.total + freeToSpend);
+    } else {
+      // No deficit: all buffer plus freeToSpend is available
+      trulyAvailable = envelopeBuffer.total + freeToSpend;
+    }
+
     return {
       month,
       freeToSpend,
@@ -63,6 +103,8 @@ export class FreeToSpendService {
       income,
       obligations,
       discretionarySpending,
+      envelopeBuffer,
+      trulyAvailable,
       lastUpdated: new Date().toISOString(),
     };
   }
@@ -99,6 +141,16 @@ export class FreeToSpendService {
   /**
    * Get obligations breakdown from expense plans
    * Categorizes into: bills, savings, budgets
+   *
+   * IMPORTANT: For Free to Spend calculation, we use monthlyContribution as the
+   * obligation amount for ALL active plans. This ensures that:
+   * - Seasonal plans are counted even when current month isn't in seasonalMonths
+   *   (the monthly contribution is being "set aside" for future seasonal expenses)
+   * - Sinking funds are counted by their monthly savings rate
+   * - Fixed monthly plans use their monthly amount
+   *
+   * This differs from calculateObligationForPeriod which checks if expenses are
+   * actually DUE in a period (used for coverage calculations).
    */
   private async getObligations(
     userId: number,
@@ -115,13 +167,12 @@ export class FreeToSpendService {
     let totalCommitted = 0;
 
     for (const plan of plans) {
-      const obligation = this.expensePlansService.calculateObligationForPeriod(
-        plan,
-        periodStart,
-        periodEnd,
-      );
+      // Use monthlyContribution as the obligation amount for Free to Spend
+      // This represents the amount being "committed" each month regardless
+      // of whether the expense is actually due this period
+      const monthlyCommitment = Number(plan.monthlyContribution) || 0;
 
-      if (!obligation.hasObligation) {
+      if (monthlyCommitment <= 0) {
         continue;
       }
 
@@ -139,26 +190,26 @@ export class FreeToSpendService {
       // Aggregate by type
       switch (type) {
         case 'bills':
-          totalBills += obligation.amount;
+          totalBills += monthlyCommitment;
           break;
         case 'savings':
-          totalSavings += obligation.amount;
+          totalSavings += monthlyCommitment;
           break;
         case 'budgets':
-          totalBudgets += obligation.amount;
+          totalBudgets += monthlyCommitment;
           break;
       }
 
       if (isPaid) {
-        totalAlreadyPaid += obligation.amount;
+        totalAlreadyPaid += monthlyCommitment;
       } else {
-        totalCommitted += obligation.amount;
+        totalCommitted += monthlyCommitment;
       }
 
       items.push({
         id: plan.id,
         name: plan.name,
-        amount: obligation.amount,
+        amount: monthlyCommitment,
         type,
         isPaid,
         icon: plan.icon,

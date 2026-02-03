@@ -47,6 +47,11 @@ import {
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanAdjustmentService } from './expense-plan-adjustment.service';
 import { TransactionLinkingService } from './transaction-linking.service';
+import {
+  EnvelopeBalanceService,
+  EnvelopeBalance,
+  EnvelopeBufferSummary,
+} from './envelope-balance.service';
 
 // Helper to safely convert date to ISO string (handles both Date objects and strings from DB)
 function toDateString(date: Date | string | null): string | null {
@@ -70,6 +75,7 @@ export class ExpensePlansController {
     private readonly expensePlansService: ExpensePlansService,
     private readonly adjustmentService: ExpensePlanAdjustmentService,
     private readonly linkingService: TransactionLinkingService,
+    private readonly envelopeBalanceService: EnvelopeBalanceService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -278,6 +284,103 @@ export class ExpensePlansController {
     return this.expensePlansService.getAccountAllocationSummary(
       user.id,
       period,
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ENVELOPE BALANCE
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Get('envelope-summary')
+  @ApiOperation({
+    summary: 'Get envelope balance summary for all plans',
+    description:
+      'Get the envelope balance summary showing unspent allocations across all expense plans. ' +
+      'This shows how much money is "blocked" in each virtual envelope for future expenses.',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: true,
+    type: Number,
+    description: 'Year for the calculation',
+    example: 2026,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    type: Number,
+    description: 'Month for the calculation (1-12)',
+    example: 2,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Envelope summary retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getEnvelopeSummary(
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+    @CurrentUser() user: any,
+  ): Promise<EnvelopeBufferSummary> {
+    return this.envelopeBalanceService.getTotalEnvelopeBuffer(
+      user.id,
+      year,
+      month,
+    );
+  }
+
+  @Get(':id/envelope-balance')
+  @ApiOperation({
+    summary: 'Get envelope balance for a specific plan',
+    description:
+      'Get the envelope balance for a specific expense plan, showing allocation vs spending ' +
+      'and rollover from previous months.',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'year',
+    required: true,
+    type: Number,
+    description: 'Year for the calculation',
+    example: 2026,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: true,
+    type: Number,
+    description: 'Month for the calculation (1-12)',
+    example: 2,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Envelope balance retrieved successfully',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Expense plan not found',
+  })
+  @ApiResponse({
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'Authentication required',
+  })
+  async getEnvelopeBalance(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('year', ParseIntPipe) year: number,
+    @Query('month', ParseIntPipe) month: number,
+    @CurrentUser() user: any,
+  ): Promise<EnvelopeBalance> {
+    return this.envelopeBalanceService.calculateEnvelopeBalance(
+      id,
+      year,
+      month,
+      user.id,
     );
   }
 

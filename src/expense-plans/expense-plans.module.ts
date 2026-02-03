@@ -11,6 +11,7 @@ import { TransactionLinkSuggestionsController } from './transaction-link-suggest
 import { TransactionLinkSuggestionEventHandler } from './event-handlers/transaction-link-suggestion.event-handler';
 import { TransactionLinkingService } from './transaction-linking.service';
 import { TransactionAutoLinkingEventHandler } from './event-handlers/transaction-auto-linking.event-handler';
+import { EnvelopeBalanceService } from './envelope-balance.service';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanPayment } from './entities/expense-plan-payment.entity';
 import { IncomeDistributionRule } from './entities/income-distribution-rule.entity';
@@ -47,6 +48,7 @@ import { SharedModule } from '../shared/shared.module';
     TransactionLinkSuggestionEventHandler,
     TransactionLinkingService,
     TransactionAutoLinkingEventHandler,
+    EnvelopeBalanceService,
   ],
   exports: [
     ExpensePlansService,
@@ -54,6 +56,7 @@ import { SharedModule } from '../shared/shared.module';
     ExpensePlanAdjustmentService,
     TransactionLinkSuggestionService,
     TransactionLinkingService,
+    EnvelopeBalanceService,
     TypeOrmModule,
   ],
 })

@@ -3,7 +3,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 /**
  * Status indicating how comfortable the user's budget position is
  */
-export type FreeToSpendStatus = 'comfortable' | 'moderate' | 'tight' | 'overspent';
+export type FreeToSpendStatus =
+  | 'comfortable'
+  | 'moderate'
+  | 'tight'
+  | 'overspent';
 
 /**
  * Individual income source breakdown
@@ -205,6 +209,66 @@ export class DiscretionarySpendingDto {
 }
 
 /**
+ * Individual envelope balance in the buffer breakdown
+ */
+export class EnvelopeBufferItemDto {
+  @ApiProperty({
+    description: 'Expense plan ID',
+    example: 1,
+  })
+  planId: number;
+
+  @ApiProperty({
+    description: 'Expense plan name',
+    example: 'Personal Care',
+  })
+  planName: string;
+
+  @ApiProperty({
+    description: 'Expense plan icon',
+    example: '💅',
+    nullable: true,
+  })
+  planIcon: string | null;
+
+  @ApiProperty({
+    description: 'Current envelope balance (positive = unspent, negative = overspent)',
+    example: 94,
+  })
+  currentBalance: number;
+
+  @ApiProperty({
+    description: 'Utilization percentage (spent / allocated * 100)',
+    example: 36.9,
+  })
+  utilizationPercent: number;
+
+  @ApiPropertyOptional({
+    description: 'Balance status',
+    enum: ['under_budget', 'on_budget', 'over_budget'],
+    example: 'under_budget',
+  })
+  status?: string;
+}
+
+/**
+ * Envelope buffer summary showing money "blocked" for future expenses
+ */
+export class EnvelopeBufferDto {
+  @ApiProperty({
+    description: 'Total positive balance across all envelopes (money blocked for future use)',
+    example: 248,
+  })
+  total: number;
+
+  @ApiProperty({
+    description: 'Per-plan envelope balance breakdown',
+    type: [EnvelopeBufferItemDto],
+  })
+  breakdown: EnvelopeBufferItemDto[];
+}
+
+/**
  * Main Free to Spend response
  */
 export class FreeToSpendResponseDto {
@@ -244,6 +308,20 @@ export class FreeToSpendResponseDto {
     type: DiscretionarySpendingDto,
   })
   discretionarySpending: DiscretionarySpendingDto;
+
+  @ApiPropertyOptional({
+    description: 'Envelope buffer showing unspent allocations across expense plans',
+    type: EnvelopeBufferDto,
+  })
+  envelopeBuffer?: EnvelopeBufferDto;
+
+  @ApiPropertyOptional({
+    description:
+      'Amount truly available to spend (envelope buffer minus any budget deficit). ' +
+      'If freeToSpend is negative, this shows how much of the envelope buffer can cover the deficit.',
+    example: 65,
+  })
+  trulyAvailable?: number;
 
   @ApiProperty({
     description: 'Timestamp when this was calculated',
