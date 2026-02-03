@@ -409,7 +409,12 @@ export class IncomePlansController {
     @Param('month', ParseIntPipe) month: number,
     @CurrentUser() user: any,
   ): Promise<TransactionSuggestionsResponseDto> {
-    return this.incomePlansService.suggestTransactions(id, user.id, year, month);
+    return this.incomePlansService.suggestTransactions(
+      id,
+      user.id,
+      year,
+      month,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

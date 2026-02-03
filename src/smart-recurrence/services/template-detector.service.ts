@@ -84,11 +84,17 @@ export class TemplateDetectorService {
     if (signals.isMonthly && signals.amountVariance < 0.2) {
       return {
         templateId: 'monthly-bill',
-        confidence: Math.round(signals.intervalConfidence * 0.7 + (1 - signals.amountVariance) * 30),
+        confidence: Math.round(
+          signals.intervalConfidence * 0.7 + (1 - signals.amountVariance) * 30,
+        ),
         reasons: this.buildReasons([
           'Monthly payments detected',
-          signals.amountVariance < 0.1 ? 'Very consistent amounts' : 'Fairly consistent amounts',
-          dueDay.confidence > 70 ? `Usually due around day ${dueDay.day}` : null,
+          signals.amountVariance < 0.1
+            ? 'Very consistent amounts'
+            : 'Fairly consistent amounts',
+          dueDay.confidence > 70
+            ? `Usually due around day ${dueDay.day}`
+            : null,
         ]),
         suggestedConfig: {
           dueDay: dueDay.confidence > 50 ? dueDay.day : undefined,
@@ -103,12 +109,11 @@ export class TemplateDetectorService {
       (signals.isQuarterly || signals.isSemiannual || signals.isAnnual)
     ) {
       const schedule = this.detectPaymentSchedule(pattern.group.transactions);
-      const patternName =
-        signals.isQuarterly
-          ? 'quarterly'
-          : signals.isSemiannual
-            ? 'semi-annual'
-            : 'annual';
+      const patternName = signals.isQuarterly
+        ? 'quarterly'
+        : signals.isSemiannual
+          ? 'semi-annual'
+          : 'annual';
 
       return {
         templateId: 'irregular-payments',
@@ -138,7 +143,9 @@ export class TemplateDetectorService {
     ) {
       return {
         templateId: 'monthly-budget',
-        confidence: Math.round(70 + (signals.transactionsPerMonth > 3 ? 15 : 0)),
+        confidence: Math.round(
+          70 + (signals.transactionsPerMonth > 3 ? 15 : 0),
+        ),
         reasons: this.buildReasons([
           'Variable monthly spending pattern',
           'Category-based tracking recommended',
@@ -153,12 +160,17 @@ export class TemplateDetectorService {
     }
 
     // 4. Weekly/Biweekly as Monthly Bill (frequent payments)
-    if ((signals.isWeekly || signals.isBiweekly) && signals.amountVariance < 0.3) {
+    if (
+      (signals.isWeekly || signals.isBiweekly) &&
+      signals.amountVariance < 0.3
+    ) {
       return {
         templateId: 'monthly-bill',
         confidence: Math.round(signals.intervalConfidence * 0.8),
         reasons: this.buildReasons([
-          signals.isWeekly ? 'Weekly payments detected' : 'Bi-weekly payments detected',
+          signals.isWeekly
+            ? 'Weekly payments detected'
+            : 'Bi-weekly payments detected',
           'Treating as monthly total',
         ]),
         suggestedConfig: {
@@ -261,9 +273,10 @@ export class TemplateDetectorService {
   /**
    * Infer the typical due day from transaction dates.
    */
-  private inferDueDay(
-    transactions: Transaction[],
-  ): { day: number; confidence: number } {
+  private inferDueDay(transactions: Transaction[]): {
+    day: number;
+    confidence: number;
+  } {
     if (transactions.length < 2) {
       return { day: 1, confidence: 0 };
     }
@@ -293,7 +306,8 @@ export class TemplateDetectorService {
     const dayStdDev = Math.sqrt(dayVariance);
 
     // Lower std dev = higher confidence
-    const confidence = dayStdDev < 3 ? 90 : dayStdDev < 5 ? 75 : dayStdDev < 10 ? 50 : 30;
+    const confidence =
+      dayStdDev < 3 ? 90 : dayStdDev < 5 ? 75 : dayStdDev < 10 ? 50 : 30;
 
     return { day: mostCommonDay, confidence };
   }
@@ -328,10 +342,11 @@ export class TemplateDetectorService {
 
     // Calculate confidence based on consistency
     const totalPaymentYears = this.countYearsWithData(transactions);
-    const avgOccurrencesPerMonth = months.reduce(
-      (sum, m) => sum + (monthlyData.get(m.month)?.length || 0),
-      0,
-    ) / Math.max(1, months.length);
+    const avgOccurrencesPerMonth =
+      months.reduce(
+        (sum, m) => sum + (monthlyData.get(m.month)?.length || 0),
+        0,
+      ) / Math.max(1, months.length);
     const confidence = Math.min(
       95,
       50 + avgOccurrencesPerMonth * 10 + totalPaymentYears * 5,
@@ -347,9 +362,10 @@ export class TemplateDetectorService {
   /**
    * Detect if there's a seasonal spending pattern.
    */
-  private detectSeasonalPattern(
-    transactions: Transaction[],
-  ): { hasSeasonal: boolean; months: number[] } {
+  private detectSeasonalPattern(transactions: Transaction[]): {
+    hasSeasonal: boolean;
+    months: number[];
+  } {
     const monthCounts = new Array(12).fill(0);
 
     for (const tx of transactions) {

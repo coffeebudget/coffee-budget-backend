@@ -19,7 +19,6 @@ export class FixedMonthlyStatusDto {
 
   @ApiPropertyOptional({ description: 'Date of current month payment' })
   paymentDate: Date | null;
-
 }
 
 /**

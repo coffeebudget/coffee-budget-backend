@@ -1,4 +1,11 @@
-import { IsNumber, IsInt, IsOptional, IsString, Min, Max } from 'class-validator';
+import {
+  IsNumber,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+  Max,
+} from 'class-validator';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CREATE DTO

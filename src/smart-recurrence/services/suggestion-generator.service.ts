@@ -369,7 +369,9 @@ export class SuggestionGeneratorService {
       // v4: Default template for fallback suggestions (no pattern to analyze)
       suggestion.suggestedTemplate = 'monthly-budget';
       suggestion.templateConfidence = 50;
-      suggestion.templateReasons = ['Based on category average (no recurring pattern detected)'];
+      suggestion.templateReasons = [
+        'Based on category average (no recurring pattern detected)',
+      ];
       suggestion.suggestedConfig = {
         autoTrackCategory: true,
       };

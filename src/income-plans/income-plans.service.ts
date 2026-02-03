@@ -928,7 +928,9 @@ export class IncomePlansService {
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  private mapEntryToResponse(entry: IncomePlanEntry): IncomePlanEntryResponseDto {
+  private mapEntryToResponse(
+    entry: IncomePlanEntry,
+  ): IncomePlanEntryResponseDto {
     return {
       id: entry.id,
       incomePlanId: entry.incomePlanId,
