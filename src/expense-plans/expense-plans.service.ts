@@ -796,8 +796,10 @@ export class ExpensePlansService {
     const today = new Date();
 
     for (const plan of plans) {
-      const dueDate = plan.nextDueDate || this.calculateNextDueDate(plan);
-      if (!dueDate) continue;
+      const rawDueDate = plan.nextDueDate || this.calculateNextDueDate(plan);
+      if (!rawDueDate) continue;
+      // Ensure dueDate is a Date object (PostgreSQL 'date' columns return strings)
+      const dueDate = rawDueDate instanceof Date ? rawDueDate : new Date(rawDueDate);
 
       const monthsAway = this.monthsBetween(today, dueDate);
       if (monthsAway > months) continue;
@@ -1185,12 +1187,15 @@ export class ExpensePlansService {
 
   /**
    * Build allocation details for a fixed monthly plan.
-   * Required amount is the full target (payment amount).
+   * Required amount is the monthly contribution (the actual payment due this month).
+   * Note: targetAmount is the yearly total (12 × monthlyContribution), not the monthly payment.
    */
   private buildFixedMonthlyAllocation(
     plan: ExpensePlan,
   ): FixedMonthlyPlanAllocation {
-    const targetAmount = Number(plan.targetAmount);
+    // Use monthlyContribution as the required amount for this month
+    // targetAmount represents the yearly total, not the monthly payment
+    const monthlyPayment = Number(plan.monthlyContribution);
 
     // Without envelope tracking, we show the required amount
     // and assume the user tracks payments separately
@@ -1198,7 +1203,7 @@ export class ExpensePlansService {
       id: plan.id,
       name: plan.name,
       icon: plan.icon,
-      requiredToday: targetAmount,
+      requiredToday: monthlyPayment,
       paymentMade: false, // Can't track without envelope transactions
       status: 'pending',
     };
