@@ -113,19 +113,6 @@ export class CategoriesService {
       category.analyticsExclusionReason =
         updateCategoryDto.analyticsExclusionReason;
 
-    // 🎯 Budget Management Fields
-    if (updateCategoryDto.budgetLevel !== undefined)
-      category.budgetLevel = updateCategoryDto.budgetLevel;
-    if (updateCategoryDto.monthlyBudget !== undefined)
-      category.monthlyBudget = updateCategoryDto.monthlyBudget;
-    if (updateCategoryDto.yearlyBudget !== undefined)
-      category.yearlyBudget = updateCategoryDto.yearlyBudget;
-
-    if (updateCategoryDto.maxThreshold !== undefined)
-      category.maxThreshold = updateCategoryDto.maxThreshold;
-    if (updateCategoryDto.warningThreshold !== undefined)
-      category.warningThreshold = updateCategoryDto.warningThreshold;
-
     const savedCategory = await this.categoriesRepository.save(category);
 
     // Publish CategoryUpdatedEvent for event-driven processing

@@ -29,11 +29,6 @@ import { DefaultCategoriesService } from './default-categories.service';
 
 import { KeywordStatsService } from './keyword-stats.service';
 import { ExpenseAnalysisService } from './expense-analysis.service';
-import {
-  BudgetManagementService,
-  BudgetSummary,
-  CategorySpending,
-} from './budget-management.service';
 
 @ApiTags('categories')
 @ApiBearerAuth()
@@ -46,7 +41,6 @@ export class CategoriesController {
     private readonly defaultCategoriesService: DefaultCategoriesService,
     private readonly keywordStatsService: KeywordStatsService,
     private readonly expenseAnalysisService: ExpenseAnalysisService,
-    private readonly budgetManagementService: BudgetManagementService,
   ) {}
 
   @Post()
@@ -122,109 +116,10 @@ export class CategoriesController {
     return { message: 'Categories have been reset to defaults' };
   }
 
-  @Get('budget-summary')
-  @ApiOperation({
-    summary: 'Get intelligent budget summary',
-    description:
-      'Get budget status, savings recommendations, and category-level insights',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Budget summary retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        totalAutoSaveNeeded: { type: 'number' },
-        primaryCategoriesData: {
-          type: 'array',
-          items: { type: 'object' },
-        },
-        secondaryWarnings: {
-          type: 'array',
-          items: { type: 'object' },
-        },
-        optionalSuggestions: {
-          type: 'array',
-          items: { type: 'object' },
-        },
-        monthlyBudgetUtilization: { type: 'number' },
-      },
-    },
-  })
-  async getBudgetSummary(@CurrentUser() user: User): Promise<BudgetSummary> {
-    return this.budgetManagementService.getBudgetSummary(user.id);
-  }
-
-  @Get('budget-categories')
-  @ApiOperation({
-    summary: 'Get all categories with spending data for budget management',
-    description:
-      'Get all categories with their spending statistics, ordered by net flow (same as Annual Savings Plan)',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Categories with spending data retrieved successfully',
-    type: 'array',
-    schema: {
-      type: 'array',
-      items: { type: 'object' },
-    },
-  })
-  async getAllCategoriesWithSpendingData(
-    @CurrentUser() user: User,
-  ): Promise<CategorySpending[]> {
-    return this.budgetManagementService.getAllCategoriesWithSpendingData(
-      user.id,
-    );
-  }
-
-  @Get(':id/transactions')
-  @ApiOperation({
-    summary: 'Get transactions for a category with summary statistics',
-    description:
-      'Get all transactions for a specific category in the last N months with financial summary',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Category transactions retrieved successfully',
-    schema: {
-      type: 'object',
-      properties: {
-        transactions: {
-          type: 'array',
-          items: { type: 'object' },
-        },
-        summary: {
-          type: 'object',
-          properties: {
-            totalIncome: { type: 'number' },
-            totalExpenses: { type: 'number' },
-            netFlow: { type: 'number' },
-            transactionCount: { type: 'number' },
-            averageMonthlyIncome: { type: 'number' },
-            averageMonthlyExpenses: { type: 'number' },
-            averageMonthlyNetFlow: { type: 'number' },
-          },
-        },
-      },
-    },
-  })
-  async getCategoryTransactions(
-    @Param('id', ParseIntPipe) id: number,
-    @Query('months', new ParseIntPipe({ optional: true })) months: number = 12,
-    @CurrentUser() user: User,
-  ) {
-    return this.budgetManagementService.getCategoryTransactions(
-      user.id,
-      id,
-      months,
-    );
-  }
-
   @Get(':id')
   @ApiResponse({ status: 200, description: 'Retrieve a category by ID.' })
   findOne(
-    @Param('id') id: number,
+    @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: User,
   ): Promise<Category> {
     return this.categoriesService.findOne(id, user.id);
@@ -233,7 +128,7 @@ export class CategoriesController {
   @Patch(':id')
   @ApiResponse({ status: 200, description: 'Update a category.' })
   update(
-    @Param('id') id: number,
+    @Param('id', ParseIntPipe) id: number,
     @Body() updateCategoryDto: UpdateCategoryDto,
     @CurrentUser() user: User,
   ): Promise<Category> {
@@ -242,7 +137,7 @@ export class CategoriesController {
 
   @Delete(':id')
   @ApiResponse({ status: 204, description: 'Delete a category.' })
-  remove(@Param('id') id: number, @CurrentUser() user: User): Promise<void> {
+  remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: User): Promise<void> {
     return this.categoriesService.remove(id, user.id);
   }
 
@@ -446,77 +341,5 @@ export class CategoriesController {
       dto.period,
     );
     return { summary };
-  }
-
-  @Post('ai-budget-analysis')
-  @ApiOperation({
-    summary: 'Analyze budget and spending patterns with AI recommendations',
-    description:
-      'Provide personalized budget optimization suggestions based on categories and spending data',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Budget analysis completed',
-    schema: {
-      type: 'object',
-      properties: {
-        analysis: { type: 'string' },
-        budgetHealthScore: { type: 'number' },
-        overspendingCategories: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              category: { type: 'string' },
-              currentSpent: { type: 'number' },
-              budget: { type: 'number' },
-              overspendingAmount: { type: 'number' },
-              suggestions: { type: 'array', items: { type: 'string' } },
-            },
-          },
-        },
-        optimizationTips: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              category: { type: 'string' },
-              tip: { type: 'string' },
-              potentialSavings: { type: 'number' },
-            },
-          },
-        },
-        overallRecommendations: {
-          type: 'array',
-          items: { type: 'string' },
-        },
-      },
-    },
-  })
-  async analyzeBudgetWithAI(
-    @Body()
-    dto: {
-      budgetOverview: {
-        averageMonthlyIncome: number;
-        averageMonthlyExpenses: number;
-        averageMonthlyNetFlow: number;
-        monthlyBudgetUtilization: number;
-        totalAutoSaveNeeded: number;
-      };
-      categories: Array<{
-        name: string;
-        budgetLevel: 'primary' | 'secondary' | 'optional';
-        currentMonthSpent: number;
-        monthlyBudget: number | null;
-        averageMonthlySpending: number;
-        budgetStatus: 'under' | 'warning' | 'over' | 'no_budget';
-
-        suggestedSavings: number;
-      }>;
-      period: number;
-    },
-    @CurrentUser() user: User,
-  ) {
-    return this.expenseAnalysisService.analyzeBudgetWithAI(dto, user.id);
   }
 }

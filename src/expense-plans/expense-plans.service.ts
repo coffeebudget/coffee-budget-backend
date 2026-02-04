@@ -333,14 +333,22 @@ export class ExpensePlansService {
 
   /**
    * Build a PlanNeedingAttention object from a plan.
+   * Calculates the actual shortfall (gap between expected savings and target).
    */
   private buildPlanNeedingAttention(
     plan: ExpensePlan,
     status: 'behind' | 'almost_ready',
   ): PlanNeedingAttention {
-    const targetAmount = Number(plan.targetAmount);
     const currentMonthly = Number(plan.monthlyContribution);
-    const amountNeeded = targetAmount;
+
+    // Use effective target (per-occurrence for seasonal plans)
+    const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
+
+    // Calculate expected funded by now based on time elapsed
+    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan) ?? 0;
+
+    // Amount needed is the SHORTFALL: target minus what should be saved by now
+    const amountNeeded = Math.max(0, effectiveTarget - expectedFundedByNow);
 
     let monthsUntilDue = 0;
     let requiredMonthly = amountNeeded;
@@ -351,6 +359,7 @@ export class ExpensePlansService {
         new Date(plan.nextDueDate),
       );
       if (monthsUntilDue > 0) {
+        // Required monthly to cover the shortfall
         requiredMonthly = amountNeeded / monthsUntilDue;
       }
     }
@@ -360,14 +369,14 @@ export class ExpensePlansService {
       name: plan.name,
       icon: plan.icon,
       status,
-      amountNeeded,
+      amountNeeded: Math.round(amountNeeded * 100) / 100,
       monthsUntilDue,
       nextDueDate: plan.nextDueDate
         ? new Date(plan.nextDueDate).toISOString().split('T')[0]
         : null,
-      requiredMonthly,
+      requiredMonthly: Math.round(requiredMonthly * 100) / 100,
       currentMonthly,
-      shortfallPerMonth: Math.max(0, requiredMonthly - currentMonthly),
+      shortfallPerMonth: Math.round(Math.max(0, requiredMonthly - currentMonthly) * 100) / 100,
     };
   }
 

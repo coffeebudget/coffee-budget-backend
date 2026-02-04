@@ -5,7 +5,6 @@ import { KeywordExtractionService } from './keyword-extraction.service';
 import { DefaultCategoriesService } from './default-categories.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { ExpenseAnalysisService } from './expense-analysis.service';
-import { BudgetManagementService } from './budget-management.service';
 import { User } from '../users/user.entity';
 import { Category } from './entities/category.entity';
 
@@ -76,14 +75,6 @@ describe('CategoriesController', () => {
             analyzeExpenses: jest.fn().mockResolvedValue({}),
             getExpenseTrends: jest.fn().mockResolvedValue({}),
             getCategoryPerformance: jest.fn().mockResolvedValue({}),
-          },
-        },
-        {
-          provide: BudgetManagementService,
-          useValue: {
-            calculateBudgetProgress: jest.fn().mockResolvedValue({}),
-            getBudgetSummary: jest.fn().mockResolvedValue({}),
-            updateBudgetLimits: jest.fn().mockResolvedValue({}),
           },
         },
       ],
