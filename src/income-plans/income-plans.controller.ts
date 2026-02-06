@@ -23,6 +23,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/user.decorator';
 import { IncomePlansService } from './income-plans.service';
+import { TransferSuggestionsService } from './transfer-suggestions.service';
 import {
   CreateIncomePlanDto,
   UpdateIncomePlanDto,
@@ -36,6 +37,7 @@ import {
   MonthlyTrackingSummaryDto,
   AnnualTrackingSummaryDto,
   TransactionSuggestionsResponseDto,
+  TransferSuggestionsResponseDto,
 } from './dto';
 import { IncomePlan } from './entities/income-plan.entity';
 
@@ -44,7 +46,10 @@ import { IncomePlan } from './entities/income-plan.entity';
 @Controller('income-plans')
 @UseGuards(AuthGuard('jwt'))
 export class IncomePlansController {
-  constructor(private readonly incomePlansService: IncomePlansService) {}
+  constructor(
+    private readonly incomePlansService: IncomePlansService,
+    private readonly transferSuggestionsService: TransferSuggestionsService,
+  ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CRUD OPERATIONS
@@ -167,6 +172,44 @@ export class IncomePlansController {
   ): Promise<AnnualSummaryDto> {
     const targetYear = year ? parseInt(year, 10) : new Date().getFullYear();
     return this.incomePlansService.getAnnualSummary(user.id, targetYear);
+  }
+
+  @Get('transfer-suggestions')
+  @ApiOperation({
+    summary: 'Get transfer suggestions for income accounts',
+    description:
+      'Calculate how much money to transfer from income-receiving accounts based on expense plan obligations',
+  })
+  @ApiQuery({
+    name: 'year',
+    required: false,
+    description: 'Year (defaults to current year)',
+    type: Number,
+  })
+  @ApiQuery({
+    name: 'month',
+    required: false,
+    description: 'Month 1-12 (defaults to current month)',
+    type: Number,
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Transfer suggestions calculated successfully',
+  })
+  async getTransferSuggestions(
+    @CurrentUser() user: any,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
+  ): Promise<TransferSuggestionsResponseDto> {
+    const now = new Date();
+    const targetYear = year ? parseInt(year, 10) : now.getFullYear();
+    const targetMonth = month ? parseInt(month, 10) : now.getMonth() + 1;
+
+    return this.transferSuggestionsService.calculateTransferSuggestions(
+      user.id,
+      targetYear,
+      targetMonth,
+    );
   }
 
   @Get(':id')
