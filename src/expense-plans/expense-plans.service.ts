@@ -813,7 +813,7 @@ export class ExpensePlansService {
       const monthsAway = this.monthsBetween(today, dueDate);
       if (monthsAway > months) continue;
 
-      const targetAmount = Number(plan.targetAmount);
+      const monthlyAmount = Number(plan.monthlyContribution);
 
       let status: 'funded' | 'on_track' | 'behind';
       if (this.isOnTrack(plan, dueDate)) {
@@ -827,7 +827,7 @@ export class ExpensePlansService {
         planId: plan.id,
         planName: plan.name,
         icon: plan.icon,
-        amount: targetAmount,
+        amount: monthlyAmount,
         status,
         monthsAway,
       });
