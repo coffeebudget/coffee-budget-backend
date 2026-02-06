@@ -49,6 +49,7 @@ describe('TransferSuggestionsService', () => {
   function makeExpensePlan(
     overrides: Partial<ExpensePlan> & { id: number },
   ): ExpensePlan {
+    const paymentAccountId = overrides.paymentAccountId ?? null;
     const plan = {
       id: overrides.id,
       userId,
@@ -56,7 +57,10 @@ describe('TransferSuggestionsService', () => {
       status: overrides.status ?? 'active',
       monthlyContribution: overrides.monthlyContribution ?? 0,
       priority: overrides.priority ?? 'important',
-      paymentAccountId: overrides.paymentAccountId ?? null,
+      paymentAccountId,
+      paymentAccount: paymentAccountId
+        ? ({ id: paymentAccountId, name: `Account ${paymentAccountId}` } as any)
+        : null,
     } as ExpensePlan;
     return plan;
   }
@@ -517,6 +521,248 @@ describe('TransferSuggestionsService', () => {
 
       expect(result.accounts).toHaveLength(0);
       expect(result.distinctIncomeAccountCount).toBe(0);
+    });
+
+    it('should discover deficit accounts with expense plans but no income', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Salary',
+          paymentAccountId: 10,
+          february: 3000,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Rent',
+          monthlyContribution: 500,
+          paymentAccountId: 10,
+        }),
+        makeExpensePlan({
+          id: 2,
+          name: 'Gym',
+          monthlyContribution: 50,
+          paymentAccountId: 30,
+        }),
+        makeExpensePlan({
+          id: 3,
+          name: 'Streaming',
+          monthlyContribution: 15,
+          paymentAccountId: 30,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      expect(result.deficitAccounts).toHaveLength(1);
+      expect(result.deficitAccounts[0].accountId).toBe(30);
+      expect(result.deficitAccounts[0].accountName).toBe('Account 30');
+      expect(result.deficitAccounts[0].totalNeed).toBe(65);
+      expect(result.deficitAccounts[0].obligationDetails).toHaveLength(2);
+    });
+
+    it('should build transfer routes from surplus to deficit accounts', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Salary A',
+          paymentAccountId: 10,
+          february: 2000,
+        }),
+        makeIncomePlan({
+          id: 2,
+          name: 'Salary B',
+          paymentAccountId: 20,
+          february: 1500,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Rent',
+          monthlyContribution: 300,
+          paymentAccountId: 30,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      // Account 10: income 2000, shared 150, surplus 1850, margin 200, transfer 1650
+      // Account 20: income 1500, shared 150, surplus 1350, margin 150, transfer 1200
+      // Deficit account 30 needs 300
+      // Largest surplus (account 10) fills deficit first
+      const acc10 = result.accounts.find((a) => a.accountId === 10);
+      expect(acc10!.transferRoutes).toHaveLength(1);
+      expect(acc10!.transferRoutes[0].toAccountId).toBe(30);
+      expect(acc10!.transferRoutes[0].amount).toBe(300);
+
+      // Account 20 has no remaining deficit to fill
+      const acc20 = result.accounts.find((a) => a.accountId === 20);
+      expect(acc20!.transferRoutes).toHaveLength(0);
+    });
+
+    it('should handle multiple deficit accounts with greedy allocation', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Salary',
+          paymentAccountId: 10,
+          february: 1000,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Big Expense',
+          monthlyContribution: 500,
+          paymentAccountId: 30,
+        }),
+        makeExpensePlan({
+          id: 2,
+          name: 'Small Expense',
+          monthlyContribution: 200,
+          paymentAccountId: 40,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      // Income 1000, no direct/shared obligations, surplus 1000, margin 100, transfer 900
+      // Deficit: account 30 needs 500, account 40 needs 200
+      // Greedy: fill largest first (account 30: 500), then account 40: 200
+      const acc10 = result.accounts[0];
+      expect(acc10.transferRoutes).toHaveLength(2);
+      // Largest deficit first
+      expect(acc10.transferRoutes[0].toAccountId).toBe(30);
+      expect(acc10.transferRoutes[0].amount).toBe(500);
+      expect(acc10.transferRoutes[1].toAccountId).toBe(40);
+      expect(acc10.transferRoutes[1].amount).toBe(200);
+    });
+
+    it('should calculate plan summary with coverage percent', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Salary',
+          paymentAccountId: 10,
+          february: 2000,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Rent',
+          monthlyContribution: 400,
+          paymentAccountId: 30,
+        }),
+        makeExpensePlan({
+          id: 2,
+          name: 'Utils',
+          monthlyContribution: 100,
+          paymentAccountId: 30,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      // Surplus = 2000, margin = 200, transfer = 1800
+      // Deficit: account 30 needs 500
+      // Coverage: 1800/500 = 360% → capped at 100
+      expect(result.planSummary.totalDeficit).toBe(500);
+      expect(result.planSummary.totalAvailable).toBe(1800);
+      expect(result.planSummary.coveragePercent).toBe(100);
+      expect(result.planSummary.uncoveredAmount).toBe(0);
+    });
+
+    it('should return empty deficit accounts when all expense plans are on income accounts', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Salary',
+          paymentAccountId: 10,
+          february: 2000,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Rent',
+          monthlyContribution: 500,
+          paymentAccountId: 10,
+        }),
+        makeExpensePlan({
+          id: 2,
+          name: 'Groceries',
+          monthlyContribution: 300,
+          paymentAccountId: null,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      expect(result.deficitAccounts).toHaveLength(0);
+      expect(result.planSummary.totalDeficit).toBe(0);
+      expect(result.planSummary.coveragePercent).toBe(100);
+    });
+
+    it('should handle partial coverage when surplus < total deficit', async () => {
+      const incomePlans = [
+        makeIncomePlan({
+          id: 1,
+          name: 'Part-time',
+          paymentAccountId: 10,
+          february: 600,
+        }),
+      ];
+      const expensePlans = [
+        makeExpensePlan({
+          id: 1,
+          name: 'Direct Expense',
+          monthlyContribution: 50,
+          paymentAccountId: 10,
+        }),
+        makeExpensePlan({
+          id: 2,
+          name: 'Big Rent',
+          monthlyContribution: 800,
+          paymentAccountId: 30,
+        }),
+      ];
+
+      incomePlanRepo.find.mockResolvedValue(incomePlans);
+      expensePlanRepo.find.mockResolvedValue(expensePlans);
+
+      const result = await service.calculateTransferSuggestions(userId, year, month);
+
+      // Income 600, direct 50, surplus 550, margin 60, transfer 490
+      // Deficit: account 30 needs 800
+      // Coverage: 490/800 = 61.25%
+      expect(result.planSummary.totalDeficit).toBe(800);
+      expect(result.planSummary.totalAvailable).toBe(490);
+      expect(result.planSummary.coveragePercent).toBeCloseTo(61.25, 1);
+      expect(result.planSummary.uncoveredAmount).toBe(310);
+
+      // Transfer route should allocate all available to deficit
+      const acc10 = result.accounts[0];
+      expect(acc10.transferRoutes).toHaveLength(1);
+      expect(acc10.transferRoutes[0].toAccountId).toBe(30);
+      expect(acc10.transferRoutes[0].amount).toBe(490);
     });
   });
 });

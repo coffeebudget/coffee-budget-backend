@@ -18,6 +18,26 @@ export class ObligationDetailDto {
   isDirectlyAssigned: boolean;
 }
 
+export class TransferRouteDto {
+  toAccountId: number;
+  toAccountName: string;
+  amount: number;
+}
+
+export class DeficitAccountDto {
+  accountId: number;
+  accountName: string;
+  totalNeed: number;
+  obligationDetails: ObligationDetailDto[];
+}
+
+export class TransferPlanSummaryDto {
+  totalDeficit: number;
+  totalAvailable: number;
+  coveragePercent: number;
+  uncoveredAmount: number;
+}
+
 export class AccountTransferSuggestionDto {
   accountId: number;
   accountName: string;
@@ -32,6 +52,7 @@ export class AccountTransferSuggestionDto {
   safetyMargin: number;
   suggestedTransfer: number;
   status: TransferSuggestionStatus;
+  transferRoutes: TransferRouteDto[];
 }
 
 export class TransferSuggestionsResponseDto {
@@ -41,4 +62,6 @@ export class TransferSuggestionsResponseDto {
   unassignedTotal: number;
   distinctIncomeAccountCount: number;
   sharePerAccount: number;
+  deficitAccounts: DeficitAccountDto[];
+  planSummary: TransferPlanSummaryDto;
 }

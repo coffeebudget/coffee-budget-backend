@@ -9,6 +9,9 @@ import {
   IncomeSourceDetailDto,
   ObligationDetailDto,
   TransferSuggestionStatus,
+  DeficitAccountDto,
+  TransferRouteDto,
+  TransferPlanSummaryDto,
 } from './dto/transfer-suggestions.dto';
 
 const SAFETY_MARGIN_PERCENT = 0.1;
@@ -37,6 +40,7 @@ export class TransferSuggestionsService {
       }),
       this.expensePlanRepo.find({
         where: { userId, status: 'active' },
+        relations: ['paymentAccount'],
       }),
     ]);
 
@@ -147,8 +151,111 @@ export class TransferSuggestionsService {
         safetyMargin,
         suggestedTransfer,
         status,
+        transferRoutes: [],
       });
     }
+
+    // Step A: Discover deficit accounts
+    // These are accounts that have expense plans assigned but NO income plans
+    const deficitAccountMap = new Map<
+      number,
+      { accountName: string; totalNeed: number; obligations: ObligationDetailDto[] }
+    >();
+
+    for (const ep of expensePlans) {
+      if (
+        ep.paymentAccountId !== null &&
+        !distinctAccountIds.has(ep.paymentAccountId)
+      ) {
+        const existing = deficitAccountMap.get(ep.paymentAccountId);
+        const obligation: ObligationDetailDto = {
+          planId: ep.id,
+          name: ep.name,
+          monthlyContribution: Number(ep.monthlyContribution) || 0,
+          priority: ep.priority,
+          isDirectlyAssigned: true,
+        };
+        if (existing) {
+          existing.totalNeed += obligation.monthlyContribution;
+          existing.obligations.push(obligation);
+        } else {
+          deficitAccountMap.set(ep.paymentAccountId, {
+            accountName:
+              ep.paymentAccount?.name ?? `Account ${ep.paymentAccountId}`,
+            totalNeed: obligation.monthlyContribution,
+            obligations: [obligation],
+          });
+        }
+      }
+    }
+
+    const deficitAccounts: DeficitAccountDto[] = Array.from(
+      deficitAccountMap.entries(),
+    ).map(([accountId, data]) => ({
+      accountId,
+      accountName: data.accountName,
+      totalNeed: data.totalNeed,
+      obligationDetails: data.obligations,
+    }));
+
+    // Step B: Build transfer routes (greedy largest-first)
+    const transferableAccounts = Array.from(accountMap.values())
+      .filter((a) => a.suggestedTransfer > 0)
+      .sort((a, b) => b.suggestedTransfer - a.suggestedTransfer);
+
+    const sortedDeficits = [...deficitAccounts].sort(
+      (a, b) => b.totalNeed - a.totalNeed,
+    );
+
+    const remainingNeed = new Map<number, number>();
+    for (const d of sortedDeficits) {
+      remainingNeed.set(d.accountId, d.totalNeed);
+    }
+
+    for (const surplusAccount of transferableAccounts) {
+      let remainingSurplus = surplusAccount.suggestedTransfer;
+      const routes: TransferRouteDto[] = [];
+
+      for (const deficitAccount of sortedDeficits) {
+        if (remainingSurplus <= 0) break;
+        const need = remainingNeed.get(deficitAccount.accountId) ?? 0;
+        if (need <= 0) continue;
+
+        const allocation = Math.min(remainingSurplus, need);
+        routes.push({
+          toAccountId: deficitAccount.accountId,
+          toAccountName: deficitAccount.accountName,
+          amount: allocation,
+        });
+
+        remainingSurplus -= allocation;
+        remainingNeed.set(
+          deficitAccount.accountId,
+          need - allocation,
+        );
+      }
+
+      surplusAccount.transferRoutes = routes;
+    }
+
+    // Step C: Build plan summary
+    const totalDeficit = deficitAccounts.reduce(
+      (sum, d) => sum + d.totalNeed,
+      0,
+    );
+    const totalAvailable = transferableAccounts.reduce(
+      (sum, a) => sum + a.suggestedTransfer,
+      0,
+    );
+    const planSummary: TransferPlanSummaryDto = {
+      totalDeficit,
+      totalAvailable,
+      coveragePercent:
+        totalDeficit > 0
+          ? Math.min(100, (totalAvailable / totalDeficit) * 100)
+          : 100,
+      uncoveredAmount: Math.max(0, totalDeficit - totalAvailable),
+    };
 
     return {
       year,
@@ -157,6 +264,8 @@ export class TransferSuggestionsService {
       unassignedTotal,
       distinctIncomeAccountCount,
       sharePerAccount,
+      deficitAccounts,
+      planSummary,
     };
   }
 }
