@@ -110,7 +110,7 @@ export class DashboardController {
 
   @Get('cash-flow-forecast')
   async getCashFlowForecast(
-    @Query('mode') mode: 'recurring' | 'historical' = 'historical',
+    @Query('mode') mode: 'historical' | 'expense-plans' | 'recurring' = 'historical',
     @Query('months') months = 24,
     @CurrentUser() user: User,
   ) {

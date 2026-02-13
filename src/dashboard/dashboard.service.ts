@@ -11,6 +11,8 @@ import {
   subMonths,
 } from 'date-fns';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
+import { ExpensePlan } from '../expense-plans/entities/expense-plan.entity';
+import { IncomePlan } from '../income-plans/entities/income-plan.entity';
 
 export interface MonthlyIncomeExpense {
   month: string;
@@ -30,6 +32,10 @@ export class DashboardService {
     private categoriesRepository: Repository<Category>,
     @InjectRepository(BankAccount)
     private bankAccountsRepository: Repository<BankAccount>,
+    @InjectRepository(ExpensePlan)
+    private expensePlanRepository: Repository<ExpensePlan>,
+    @InjectRepository(IncomePlan)
+    private incomePlanRepository: Repository<IncomePlan>,
   ) {}
 
   /**
@@ -378,7 +384,7 @@ export class DashboardService {
   async getCashFlowForecast(
     userId: number,
     months: number = 24,
-    mode: 'historical' | 'recurring' = 'historical',
+    mode: 'historical' | 'expense-plans' | 'recurring' = 'historical',
   ): Promise<
     {
       month: string;
@@ -390,24 +396,26 @@ export class DashboardService {
     const startingBalance = (await this.getCurrentBalance(userId))
       .currentBalance;
 
-    // Note: 'recurring' mode is deprecated - all forecasts now use historical data
+    // Note: 'recurring' mode is deprecated - falls back to historical
     if (mode === 'recurring') {
       this.logger.warn(
         'Recurring mode is deprecated, falling back to historical mode',
       );
+      mode = 'historical';
+    }
+
+    if (mode === 'expense-plans') {
+      this.logger.debug(
+        `Generating ${months} months cash flow forecast using expense plans mode`,
+      );
+      return this.forecastFromExpensePlans(userId, months, startingBalance);
     }
 
     this.logger.debug(
       `Generating ${months} months cash flow forecast using historical mode`,
     );
 
-    const forecast = await this.forecastFromHistoricalData(
-      userId,
-      months,
-      startingBalance,
-    );
-
-    return forecast;
+    return this.forecastFromHistoricalData(userId, months, startingBalance);
   }
 
   private async forecastFromHistoricalData(
@@ -471,6 +479,337 @@ export class DashboardService {
       projectedBalance += income - expenses;
 
       forecast.push({ month, income, expenses, projectedBalance });
+    }
+
+    return forecast;
+  }
+
+  /**
+   * Get historical expense averages grouped by category and month index (0-11).
+   * Only includes categories not excluded from analytics.
+   * Returns both the data map and category names for debugging.
+   */
+  private async getHistoricalExpensesByCategory(
+    userId: number,
+  ): Promise<{
+    data: Map<number, Map<number, number>>;
+    categoryNames: Map<number, string>;
+  }> {
+    const twelveMonthsAgo = subMonths(new Date(), 12);
+
+    const rawData = await this.transactionsRepository
+      .createQueryBuilder('transaction')
+      .leftJoin('transaction.category', 'category')
+      .select('category.id', 'categoryId')
+      .addSelect('category.name', 'categoryName')
+      .addSelect(
+        'EXTRACT(MONTH FROM transaction.executionDate)',
+        'monthNumber',
+      )
+      .addSelect('SUM(ABS(transaction.amount))', 'totalAmount')
+      .addSelect('COUNT(*)', 'txCount')
+      .where('transaction.user.id = :userId', { userId })
+      .andWhere('transaction.type = :type', { type: 'expense' })
+      .andWhere('transaction.executionDate >= :since', {
+        since: twelveMonthsAgo,
+      })
+      .andWhere('category.id IS NOT NULL')
+      .andWhere(
+        '(category.excludeFromExpenseAnalytics IS NULL OR category.excludeFromExpenseAnalytics = false)',
+      )
+      .groupBy('category.id')
+      .addGroupBy('category.name')
+      .addGroupBy('EXTRACT(MONTH FROM transaction.executionDate)')
+      .getRawMany();
+
+    // Build Map<categoryId, Map<monthIndex(0-11), totalExpense>>
+    // SQL EXTRACT(MONTH) returns 1-12, we convert to 0-11
+    const data = new Map<number, Map<number, number>>();
+    const categoryNames = new Map<number, string>();
+
+    for (const row of rawData) {
+      const categoryId = Number(row.categoryId);
+      const monthIndex = Number(row.monthNumber) - 1; // Convert 1-12 to 0-11
+      const totalAmount = Number(row.totalAmount);
+
+      categoryNames.set(categoryId, row.categoryName || 'Unknown');
+
+      if (!data.has(categoryId)) {
+        data.set(categoryId, new Map());
+      }
+      data.get(categoryId)!.set(monthIndex, totalAmount);
+    }
+
+    return { data, categoryNames };
+  }
+
+  /**
+   * Calculate planned expense for a single expense plan in a given forecast month.
+   */
+  private calculatePlannedExpenseForMonth(
+    plan: ExpensePlan,
+    forecastDate: Date,
+  ): number {
+    const forecastMonth = forecastDate.getMonth(); // 0-11
+    const forecastYear = forecastDate.getFullYear();
+
+    if (plan.purpose === 'spending_budget') {
+      // Spending budgets (e.g., Groceries) → monthlyContribution every month
+      return Number(plan.monthlyContribution) || 0;
+    }
+
+    // Sinking fund plans → show actual payment amount when the expense occurs
+    // Note: targetAmount is always the ANNUAL total for all plan types
+    switch (plan.frequency) {
+      case 'monthly':
+        // Monthly bills: actual monthly cost = monthlyContribution (= targetAmount/12)
+        return Number(plan.monthlyContribution) || 0;
+
+      case 'yearly': {
+        // Yearly bills: full annual amount in the due month
+        const dueMonth = plan.dueMonth != null ? plan.dueMonth - 1 : null; // Convert 1-12 to 0-11
+        if (dueMonth != null && forecastMonth === dueMonth) {
+          return Number(plan.targetAmount) || 0;
+        }
+        return 0;
+      }
+
+      case 'quarterly': {
+        // Quarterly bills: annual amount / 4 in each quarter month
+        const dueMonth = plan.dueMonth != null ? plan.dueMonth - 1 : 0;
+        const diff = ((forecastMonth - dueMonth) % 3 + 3) % 3;
+        if (diff === 0) {
+          return (Number(plan.targetAmount) || 0) / 4;
+        }
+        return 0;
+      }
+
+      case 'seasonal': {
+        if (plan.seasonalMonths && plan.seasonalMonths.length > 0) {
+          // seasonalMonths stored as 1-12
+          if (plan.seasonalMonths.includes(forecastMonth + 1)) {
+            return (
+              (Number(plan.targetAmount) || 0) / plan.seasonalMonths.length
+            );
+          }
+        }
+        return 0;
+      }
+
+      case 'multi_year': {
+        if (plan.targetDate) {
+          const targetDate = new Date(plan.targetDate);
+          if (
+            targetDate.getMonth() === forecastMonth &&
+            targetDate.getFullYear() === forecastYear
+          ) {
+            return Number(plan.targetAmount) || 0;
+          }
+          // Check cycle based on frequencyYears
+          if (plan.frequencyYears && plan.frequencyYears > 0) {
+            const dueMonth =
+              plan.dueMonth != null ? plan.dueMonth - 1 : targetDate.getMonth();
+            if (forecastMonth === dueMonth) {
+              const yearDiff = forecastYear - targetDate.getFullYear();
+              if (yearDiff >= 0 && yearDiff % plan.frequencyYears === 0) {
+                return Number(plan.targetAmount) || 0;
+              }
+            }
+          }
+        }
+        return 0;
+      }
+
+      case 'one_time': {
+        if (plan.targetDate) {
+          const targetDate = new Date(plan.targetDate);
+          if (
+            targetDate.getMonth() === forecastMonth &&
+            targetDate.getFullYear() === forecastYear
+          ) {
+            return Number(plan.targetAmount) || 0;
+          }
+        }
+        return 0;
+      }
+
+      default:
+        return 0;
+    }
+  }
+
+  /**
+   * Forecast using:
+   * - Income: from active income plans (guaranteed + expected reliability)
+   * - Planned expenses: from active expense plans
+   * - Unplanned expenses: seasonal historical averages for uncovered categories
+   */
+  private async forecastFromExpensePlans(
+    userId: number,
+    months: number,
+    startingBalance: number,
+  ): Promise<
+    {
+      month: string;
+      income: number;
+      expenses: number;
+      projectedBalance: number;
+    }[]
+  > {
+    const today = new Date();
+
+    // 1. Fetch active expense plans (skip emergency_fund and goal types)
+    const activePlans = await this.expensePlanRepository.find({
+      where: { userId, status: 'active' },
+      relations: ['category'],
+    });
+
+    const expensePlans = activePlans.filter(
+      (p) => p.planType !== 'emergency_fund' && p.planType !== 'goal',
+    );
+
+    // 2. Collect category IDs covered by active plans
+    const coveredCategoryIds = new Set<number>();
+    for (const plan of expensePlans) {
+      if (plan.categoryId) {
+        coveredCategoryIds.add(plan.categoryId);
+      }
+    }
+
+    // 3. Fetch active income plans (guaranteed + expected)
+    const monthColumns = [
+      'january', 'february', 'march', 'april', 'may', 'june',
+      'july', 'august', 'september', 'october', 'november', 'december',
+    ] as const;
+
+    const activeIncomePlans = await this.incomePlanRepository.find({
+      where: [
+        { userId, status: 'active', reliability: 'guaranteed' },
+        { userId, status: 'active', reliability: 'expected' },
+      ],
+    });
+
+    // Build income per month (0-11) from income plans
+    const incomeByMonth = new Map<number, number>();
+    for (let m = 0; m < 12; m++) {
+      let monthTotal = 0;
+      for (const plan of activeIncomePlans) {
+        monthTotal += Number(plan[monthColumns[m]]) || 0;
+      }
+      incomeByMonth.set(m, monthTotal);
+    }
+
+    // 4. Get historical expenses by category (for uncovered categories)
+    const { data: historicalByCategory, categoryNames } =
+      await this.getHistoricalExpensesByCategory(userId);
+
+    // === DEBUG: Log income plans + expense plans breakdown ===
+    this.logger.debug('=== EXPENSE PLANS FORECAST DEBUG ===');
+
+    this.logger.debug(
+      `Active income plans (guaranteed+expected): ${activeIncomePlans.length}`,
+    );
+    for (const ip of activeIncomePlans) {
+      const annual = monthColumns.reduce(
+        (sum, col) => sum + (Number(ip[col]) || 0),
+        0,
+      );
+      this.logger.debug(
+        `  Income: "${ip.name}" | reliability=${ip.reliability} | annual=${annual.toFixed(0)}`,
+      );
+    }
+
+    this.logger.debug(
+      `Active expense plans (excl emergency/goal): ${expensePlans.length}`,
+    );
+    for (const plan of expensePlans) {
+      this.logger.debug(
+        `  Plan: "${plan.name}" | type=${plan.planType} | purpose=${plan.purpose} | freq=${plan.frequency} | target=${plan.targetAmount} | monthly=${plan.monthlyContribution} | catId=${plan.categoryId} (${plan.category?.name || 'no category'})`,
+      );
+    }
+    this.logger.debug(
+      `Covered category IDs: [${[...coveredCategoryIds].join(', ')}]`,
+    );
+
+    // Log all historical categories and whether they're covered
+    const allCategoryIds = [...historicalByCategory.keys()];
+    this.logger.debug(
+      `Total historical categories: ${allCategoryIds.length}`,
+    );
+    for (const catId of allCategoryIds) {
+      const isCovered = coveredCategoryIds.has(catId);
+      const monthMap = historicalByCategory.get(catId)!;
+      const totalAcrossMonths = [...monthMap.values()].reduce(
+        (s, v) => s + v,
+        0,
+      );
+      const avgPerMonth = totalAcrossMonths / Math.max(monthMap.size, 1);
+      this.logger.debug(
+        `  Cat ${catId} "${categoryNames.get(catId)}": ${isCovered ? 'COVERED (excluded)' : 'UNCOVERED (historical)'} | avg/month=${avgPerMonth.toFixed(0)} | total12mo=${totalAcrossMonths.toFixed(0)}`,
+      );
+    }
+    // === END DEBUG ===
+
+    // Calculate total historical expense per month for uncovered categories only
+    const uncoveredMonthlyTotals = new Map<number, number>();
+    for (const [categoryId, monthMap] of historicalByCategory) {
+      if (!coveredCategoryIds.has(categoryId)) {
+        for (const [monthIdx, amount] of monthMap) {
+          uncoveredMonthlyTotals.set(
+            monthIdx,
+            (uncoveredMonthlyTotals.get(monthIdx) || 0) + amount,
+          );
+        }
+      }
+    }
+
+    // 5. Build forecast
+    let projectedBalance = startingBalance;
+    const forecast: {
+      month: string;
+      income: number;
+      expenses: number;
+      projectedBalance: number;
+    }[] = [];
+
+    for (let i = 0; i < months; i++) {
+      const date = addMonths(today, i);
+      const monthLabel = format(date, 'MMM yyyy');
+      const monthIndex = date.getMonth(); // 0-11
+
+      // Income: from active income plans (guaranteed + expected)
+      const income = incomeByMonth.get(monthIndex) || 0;
+
+      // Planned expenses: sum from expense plans for this specific month
+      let plannedExpenses = 0;
+      const planBreakdown: { name: string; amount: number }[] = [];
+      for (const plan of expensePlans) {
+        const amount = this.calculatePlannedExpenseForMonth(plan, date);
+        if (amount > 0) {
+          planBreakdown.push({ name: plan.name, amount });
+        }
+        plannedExpenses += amount;
+      }
+
+      // Unplanned expenses: seasonal historical for uncovered categories
+      const unplannedExpenses = uncoveredMonthlyTotals.get(monthIndex) || 0;
+
+      const expenses = plannedExpenses + unplannedExpenses;
+      projectedBalance += income - expenses;
+
+      // Debug log for first 3 months
+      if (i < 3) {
+        this.logger.debug(
+          `  ${monthLabel}: income=${income.toFixed(0)} | planned=${plannedExpenses.toFixed(0)} [${planBreakdown.map((p) => `${p.name}:${p.amount.toFixed(0)}`).join(', ')}] | unplanned(historical)=${unplannedExpenses.toFixed(0)} | TOTAL expenses=${expenses.toFixed(0)}`,
+        );
+      }
+
+      forecast.push({
+        month: monthLabel,
+        income,
+        expenses,
+        projectedBalance,
+      });
     }
 
     return forecast;
