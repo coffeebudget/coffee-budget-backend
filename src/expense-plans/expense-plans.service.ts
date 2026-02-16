@@ -30,6 +30,7 @@ import {
   FundingStatus,
   FixedMonthlyStatusDto,
 } from './dto/expense-plan-response.dto';
+import { EnvelopeBalanceService } from './envelope-balance.service';
 
 export interface CreateExpensePlanDto {
   name: string;
@@ -113,6 +114,7 @@ export class ExpensePlansService {
     @InjectRepository(BankAccount)
     private readonly bankAccountRepository: Repository<BankAccount>,
     private readonly eventPublisher: EventPublisherService,
+    private readonly envelopeBalanceService: EnvelopeBalanceService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -164,7 +166,9 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto[]> {
     const plans = await this.findAllByUser(userId);
-    return plans.map((plan) => this.enrichPlanWithStatus(plan));
+    return Promise.all(
+      plans.map((plan) => this.enrichPlanWithStatus(plan, userId)),
+    );
   }
 
   /**
@@ -175,7 +179,7 @@ export class ExpensePlansService {
     userId: number,
   ): Promise<ExpensePlanWithStatusDto> {
     const plan = await this.findOne(id, userId);
-    return this.enrichPlanWithStatus(plan);
+    return this.enrichPlanWithStatus(plan, userId);
   }
 
   /**
@@ -249,22 +253,26 @@ export class ExpensePlansService {
 
   /**
    * Enrich an expense plan with calculated funding status fields.
-   * Now based on time-based calculations instead of currentBalance.
+   * - Sinking funds: time-based progress (expectedFundedByNow)
+   * - Spending budgets: envelope balance (deposits - actual spending)
    */
-  private enrichPlanWithStatus(plan: ExpensePlan): ExpensePlanWithStatusDto {
+  private async enrichPlanWithStatus(
+    plan: ExpensePlan,
+    userId: number,
+  ): Promise<ExpensePlanWithStatusDto> {
     const targetAmount = Number(plan.targetAmount);
     const monthlyContribution = Number(plan.monthlyContribution);
 
     // For seasonal plans, use per-occurrence amount for funding calculations
     const effectiveTarget = this.getEffectiveTargetForNextDue(plan);
 
-    // Calculate funding status (only for sinking funds)
+    // Calculate funding status for all non-fixed_monthly plans with targets
     let fundingStatus: FundingStatus = null;
     let monthsUntilDue: number | null = null;
     let amountNeeded: number | null = null;
     let requiredMonthlyContribution: number | null = null;
 
-    if (plan.purpose === 'sinking_fund') {
+    if (plan.planType !== 'fixed_monthly' && targetAmount > 0) {
       fundingStatus = this.calculateStatus(plan);
       amountNeeded = effectiveTarget; // Use effective target for next due
 
@@ -281,8 +289,42 @@ export class ExpensePlansService {
       }
     }
 
-    // Calculate expected funded amount by now (for sinking funds)
-    const expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    // Calculate expected funded amount
+    // For spending_budget: use actual envelope balance (deposits - spending)
+    // For sinking_fund: use time-based calculation
+    let expectedFundedByNow: number | null;
+
+    if (plan.purpose === 'spending_budget' && plan.status === 'active') {
+      const now = new Date();
+      const envelopeBalance =
+        await this.envelopeBalanceService.calculateEnvelopeBalance(
+          plan.id,
+          now.getFullYear(),
+          now.getMonth() + 1, // month is 1-based in envelope service
+          userId,
+        );
+      expectedFundedByNow = Math.max(0, envelopeBalance.currentBalance);
+
+      // For spending budgets, status is based on utilization (spending vs allocation)
+      // not on savings accumulation
+      if (plan.planType !== 'fixed_monthly' && targetAmount > 0) {
+        if (envelopeBalance.currentBalance < 0) {
+          // Overspent: spent more than deposited
+          fundingStatus = 'behind';
+        } else if (envelopeBalance.utilizationPercent <= 90) {
+          // Spending well under budget
+          fundingStatus = 'on_track';
+        } else if (envelopeBalance.utilizationPercent <= 100) {
+          // Close to budget limit this month
+          fundingStatus = 'almost_ready';
+        } else {
+          // Over budget this month but still has positive balance from rollover
+          fundingStatus = 'behind';
+        }
+      }
+    } else {
+      expectedFundedByNow = this.calculateExpectedFundedByNow(plan);
+    }
 
     // Fixed monthly status calculation
     let fixedMonthlyStatus: FixedMonthlyStatusDto | null = null;
@@ -307,10 +349,10 @@ export class ExpensePlansService {
       fundingStatus = isPaidThisMonth ? 'funded' : 'on_track';
     }
 
-    // Calculate progress based on time rather than balance
+    // Calculate progress based on funded amount vs target
     // Use effectiveTarget (per-occurrence for seasonal) for progress calculation
     const progressPercent =
-      plan.purpose === 'sinking_fund' && expectedFundedByNow !== null
+      expectedFundedByNow !== null && effectiveTarget > 0
         ? (expectedFundedByNow / effectiveTarget) * 100
         : 0;
 
@@ -1292,10 +1334,6 @@ export class ExpensePlansService {
    * - Expected by now: ~€1,600-2,000
    */
   private calculateExpectedFundedByNow(plan: ExpensePlan): number | null {
-    // Only calculate for sinking funds
-    if (plan.purpose !== 'sinking_fund') {
-      return null;
-    }
 
     const monthlyContribution = Number(plan.monthlyContribution);
     const targetAmount = Number(plan.targetAmount);

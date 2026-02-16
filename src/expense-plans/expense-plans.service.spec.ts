@@ -7,6 +7,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { EnvelopeBalanceService } from './envelope-balance.service';
 
 describe('ExpensePlansService', () => {
   let service: ExpensePlansService;
@@ -95,6 +96,19 @@ describe('ExpensePlansService', () => {
           provide: EventPublisherService,
           useValue: {
             publish: jest.fn(),
+          },
+        },
+        {
+          provide: EnvelopeBalanceService,
+          useValue: {
+            calculateEnvelopeBalance: jest.fn().mockResolvedValue({
+              currentBalance: 0,
+              previousBalance: 0,
+              monthlyAllocation: 0,
+              actualSpending: 0,
+              status: 'under_budget',
+              utilizationPercent: 0,
+            }),
           },
         },
       ],
@@ -1223,7 +1237,7 @@ describe('ExpensePlansService', () => {
       expect(result[0].amountNeeded).toBe(1200);
     });
 
-    it('should return null funding status for spending budgets', async () => {
+    it('should calculate funding status for spending budgets with targets', async () => {
       // Arrange
       const userId = 1;
       const spendingBudget = {
@@ -1240,9 +1254,9 @@ describe('ExpensePlansService', () => {
       // Act
       const result = await service.findAllByUserWithStatus(userId);
 
-      // Assert
-      expect(result[0].fundingStatus).toBeNull();
-      expect(result[0].monthsUntilDue).toBeNull();
+      // Assert - spending budgets now get funding status like sinking funds
+      expect(result[0].fundingStatus).not.toBeNull();
+      expect(result[0]).toHaveProperty('progressPercent');
     });
   });
 
