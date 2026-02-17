@@ -318,8 +318,14 @@ export class FreeToSpendService {
       relations: ['category'],
     });
 
-    // Filter to only discretionary (not linked to expense plan categories)
+    // Filter to only discretionary (not linked to expense plan categories
+    // and not excluded from expense analytics)
     const discretionaryTransactions = transactions.filter((t) => {
+      // Exclude categories flagged as excluded from expense analytics
+      // (e.g., bank transfers, credit card bill payments)
+      if (t.category?.excludeFromExpenseAnalytics) {
+        return false;
+      }
       // If no category, it's discretionary
       if (!t.category) {
         return true;
