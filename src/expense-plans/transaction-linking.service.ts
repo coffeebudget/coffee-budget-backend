@@ -373,7 +373,7 @@ export class TransactionLinkingService {
         .andWhere('t.amount < 0') // Only expenses
         .andWhere(
           `t.id NOT IN (
-            SELECT p."transactionId" FROM expense_plan_payment p
+            SELECT p."transactionId" FROM expense_plan_payments p
             WHERE p."expensePlanId" = :planId
             AND p."transactionId" IS NOT NULL
             AND p."paymentType" != 'unlinked'
