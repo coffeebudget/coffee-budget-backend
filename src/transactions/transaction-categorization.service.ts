@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -13,9 +14,13 @@ import {
   EnhancedTransactionData,
   CategorizationOptions,
 } from '../merchant-categorization/dto/merchant-categorization.dto';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { TransactionCategorizedEvent } from '../shared/events/transaction.events';
 
 @Injectable()
 export class TransactionCategorizationService {
+  private readonly logger = new Logger(TransactionCategorizationService.name);
+
   constructor(
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
@@ -23,6 +28,7 @@ export class TransactionCategorizationService {
     private readonly categoryRepository: Repository<Category>,
     private readonly categoriesService: CategoriesService,
     private readonly merchantCategorizationService: MerchantCategorizationService,
+    private readonly eventPublisher: EventPublisherService,
   ) {}
 
   async categorizeTransactionByDescription(
@@ -136,6 +142,23 @@ export class TransactionCategorizationService {
     }
 
     await this.transactionRepository.save(transactions);
+
+    // Publish TransactionCategorizedEvent for each categorized transaction
+    for (const transaction of transactions) {
+      try {
+        await this.eventPublisher.publish(
+          new TransactionCategorizedEvent(transaction.id, categoryId, userId),
+        );
+      } catch (error) {
+        this.logger.error('Failed to publish TransactionCategorizedEvent', {
+          error: error.message,
+          transactionId: transaction.id,
+          categoryId,
+          userId,
+        });
+      }
+    }
+
     return transactions.length;
   }
 
@@ -180,7 +203,27 @@ export class TransactionCategorizationService {
     transaction.suggestedCategory = null;
     transaction.suggestedCategoryName = null;
 
-    return await this.transactionRepository.save(transaction);
+    const saved = await this.transactionRepository.save(transaction);
+
+    // Publish TransactionCategorizedEvent for auto-linking
+    try {
+      await this.eventPublisher.publish(
+        new TransactionCategorizedEvent(
+          transactionId,
+          acceptedCategory.id,
+          userId,
+        ),
+      );
+    } catch (error) {
+      this.logger.error('Failed to publish TransactionCategorizedEvent', {
+        error: error.message,
+        transactionId,
+        categoryId: acceptedCategory.id,
+        userId,
+      });
+    }
+
+    return saved;
   }
 
   async rejectSuggestedCategory(

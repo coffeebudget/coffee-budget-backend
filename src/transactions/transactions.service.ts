@@ -39,7 +39,10 @@ import { ImportLogsService } from './import-logs.service';
 import { ImportStatus } from './entities/import-log.entity';
 import { GocardlessService } from '../gocardless/gocardless.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
-import { TransactionCreatedEvent } from '../shared/events/transaction.events';
+import {
+  TransactionCreatedEvent,
+  TransactionCategorizedEvent,
+} from '../shared/events/transaction.events';
 // AI categorization service removed - focusing on keyword-based categorization only
 
 @Injectable()
@@ -329,6 +332,9 @@ export class TransactionsService {
     // First find the transaction to ensure it exists and belongs to the user
     const transaction = await this.findOne(id, userId);
 
+    // Track if category changed for event publishing
+    const previousCategoryId = transaction.category?.id ?? null;
+
     // Handle category
     if (categoryId) {
       const category = await this.categoriesRepository.findOne({
@@ -398,6 +404,22 @@ export class TransactionsService {
 
     // Save with explicit undefined values
     await this.transactionsRepository.save(transaction);
+
+    // Publish TransactionCategorizedEvent if category changed
+    if (categoryId && categoryId !== previousCategoryId) {
+      try {
+        await this.eventPublisher.publish(
+          new TransactionCategorizedEvent(id, categoryId, userId),
+        );
+      } catch (error) {
+        this.logger.error('Failed to publish TransactionCategorizedEvent', {
+          error: error.message,
+          transactionId: id,
+          categoryId,
+          userId,
+        });
+      }
+    }
 
     return this.findOne(id, userId);
   }

@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanPayment } from './entities/expense-plan-payment.entity';
 import { Transaction } from '../transactions/transaction.entity';
@@ -330,5 +330,70 @@ export class TransactionLinkingService {
     }
 
     return result;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BACKFILL AUTO-LINKS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Backfill auto-links for all existing categorized transactions.
+   * Finds all active auto-track plans, then links matching unlinked transactions.
+   * Safe to run multiple times - isTransactionLinked prevents duplicates.
+   */
+  async backfillAutoLinks(
+    userId: number,
+  ): Promise<{ linked: number; plans: number }> {
+    // Find all active auto-track plans for this user
+    const autoTrackPlans = await this.expensePlanRepository.find({
+      where: {
+        userId,
+        autoTrackCategory: true,
+        status: 'active',
+      },
+    });
+
+    if (autoTrackPlans.length === 0) {
+      return { linked: 0, plans: 0 };
+    }
+
+    let totalLinked = 0;
+
+    for (const plan of autoTrackPlans) {
+      if (!plan.categoryId) continue;
+
+      // Find all expense transactions with this category that aren't already linked
+      const transactions = await this.paymentRepository.manager
+        .getRepository(Transaction)
+        .createQueryBuilder('t')
+        .where('t.userId = :userId', { userId })
+        .andWhere('t.categoryId = :categoryId', {
+          categoryId: plan.categoryId,
+        })
+        .andWhere('t.amount < 0') // Only expenses
+        .andWhere(
+          `t.id NOT IN (
+            SELECT p."transactionId" FROM expense_plan_payment p
+            WHERE p."expensePlanId" = :planId
+            AND p."transactionId" IS NOT NULL
+            AND p."paymentType" != 'unlinked'
+          )`,
+          { planId: plan.id },
+        )
+        .getMany();
+
+      for (const transaction of transactions) {
+        await this.createAutoLinkedPayment(plan, transaction);
+        totalLinked++;
+      }
+
+      if (transactions.length > 0) {
+        this.logger.log(
+          `Backfill: linked ${transactions.length} transactions to plan "${plan.name}"`,
+        );
+      }
+    }
+
+    return { linked: totalLinked, plans: autoTrackPlans.length };
   }
 }

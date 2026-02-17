@@ -789,4 +789,25 @@ export class ExpensePlansController {
     }
     return response;
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // BACKFILL AUTO-LINKS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  @Post('backfill-auto-links')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Backfill auto-links for existing categorized transactions',
+    description:
+      'Links all existing categorized expense transactions to their matching auto-track expense plans. Safe to run multiple times.',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Backfill completed successfully',
+  })
+  async backfillAutoLinks(
+    @CurrentUser() user: any,
+  ): Promise<{ linked: number; plans: number }> {
+    return this.linkingService.backfillAutoLinks(user.id);
+  }
 }

@@ -8,6 +8,7 @@ import { Category } from '../categories/entities/category.entity';
 import { CategoriesService } from '../categories/categories.service';
 import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
+import { EventPublisherService } from '../shared/services/event-publisher.service';
 
 describe('TransactionCategorizationService', () => {
   let service: TransactionCategorizationService;
@@ -15,6 +16,7 @@ describe('TransactionCategorizationService', () => {
   let categoryRepository: jest.Mocked<Repository<Category>>;
   let categoriesService: jest.Mocked<CategoriesService>;
   let merchantCategorizationService: jest.Mocked<MerchantCategorizationService>;
+  let eventPublisher: jest.Mocked<EventPublisherService>;
 
   const mockUser = {
     id: 1,
@@ -98,6 +100,12 @@ describe('TransactionCategorizationService', () => {
             getMerchantStats: jest.fn(),
           },
         },
+        {
+          provide: EventPublisherService,
+          useValue: {
+            publish: jest.fn().mockResolvedValue(undefined),
+          },
+        },
       ],
     }).compile();
 
@@ -108,6 +116,7 @@ describe('TransactionCategorizationService', () => {
     categoryRepository = module.get(getRepositoryToken(Category));
     categoriesService = module.get(CategoriesService);
     merchantCategorizationService = module.get(MerchantCategorizationService);
+    eventPublisher = module.get(EventPublisherService);
   });
 
   describe('categorizeTransactionByDescription', () => {
