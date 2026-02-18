@@ -10,6 +10,7 @@ import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { User } from '../users/user.entity';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -85,6 +86,13 @@ describe('CategoriesService', () => {
             publish: jest.fn().mockResolvedValue(undefined),
             publishBatch: jest.fn().mockResolvedValue(undefined),
             publishSync: jest.fn(),
+          },
+        },
+        {
+          provide: MerchantCategorizationService,
+          useValue: {
+            categorizeByMerchant: jest.fn().mockResolvedValue(null),
+            learnFromUserCorrection: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],

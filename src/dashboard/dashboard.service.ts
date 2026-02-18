@@ -447,15 +447,15 @@ export class DashboardService {
     }[] = [];
 
     // Use a debug log to inspect historical data
-    console.log(
-      'Historical data for forecasting:',
-      JSON.stringify(
-        pastMonths.map((m) => ({
-          month: m.month,
-          income: m.income,
-          expenses: m.expenses,
-        })),
-      ),
+    this.logger.debug(
+      'Historical data for forecasting: ' +
+        JSON.stringify(
+          pastMonths.map((m) => ({
+            month: m.month,
+            income: m.income,
+            expenses: m.expenses,
+          })),
+        ),
     );
 
     for (let i = 0; i < months; i++) {
@@ -845,13 +845,12 @@ export class DashboardService {
       .addGroupBy('transaction.type')
       .getRawMany();
 
-    console.log(
-      'DEBUG Savings Plan - Raw transactions:',
-      allTransactions.length,
+    this.logger.debug(
+      `DEBUG Savings Plan - Raw transactions: ${allTransactions.length}`,
     );
-    console.log(
-      'DEBUG Savings Plan - Sample transactions:',
-      allTransactions.slice(0, 5),
+    this.logger.debug(
+      'DEBUG Savings Plan - Sample transactions: ' +
+        JSON.stringify(allTransactions.slice(0, 5)),
     );
 
     // Calculate net per category
@@ -878,13 +877,12 @@ export class DashboardService {
         categoryNets[categoryName].income - categoryNets[categoryName].expense;
     });
 
-    console.log(
-      'DEBUG Savings Plan - Category nets:',
-      Object.keys(categoryNets).length,
+    this.logger.debug(
+      `DEBUG Savings Plan - Category nets: ${Object.keys(categoryNets).length}`,
     );
-    console.log(
-      'DEBUG Savings Plan - Sample nets:',
-      Object.entries(categoryNets).slice(0, 3),
+    this.logger.debug(
+      'DEBUG Savings Plan - Sample nets: ' +
+        JSON.stringify(Object.entries(categoryNets).slice(0, 3)),
     );
 
     // Only return categories with NET negative impact (where you spend more than you receive)
@@ -897,10 +895,8 @@ export class DashboardService {
       }))
       .sort((a, b) => b.total - a.total);
 
-    console.log(
-      'DEBUG Savings Plan - Final result:',
-      result.length,
-      'categories',
+    this.logger.debug(
+      `DEBUG Savings Plan - Final result: ${result.length} categories`,
     );
 
     return result;

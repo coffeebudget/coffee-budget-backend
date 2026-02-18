@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -34,6 +35,8 @@ import { PaymentAccount } from './payment-account.entity';
 @Controller('payment-accounts')
 @UseGuards(AuthGuard('jwt'))
 export class PaymentAccountsController {
+  private readonly logger = new Logger(PaymentAccountsController.name);
+
   constructor(
     private readonly paymentAccountsService: PaymentAccountsService,
   ) {}
@@ -263,11 +266,9 @@ export class PaymentAccountsController {
     @Body() callbackData: GocardlessCallbackDto,
     @CurrentUser() user: any,
   ): Promise<PaymentAccount> {
-    console.log('GoCardless callback received:', {
-      userId: user.id,
-      paymentAccountId: callbackData.paymentAccountId,
-      requisitionId: callbackData.requisitionId,
-    });
+    this.logger.log(
+      `GoCardless callback received for user ${user.id}, paymentAccount ${callbackData.paymentAccountId}`,
+    );
 
     try {
       const result =
@@ -276,10 +277,10 @@ export class PaymentAccountsController {
           callbackData.paymentAccountId,
           callbackData.requisitionId,
         );
-      console.log('GoCardless connection completed successfully');
+      this.logger.log('GoCardless connection completed successfully');
       return result;
     } catch (error) {
-      console.error('Error completing GoCardless connection:', error);
+      this.logger.error('Error completing GoCardless connection', error);
       throw error;
     }
   }

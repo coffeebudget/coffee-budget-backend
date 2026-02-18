@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
@@ -18,9 +19,13 @@ import {
   CategoryUpdatedEvent,
   CategoryDeletedEvent,
 } from '../shared/events/category.events';
+import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
+import { EnhancedTransactionData } from '../merchant-categorization/dto/merchant-categorization.dto';
 
 @Injectable()
 export class CategoriesService {
+  private readonly logger = new Logger(CategoriesService.name);
+
   constructor(
     @InjectRepository(Category)
     private categoriesRepository: Repository<Category>,
@@ -29,6 +34,7 @@ export class CategoriesService {
     private keywordExtractionService: KeywordExtractionService,
     private keywordStatsService: KeywordStatsService,
     private eventPublisher: EventPublisherService,
+    private merchantCategorizationService: MerchantCategorizationService,
   ) {}
 
   async create(
@@ -68,7 +74,7 @@ export class CategoriesService {
       );
     } catch (error) {
       // Log error but don't break the category creation flow
-      console.error('Failed to publish CategoryCreatedEvent', error);
+      this.logger.error('Failed to publish CategoryCreatedEvent', error);
     }
 
     return savedCategory;
@@ -122,7 +128,7 @@ export class CategoriesService {
       );
     } catch (error) {
       // Log error but don't break the category update flow
-      console.error('Failed to publish CategoryUpdatedEvent', error);
+      this.logger.error('Failed to publish CategoryUpdatedEvent', error);
     }
 
     return savedCategory;
@@ -187,7 +193,7 @@ export class CategoriesService {
         await this.eventPublisher.publish(new CategoryDeletedEvent(id, userId));
       } catch (error) {
         // Log error but don't break the category deletion flow
-        console.error('Failed to publish CategoryDeletedEvent', error);
+        this.logger.error('Failed to publish CategoryDeletedEvent', error);
       }
 
       await queryRunner.commitTransaction();
@@ -289,8 +295,9 @@ export class CategoriesService {
   }
 
   /**
-   * Suggest a category for a transaction description
-   * DISABLED: Auto-categorization disabled to prevent incorrect categorizations
+   * Suggest a category for a transaction description using a fallback chain:
+   * 1. Keyword matching (fast, high confidence)
+   * 2. Merchant DB lookup + OpenAI (slower, cached after first call)
    */
   async suggestCategoryForDescription(
     description: string,
@@ -300,8 +307,50 @@ export class CategoriesService {
       return null;
     }
 
-    // Only use keyword-based categorization (AI categorization disabled)
-    return this.findCategoryByKeywordMatch(description, userId);
+    // Level 1: Keyword-based categorization
+    const keywordMatch = await this.findCategoryByKeywordMatch(
+      description,
+      userId,
+    );
+    if (keywordMatch) {
+      return keywordMatch;
+    }
+
+    // Level 2: Merchant DB + AI categorization fallback
+    try {
+      const enhancedTransaction: EnhancedTransactionData = {
+        transactionId: 'suggestion',
+        amount: 0,
+        description,
+        merchantName: description,
+        merchantType: 'unknown',
+        enhancedDescription: description,
+      };
+
+      const merchantResult =
+        await this.merchantCategorizationService.categorizeByMerchant(
+          enhancedTransaction,
+          userId,
+        );
+
+      if (merchantResult && merchantResult.confidence >= 60) {
+        const category = await this.categoriesRepository.findOne({
+          where: { id: merchantResult.categoryId, user: { id: userId } },
+        });
+        if (category) {
+          this.logger.debug(
+            `AI categorization matched "${description}" → ${category.name} (${merchantResult.confidence}%)`,
+          );
+          return category;
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `AI categorization fallback failed for "${description}": ${error.message}`,
+      );
+    }
+
+    return null;
   }
 
   /**
@@ -646,9 +695,8 @@ export class CategoriesService {
       return { transactions, categoryCounts };
     } catch (error) {
       // If REGEXP_REPLACE fails, fall back to a simpler approach
-      console.log(
+      this.logger.warn(
         'REGEXP_REPLACE not supported, falling back to simpler query',
-        error,
       );
 
       // Use standard LIKE query

@@ -95,14 +95,17 @@ async function bootstrap() {
   app.use(bodyParser.json({ limit: '5mb' }));
   app.use(bodyParser.urlencoded({ limit: '5mb', extended: true }));
 
-  const config = new DocumentBuilder()
-    .setTitle('CoffeeBudget API')
-    .setDescription('API for CoffeeBudget')
-    .setVersion('0.1')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // Only expose Swagger API docs in development
+  if (isDevelopment) {
+    const config = new DocumentBuilder()
+      .setTitle('CoffeeBudget API')
+      .setDescription('API for CoffeeBudget')
+      .setVersion('0.1')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   await app.listen(process.env.PORT ?? 3002);
 

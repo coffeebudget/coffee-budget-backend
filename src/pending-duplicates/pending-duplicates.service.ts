@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,6 +15,8 @@ import { DuplicateTransactionChoice } from '../transactions/dto/duplicate-transa
 
 @Injectable()
 export class PendingDuplicatesService {
+  private readonly logger = new Logger(PendingDuplicatesService.name);
+
   constructor(
     @InjectRepository(PendingDuplicate)
     private pendingDuplicatesRepository: Repository<PendingDuplicate>,
@@ -383,7 +386,7 @@ export class PendingDuplicatesService {
       order: { createdAt: 'ASC' }, // Preserve oldest transaction
     });
 
-    console.log(
+    this.logger.log(
       `Scanning ${transactions.length} transactions for user ${userId}`,
     );
 
@@ -415,7 +418,7 @@ export class PendingDuplicatesService {
         const toPreserve = allTransactions[0];
         const toRemove = allTransactions.slice(1);
 
-        console.log(
+        this.logger.log(
           `Found duplicate group for user ${userId}: ${toPreserve.description} (${toPreserve.amount}) - preserving oldest (${toPreserve.id}), removing ${toRemove.length} duplicates`,
         );
 
@@ -431,7 +434,7 @@ export class PendingDuplicatesService {
             });
 
             if (pendingRefs.length > 0) {
-              console.log(
+              this.logger.log(
                 `Transaction ${duplicate.id} is referenced by ${pendingRefs.length} pending duplicates. Updating references to point to preserved transaction ${toPreserve.id}.`,
               );
 
@@ -440,11 +443,11 @@ export class PendingDuplicatesService {
                 try {
                   pendingDup.existingTransaction = toPreserve;
                   await this.pendingDuplicatesRepository.save(pendingDup);
-                  console.log(
+                  this.logger.log(
                     `Updated pending duplicate ${pendingDup.id} to reference preserved transaction ${toPreserve.id} instead of ${duplicate.id}`,
                   );
                 } catch (error) {
-                  console.error(
+                  this.logger.error(
                     `Error updating pending duplicate ${pendingDup.id}: ${error.message}`,
                   );
                   // If we can't update the reference, skip removing this duplicate
@@ -456,11 +459,11 @@ export class PendingDuplicatesService {
             await this.transactionRepository.remove(duplicate);
             transactionsRemoved++;
 
-            console.log(
+            this.logger.log(
               `Removed duplicate transaction ${duplicate.id}: ${duplicate.description} (${duplicate.amount})`,
             );
           } catch (error) {
-            console.error(
+            this.logger.error(
               `Error removing duplicate transaction ${duplicate.id}: ${error.message}`,
             );
           }
@@ -474,7 +477,7 @@ export class PendingDuplicatesService {
 
     const executionTime = `${((Date.now() - startTime) / 1000).toFixed(2)}s`;
 
-    console.log(
+    this.logger.log(
       `Cleanup completed: ${duplicateGroupsFound} duplicate groups found, ${transactionsRemoved} transactions removed, ${duplicatesPreserved} preserved`,
     );
 

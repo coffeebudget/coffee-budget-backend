@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
@@ -20,6 +21,8 @@ import {
 
 @Injectable()
 export class BankAccountsService {
+  private readonly logger = new Logger(BankAccountsService.name);
+
   constructor(
     @InjectRepository(BankAccount)
     private bankAccountsRepository: Repository<BankAccount>,
@@ -49,7 +52,7 @@ export class BankAccountsService {
       );
     } catch (error) {
       // Log error but don't break the bank account creation flow
-      console.error('Failed to publish BankAccountCreatedEvent', error);
+      this.logger.error('Failed to publish BankAccountCreatedEvent', error);
     }
 
     return savedBankAccount;
@@ -91,7 +94,7 @@ export class BankAccountsService {
       );
     } catch (error) {
       // Log error but don't break the bank account update flow
-      console.error('Failed to publish BankAccountUpdatedEvent', error);
+      this.logger.error('Failed to publish BankAccountUpdatedEvent', error);
     }
 
     return updatedBankAccount;
@@ -128,7 +131,7 @@ export class BankAccountsService {
       );
     } catch (error) {
       // Log error but don't break the bank account deletion flow
-      console.error('Failed to publish BankAccountDeletedEvent', error);
+      this.logger.error('Failed to publish BankAccountDeletedEvent', error);
     }
   }
 }

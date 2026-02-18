@@ -1,6 +1,8 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { Logger, UnauthorizedException } from '@nestjs/common';
 import { UserService } from '../users/users.service';
 import { User } from '../users/user.entity';
+
+const logger = new Logger('AuthUtils');
 
 export async function validateUser(
   userService: UserService,
@@ -10,7 +12,7 @@ export async function validateUser(
     const user = await userService.findByAuth0Id(auth0Id);
     return user;
   } catch (error) {
-    console.error('Error finding user:', error);
+    logger.error('Error finding user', error);
     throw new UnauthorizedException('User not found');
   }
 }

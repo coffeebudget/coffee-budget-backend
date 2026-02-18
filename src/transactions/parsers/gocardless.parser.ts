@@ -95,7 +95,7 @@ export class GocardlessParser extends BaseParser {
 
       return transaction;
     } catch (error) {
-      console.error('Error parsing GoCardless transaction:', error, tx);
+      this.logger.error(`Error parsing GoCardless transaction: ${error?.message ?? error}`, JSON.stringify(tx));
       return null;
     }
   }

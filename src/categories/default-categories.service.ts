@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { User } from '../users/user.entity';
 
 @Injectable()
 export class DefaultCategoriesService {
+  private readonly logger = new Logger(DefaultCategoriesService.name);
+
   constructor(private readonly categoriesService: CategoriesService) {}
 
   /**
@@ -99,8 +101,8 @@ export class DefaultCategoriesService {
         await this.categoriesService.create({ name: categoryName }, user);
       } catch (error) {
         // Skip if category already exists
-        console.error(
-          `Error creating category ${categoryName} for user ${user.id}: ${error.message}`,
+        this.logger.warn(
+          `Category ${categoryName} already exists for user ${user.id}`,
         );
       }
     }

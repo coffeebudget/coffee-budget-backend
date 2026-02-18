@@ -23,9 +23,9 @@ export class TagsService {
   ) {}
 
   async create(createTagDto: CreateTagDto, user: User): Promise<Tag> {
-    // Check if a tag with the same name already exists
+    // Check if a tag with the same name already exists for this user
     const existingTag = await this.tagsRepository.findOne({
-      where: { name: createTagDto.name },
+      where: { name: createTagDto.name, user: { id: user.id } },
     });
     if (existingTag) {
       throw new ConflictException(

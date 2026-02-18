@@ -12,11 +12,13 @@ import { KeywordStatsService } from './keyword-stats.service';
 import { ExpenseAnalysisService } from './expense-analysis.service';
 import { TransactionEventHandler } from './event-handlers/transaction.event-handler';
 import { TransactionEnrichedEventHandler } from './event-handlers/transaction-enriched.event-handler';
+import { MerchantCategorizationModule } from '../merchant-categorization/merchant-categorization.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Category, Transaction, KeywordStats]),
     SharedModule,
+    MerchantCategorizationModule,
   ],
   controllers: [CategoriesController],
   providers: [

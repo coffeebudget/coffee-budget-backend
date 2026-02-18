@@ -7,6 +7,7 @@ import { TransactionOperationsService } from '../transactions/transaction-operat
 import { KeywordExtractionService } from './keyword-extraction.service';
 import { KeywordStatsService } from './keyword-stats.service';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
+import { MerchantCategorizationService } from '../merchant-categorization/merchant-categorization.service';
 
 describe('CategoriesService - Keyword Matching', () => {
   let service: CategoriesService;
@@ -63,6 +64,12 @@ describe('CategoriesService - Keyword Matching', () => {
             publish: jest.fn().mockResolvedValue(undefined),
             publishBatch: jest.fn().mockResolvedValue(undefined),
             publishSync: jest.fn(),
+          },
+        },
+        {
+          provide: MerchantCategorizationService,
+          useValue: {
+            categorizeByMerchant: jest.fn().mockResolvedValue(null),
           },
         },
       ],
