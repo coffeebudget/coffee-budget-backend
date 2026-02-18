@@ -99,6 +99,9 @@ export class Transaction {
   @Column({ nullable: true, type: 'varchar' })
   creditorName: string | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  rawGoCardlessData: Record<string, any> | null;
+
   // Payment Activity enrichment fields
   /**
    * Foreign key to PaymentActivity that enriched this transaction

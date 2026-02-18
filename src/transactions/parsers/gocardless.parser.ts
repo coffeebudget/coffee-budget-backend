@@ -52,6 +52,11 @@ export class GocardlessParser extends BaseParser {
     isPending: boolean = false,
   ): Partial<Transaction> | null {
     try {
+      // TODO: remove after GoCardless data analysis complete
+      this.logger.debug(
+        `Raw GoCardless tx [${tx.transactionId}]: ${JSON.stringify(tx)}`,
+      );
+
       const amount = parseFloat(tx.transactionAmount.amount);
 
       // Skip transactions with zero amount
@@ -76,6 +81,7 @@ export class GocardlessParser extends BaseParser {
         merchantCategoryCode: tx.merchantCategoryCode || null,
         debtorName: tx.debtorName || null,
         creditorName: tx.creditorName || null,
+        rawGoCardlessData: tx as any,
       };
 
       // Set bank account or credit card
@@ -174,8 +180,8 @@ export class GocardlessParser extends BaseParser {
     const meaningfulOtherInfo = otherDescriptions.some(
       (desc) =>
         desc &&
-        desc.trim().length > 10 &&
-        !desc.match(/^[A-Z0-9\s\-_]{1,15}$/i) && // Not just short codes
+        desc.trim().length > 3 &&
+        !desc.match(/^[A-Z0-9\-_]{1,5}$/i) && // Not just short codes
         !desc.toLowerCase().includes('bank transaction') &&
         !desc.toLowerCase().includes('instant transfer'),
     );

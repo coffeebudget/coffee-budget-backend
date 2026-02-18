@@ -213,6 +213,21 @@ export class TransactionDto {
 
   @ApiProperty({ required: false })
   bankTransactionCode?: string;
+
+  @ApiProperty({ required: false })
+  proprietaryBankTransactionCode?: string;
+
+  @ApiProperty({ required: false })
+  creditorAccount?: DebtorAccountDto;
+
+  @ApiProperty({ required: false })
+  purposeCode?: string;
+
+  @ApiProperty({ required: false })
+  mandateId?: string;
+
+  @ApiProperty({ required: false })
+  entryReference?: string;
 }
 
 export class TransactionsResponseDto {

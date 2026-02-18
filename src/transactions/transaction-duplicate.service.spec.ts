@@ -60,6 +60,7 @@ describe('TransactionDuplicateService', () => {
     originalMerchantName: null,
     enhancedMerchantName: null,
     enhancedCategoryConfidence: null,
+    rawGoCardlessData: null,
   } as Transaction;
 
   const mockDuplicateTransaction = {
@@ -89,6 +90,7 @@ describe('TransactionDuplicateService', () => {
     originalMerchantName: null,
     enhancedMerchantName: null,
     enhancedCategoryConfidence: null,
+    rawGoCardlessData: null,
   } as Transaction;
 
   beforeEach(async () => {

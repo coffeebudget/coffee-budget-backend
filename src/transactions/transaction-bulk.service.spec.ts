@@ -76,6 +76,7 @@ describe('TransactionBulkService', () => {
     originalMerchantName: null,
     enhancedMerchantName: null,
     enhancedCategoryConfidence: null,
+    rawGoCardlessData: null,
   } as Transaction;
 
   const mockTag = {
