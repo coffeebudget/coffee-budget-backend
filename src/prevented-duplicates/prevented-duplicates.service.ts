@@ -34,18 +34,4 @@ export class PreventedDuplicatesService {
     return await this.preventedDuplicatesRepository.save(preventedDuplicate);
   }
 
-  async getPreventedDuplicatesByUser(
-    userId: number,
-  ): Promise<PreventedDuplicate[]> {
-    return await this.preventedDuplicatesRepository.find({
-      where: { user: { id: userId } },
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async getPreventedDuplicatesCount(userId: number): Promise<number> {
-    return await this.preventedDuplicatesRepository.count({
-      where: { user: { id: userId } },
-    });
-  }
 }

@@ -93,37 +93,3 @@ export class RepositoryMockFactory {
     );
   }
 }
-
-/**
- * Common entity types for easy repository mock creation
- */
-export const CommonEntities = {
-  User: class User {},
-  Transaction: class Transaction {},
-  BankAccount: class BankAccount {},
-  CreditCard: class CreditCard {},
-  Category: class Category {},
-  Tag: class Tag {},
-  PendingDuplicate: class PendingDuplicate {},
-} as const;
-
-/**
- * Pre-configured repository mocks for common entities
- */
-export const StandardRepositoryMocks = {
-  User: () =>
-    RepositoryMockFactory.createRepositoryProvider(CommonEntities.User),
-  Transaction: () =>
-    RepositoryMockFactory.createRepositoryProvider(CommonEntities.Transaction),
-  BankAccount: () =>
-    RepositoryMockFactory.createRepositoryProvider(CommonEntities.BankAccount),
-  CreditCard: () =>
-    RepositoryMockFactory.createRepositoryProvider(CommonEntities.CreditCard),
-  Category: () =>
-    RepositoryMockFactory.createRepositoryProvider(CommonEntities.Category),
-  Tag: () => RepositoryMockFactory.createRepositoryProvider(CommonEntities.Tag),
-  PendingDuplicate: () =>
-    RepositoryMockFactory.createRepositoryProvider(
-      CommonEntities.PendingDuplicate,
-    ),
-};

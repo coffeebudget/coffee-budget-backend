@@ -1,4 +1,4 @@
-import { parse, isValid, format, parseISO } from 'date-fns';
+import { parse, isValid, format } from 'date-fns';
 import { BadRequestException } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
 
@@ -135,29 +135,3 @@ export function parseDate(
   );
 }
 
-/**
- * Format a date to a string using the specified format
- * @param date The date to format
- * @param dateFormat The format to use (default: 'yyyy-MM-dd')
- * @returns The formatted date string
- */
-export function formatDate(
-  date: Date,
-  dateFormat: string = 'yyyy-MM-dd',
-): string {
-  return format(date, dateFormat);
-}
-
-/**
- * Check if a string is a valid date in any common format
- * @param dateString The date string to check
- * @returns True if the string is a valid date, false otherwise
- */
-export function isValidDateString(dateString: string): boolean {
-  try {
-    parseDate(dateString);
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
