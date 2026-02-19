@@ -28,6 +28,15 @@ export class UserController {
     return this.userService.findByAuth0Id(auth0Id);
   }
 
+  @Post()
+  @ApiResponse({
+    status: 201,
+    description: 'Create a new user.',
+  })
+  async create(@Body() createUserDto: CreateUserDto): Promise<User> {
+    return this.userService.createUser(createUserDto);
+  }
+
   @Post('auth/callback')
   @ApiResponse({
     status: 201,
