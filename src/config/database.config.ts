@@ -52,6 +52,20 @@ export default registerAs('database', () => {
             ? false
             : process.env.NODE_ENV !== 'production',
         logging: process.env.DB_LOGGING === 'true',
+        ssl:
+          process.env.NODE_ENV === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
+        extra: {
+          max: process.env.DB_POOL_MAX
+            ? parseInt(process.env.DB_POOL_MAX, 10)
+            : 20,
+          min: process.env.DB_POOL_MIN
+            ? parseInt(process.env.DB_POOL_MIN, 10)
+            : 2,
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 5000,
+        },
       };
     } catch (error) {
       // Fallback: try manual parsing for Railway format
@@ -82,6 +96,20 @@ export default registerAs('database', () => {
                 ? false
                 : process.env.NODE_ENV !== 'production',
             logging: process.env.DB_LOGGING === 'true',
+            ssl:
+              process.env.NODE_ENV === 'production'
+                ? { rejectUnauthorized: false }
+                : false,
+            extra: {
+              max: process.env.DB_POOL_MAX
+                ? parseInt(process.env.DB_POOL_MAX, 10)
+                : 20,
+              min: process.env.DB_POOL_MIN
+                ? parseInt(process.env.DB_POOL_MIN, 10)
+                : 2,
+              idleTimeoutMillis: 30000,
+              connectionTimeoutMillis: 5000,
+            },
           };
         } else {
           throw new Error('DATABASE_URL does not match expected format');
@@ -131,6 +159,20 @@ export default registerAs('database', () => {
           ? false
           : process.env.NODE_ENV !== 'production',
       logging: process.env.DB_LOGGING === 'true',
+      ssl:
+        process.env.NODE_ENV === 'production'
+          ? { rejectUnauthorized: false }
+          : false,
+      extra: {
+        max: process.env.DB_POOL_MAX
+          ? parseInt(process.env.DB_POOL_MAX, 10)
+          : 20,
+        min: process.env.DB_POOL_MIN
+          ? parseInt(process.env.DB_POOL_MIN, 10)
+          : 2,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+      },
     };
   }
 });
