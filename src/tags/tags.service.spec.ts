@@ -137,5 +137,92 @@ describe('TagsService', () => {
     expect(queryRunner.release).toHaveBeenCalled();
   });
 
-  // Add more tests here...
+  describe('findByName', () => {
+    it('should find a tag case-insensitively', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne.mockResolvedValue(mockTag);
+
+      const result = await service.findByName('coffee', 1);
+
+      expect(result).toEqual(mockTag);
+      // Verify ILike is used (the where clause receives an ILike object)
+      expect(tagsRepository.findOne).toHaveBeenCalledWith({
+        where: { name: expect.anything(), user: { id: 1 } },
+      });
+    });
+
+    it('should trim whitespace from the name', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne.mockResolvedValue(mockTag);
+
+      const result = await service.findByName('  Coffee  ', 1);
+
+      expect(result).toEqual(mockTag);
+    });
+  });
+
+  describe('findOrCreate', () => {
+    it('should return existing tag when found', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne.mockResolvedValue(mockTag);
+
+      const result = await service.findOrCreate('Coffee', 1);
+
+      expect(result).toEqual(mockTag);
+      // Should not attempt to create
+      expect(tagsRepository.create).not.toHaveBeenCalled();
+      expect(tagsRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should create a new tag when not found', async () => {
+      const newTag = { id: 2, name: 'NewTag', user: { id: 1 } };
+      // First call (findByName) returns null, second call (create's duplicate check) returns null
+      tagsRepository.findOne.mockResolvedValue(null);
+      tagsRepository.create.mockReturnValue(newTag);
+      tagsRepository.save.mockResolvedValue(newTag);
+
+      const result = await service.findOrCreate('NewTag', 1);
+
+      expect(result).toEqual(newTag);
+      expect(tagsRepository.create).toHaveBeenCalled();
+      expect(tagsRepository.save).toHaveBeenCalled();
+    });
+
+    it('should be case-insensitive (return existing tag for different case)', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne.mockResolvedValue(mockTag);
+
+      const result = await service.findOrCreate('COFFEE', 1);
+
+      expect(result).toEqual(mockTag);
+      expect(tagsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should trim whitespace', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne.mockResolvedValue(mockTag);
+
+      const result = await service.findOrCreate('  Coffee  ', 1);
+
+      expect(result).toEqual(mockTag);
+      expect(tagsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should handle race condition by retrying findByName on ConflictException', async () => {
+      const mockTag = { id: 1, name: 'Coffee', user: { id: 1 } };
+      tagsRepository.findOne
+        // 1st call: findOrCreate's findByName → null (tag doesn't exist yet)
+        .mockResolvedValueOnce(null)
+        // 2nd call: create's internal duplicate check → tag now exists (another process created it)
+        .mockResolvedValueOnce(mockTag)
+        // 3rd call: findOrCreate's retry findByName in catch block → finds the tag
+        .mockResolvedValueOnce(mockTag);
+
+      const result = await service.findOrCreate('Coffee', 1);
+
+      expect(result).toEqual(mockTag);
+      // create/save should NOT have been called since the ConflictException was thrown before save
+      expect(tagsRepository.save).not.toHaveBeenCalled();
+    });
+  });
 });

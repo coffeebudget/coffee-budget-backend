@@ -160,6 +160,7 @@ describe('TransactionImportService', () => {
           provide: TagsService,
           useValue: {
             findByName: jest.fn(),
+            findOrCreate: jest.fn(),
             create: jest.fn(),
             resolveTagsFromString: jest.fn(),
           },
@@ -564,8 +565,7 @@ describe('TransactionImportService', () => {
         tagNames: ['tag1', 'tag2'],
       };
 
-      (tagsService.findByName as jest.Mock).mockResolvedValue(null);
-      (tagsService.create as jest.Mock).mockResolvedValue(mockTag);
+      (tagsService.findOrCreate as jest.Mock).mockResolvedValue(mockTag);
 
       // Act
       const result = await service.processTransactionData(
@@ -576,7 +576,7 @@ describe('TransactionImportService', () => {
       // Assert
       expect(result).toBeDefined();
       expect(result.tags).toHaveLength(2);
-      expect(tagsService.create).toHaveBeenCalledTimes(2);
+      expect(tagsService.findOrCreate).toHaveBeenCalledTimes(2);
     });
   });
 

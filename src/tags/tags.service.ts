@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, ILike } from 'typeorm';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { Tag } from './entities/tag.entity';
 import { Transaction } from '../transactions/transaction.entity';
@@ -23,18 +23,20 @@ export class TagsService {
   ) {}
 
   async create(createTagDto: CreateTagDto, user: User): Promise<Tag> {
-    // Check if a tag with the same name already exists for this user
+    const trimmedName = createTagDto.name.trim();
+    // Check if a tag with the same name already exists for this user (case-insensitive)
     const existingTag = await this.tagsRepository.findOne({
-      where: { name: createTagDto.name, user: { id: user.id } },
+      where: { name: ILike(trimmedName), user: { id: user.id } },
     });
     if (existingTag) {
       throw new ConflictException(
-        `Tag with name ${createTagDto.name} already exists`,
+        `Tag with name ${trimmedName} already exists`,
       );
     }
 
     const tag = this.tagsRepository.create({
       ...createTagDto,
+      name: trimmedName,
       user,
     });
     return this.tagsRepository.save(tag);
@@ -65,16 +67,18 @@ export class TagsService {
   ): Promise<Tag> {
     await this.findOne(id, userId); // Necessary to ensure the tag exists and belongs to the user
 
-    // Check if the new name already exists
+    // Check if the new name already exists (case-insensitive)
     if (updateTagDto.name) {
+      const trimmedName = updateTagDto.name.trim();
       const existingTag = await this.tagsRepository.findOne({
-        where: { name: updateTagDto.name, user: { id: userId } },
+        where: { name: ILike(trimmedName), user: { id: userId } },
       });
       if (existingTag && existingTag.id !== id) {
         throw new ConflictException(
-          `Tag with name ${updateTagDto.name} already exists`,
+          `Tag with name ${trimmedName} already exists`,
         );
       }
+      updateTagDto.name = trimmedName;
     }
 
     await this.tagsRepository.update(id, updateTagDto);
@@ -125,8 +129,23 @@ export class TagsService {
 
   async findByName(name: string, userId: number): Promise<Tag | null> {
     return this.tagsRepository.findOne({
-      where: { name, user: { id: userId } },
+      where: { name: ILike(name.trim()), user: { id: userId } },
     });
+  }
+
+  async findOrCreate(name: string, userId: number): Promise<Tag> {
+    const trimmedName = name.trim();
+    const existing = await this.findByName(trimmedName, userId);
+    if (existing) return existing;
+    try {
+      return await this.create({ name: trimmedName }, { id: userId } as User);
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        const tag = await this.findByName(trimmedName, userId);
+        if (tag) return tag;
+      }
+      throw error;
+    }
   }
 
   async resolveTagsFromString(input: string, userId: number): Promise<Tag[]> {
@@ -137,10 +156,7 @@ export class TagsService {
     const tags: Tag[] = [];
 
     for (const name of tagNames) {
-      const existing = await this.findByName(name, userId);
-      tags.push(
-        existing ?? (await this.create({ name }, { id: userId } as User)),
-      );
+      tags.push(await this.findOrCreate(name, userId));
     }
 
     return tags;

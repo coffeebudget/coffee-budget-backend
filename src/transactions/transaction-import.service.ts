@@ -163,24 +163,13 @@ export class TransactionImportService {
         // Process tagNames if provided by bank-specific parsers (e.g., Fineco)
         if ((tx as any).tagNames && Array.isArray((tx as any).tagNames)) {
           const tagNames = (tx as any).tagNames;
-          const createdTags: Tag[] = [];
+          const resolvedTags: Tag[] = [];
 
           for (const tagName of tagNames) {
-            const existingTag = await this.tagsService.findByName(
-              tagName,
-              userId,
-            );
-            if (existingTag) {
-              createdTags.push(existingTag);
-            } else {
-              const newTag = await this.tagsService.create({ name: tagName }, {
-                id: userId,
-              } as any);
-              createdTags.push(newTag);
-            }
+            resolvedTags.push(await this.tagsService.findOrCreate(tagName, userId));
           }
 
-          tx.tags = createdTags;
+          tx.tags = resolvedTags;
           // Remove the temporary tagNames property
           delete (tx as any).tagNames;
         }
@@ -549,24 +538,13 @@ export class TransactionImportService {
         // Handle tag creation
         const tagNames = record[importDto.columnMappings.tagNames];
         if (tagNames) {
-          const tagNamesArray = tagNames.split(',').map((tag) => tag.trim());
-          const createdTags: Tag[] = [];
+          const tagNamesArray = tagNames.split(',').map((tag: string) => tag.trim());
+          const resolvedTags: Tag[] = [];
 
           for (const tagName of tagNamesArray) {
-            const existingTag = await this.tagsService.findByName(
-              tagName,
-              userId,
-            );
-            if (!existingTag) {
-              const newTag = await this.tagsService.create({ name: tagName }, {
-                id: userId,
-              } as any);
-              createdTags.push(newTag);
-            } else {
-              createdTags.push(existingTag);
-            }
+            resolvedTags.push(await this.tagsService.findOrCreate(tagName, userId));
           }
-          transactionData.tags = createdTags;
+          transactionData.tags = resolvedTags;
         }
 
         try {
@@ -677,21 +655,13 @@ export class TransactionImportService {
       Array.isArray((transactionData as any).tagNames)
     ) {
       const tagNames = (transactionData as any).tagNames;
-      const createdTags: Tag[] = [];
+      const resolvedTags: Tag[] = [];
 
       for (const tagName of tagNames) {
-        const existingTag = await this.tagsService.findByName(tagName, userId);
-        if (existingTag) {
-          createdTags.push(existingTag);
-        } else {
-          const newTag = await this.tagsService.create({ name: tagName }, {
-            id: userId,
-          } as any);
-          createdTags.push(newTag);
-        }
+        resolvedTags.push(await this.tagsService.findOrCreate(tagName, userId));
       }
 
-      transactionData.tags = createdTags;
+      transactionData.tags = resolvedTags;
       // Remove the temporary tagNames property
       delete (transactionData as any).tagNames;
     }
