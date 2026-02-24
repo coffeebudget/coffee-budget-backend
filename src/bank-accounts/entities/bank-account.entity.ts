@@ -9,6 +9,7 @@ import { Transaction } from '../../transactions/transaction.entity';
 import { CreditCard } from '../../credit-cards/entities/credit-card.entity';
 import { User } from '../../users/user.entity';
 import { Currency } from '../../enums/currency.enum';
+import { encryptedTransformer } from '../../shared/encryption';
 
 @Entity()
 export class BankAccount {
@@ -35,7 +36,7 @@ export class BankAccount {
   })
   type: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: encryptedTransformer })
   gocardlessAccountId: string; // GoCardless account ID for integration
 
   @OneToMany(() => Transaction, (transaction) => transaction.bankAccount)
