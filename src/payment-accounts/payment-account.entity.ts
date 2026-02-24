@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { encryptedJsonTransformer } from '../shared/encryption';
 import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { PaymentActivity } from '../payment-activities/payment-activity.entity';
 
@@ -45,7 +46,7 @@ export class PaymentAccount {
    * Provider-specific configuration (API keys, account IDs, etc.)
    * Stored as JSONB for flexibility across different providers
    */
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: encryptedJsonTransformer })
   providerConfig?: Record<string, any> | null;
 
   /**
