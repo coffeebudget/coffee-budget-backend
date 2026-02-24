@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { PaymentAccount } from '../payment-accounts/payment-account.entity';
 import { Transaction } from '../transactions/transaction.entity';
+import { encryptedJsonTransformer } from '../shared/encryption';
 
 /**
  * PaymentActivity entity represents operations through payment intermediary services.
@@ -134,7 +135,7 @@ export class PaymentActivity {
    * Allows storing additional fields without schema changes
    * Example: PayPal fee details, shipping addresses, etc.
    */
-  @Column({ type: 'jsonb' })
+  @Column({ type: 'text', transformer: encryptedJsonTransformer })
   rawData: Record<string, any>;
 
   // Relationships
