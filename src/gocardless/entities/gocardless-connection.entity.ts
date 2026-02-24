@@ -9,6 +9,7 @@ import {
   Index,
 } from 'typeorm';
 import { User } from '../../users/user.entity';
+import { encryptedTransformer, encryptedJsonTransformer } from '../../shared/encryption';
 
 export enum GocardlessConnectionStatus {
   ACTIVE = 'active',
@@ -32,11 +33,11 @@ export class GocardlessConnection {
   user: User;
 
   // GoCardless identifiers
-  @Column({ type: 'varchar', length: 255 })
+  @Column({ type: 'text', transformer: encryptedTransformer })
   @Index()
   requisitionId: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'text', nullable: true, transformer: encryptedTransformer })
   euaId: string | null;
 
   // Institution information
@@ -77,7 +78,7 @@ export class GocardlessConnection {
   lastSyncError: string | null;
 
   // Linked account IDs (from requisition.accounts[])
-  @Column({ type: 'jsonb', default: [] })
+  @Column({ type: 'text', default: '[]', transformer: encryptedJsonTransformer })
   linkedAccountIds: string[];
 
   @CreateDateColumn()
