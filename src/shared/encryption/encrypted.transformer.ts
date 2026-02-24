@@ -1,5 +1,5 @@
-import { ValueTransformer } from "typeorm";
-import { encrypt, decrypt, encryptJson, decryptJson } from "./encryption.util";
+import { ValueTransformer } from 'typeorm';
+import { encrypt, decrypt, encryptJson, decryptJson } from './encryption.util';
 
 export const encryptedTransformer: ValueTransformer = {
   to: (value: string | null | undefined): string | null => encrypt(value),
