@@ -749,6 +749,7 @@ export class GocardlessService {
           try {
             const connection = await this.connectionService.findByAccountId(
               account.gocardlessAccountId,
+              userId,
             );
             if (connection) {
               await this.connectionService.updateConnectionAfterSync(
@@ -777,6 +778,7 @@ export class GocardlessService {
           try {
             const connection = await this.connectionService.findByAccountId(
               account.gocardlessAccountId,
+              userId,
             );
             if (connection) {
               await this.connectionService.updateConnectionAfterSync(

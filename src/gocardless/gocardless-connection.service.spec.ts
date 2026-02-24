@@ -233,35 +233,35 @@ describe('GocardlessConnectionService', () => {
 
   describe('findByAccountId', () => {
     it('should find connection by linked account ID', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(mockConnection),
-      };
-
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(
-        mockQueryBuilder,
-      );
+      (repository.find as jest.Mock).mockResolvedValue([mockConnection]);
 
       const result = await service.findByAccountId('acc-123');
 
       expect(result).toEqual(mockConnection);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        expect.stringContaining('linkedAccountIds'),
-        expect.any(Object),
-      );
+      expect(repository.find).toHaveBeenCalledWith({ where: {} });
+    });
+
+    it('should filter by userId when provided', async () => {
+      (repository.find as jest.Mock).mockResolvedValue([mockConnection]);
+
+      const result = await service.findByAccountId('acc-123', 1);
+
+      expect(result).toEqual(mockConnection);
+      expect(repository.find).toHaveBeenCalledWith({ where: { userId: 1 } });
     });
 
     it('should return null if no connection found', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        getOne: jest.fn().mockResolvedValue(null),
-      };
-
-      (repository.createQueryBuilder as jest.Mock).mockReturnValue(
-        mockQueryBuilder,
-      );
+      (repository.find as jest.Mock).mockResolvedValue([mockConnection]);
 
       const result = await service.findByAccountId('non-existent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no connections exist', async () => {
+      (repository.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.findByAccountId('acc-123');
 
       expect(result).toBeNull();
     });

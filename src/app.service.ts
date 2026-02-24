@@ -15,7 +15,8 @@ export class AppService implements OnModuleInit {
         );
       }
       this.logger.warn(
-        'ENCRYPTION_KEY is not set or invalid. Database field encryption is disabled. Set a 64-char hex string for production.',
+        'ENCRYPTION_KEY is not set or invalid. Operations on encrypted fields will fail. ' +
+          'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
       );
     }
   }

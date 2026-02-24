@@ -34,7 +34,6 @@ export class GocardlessConnection {
 
   // GoCardless identifiers
   @Column({ type: 'text', transformer: encryptedTransformer })
-  @Index()
   requisitionId: string;
 
   @Column({ type: 'text', nullable: true, transformer: encryptedTransformer })

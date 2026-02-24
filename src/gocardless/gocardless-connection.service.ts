@@ -229,20 +229,26 @@ export class GocardlessConnectionService {
   }
 
   /**
-   * Find connection by gocardlessAccountId
+   * Find connection by gocardlessAccountId.
+   * Loads all connections for the user and filters in-memory because
+   * linkedAccountIds is encrypted at rest.
    */
   async findByAccountId(
     gocardlessAccountId: string,
+    userId?: number,
   ): Promise<GocardlessConnection | null> {
-    // Query using JSONB contains operator
-    const connection = await this.connectionRepository
-      .createQueryBuilder('conn')
-      .where(`conn."linkedAccountIds" @> :accountId::jsonb`, {
-        accountId: JSON.stringify([gocardlessAccountId]),
-      })
-      .getOne();
+    const where: any = {};
+    if (userId) {
+      where.userId = userId;
+    }
 
-    return connection;
+    const connections = await this.connectionRepository.find({ where });
+
+    return (
+      connections.find((conn) =>
+        conn.linkedAccountIds.includes(gocardlessAccountId),
+      ) || null
+    );
   }
 
   /**
