@@ -27,6 +27,7 @@ import { ExpensePlansModule } from './expense-plans/expense-plans.module';
 import { SmartRecurrenceModule } from './smart-recurrence/smart-recurrence.module';
 import { IncomePlansModule } from './income-plans/income-plans.module';
 import { FreeToSpendModule } from './free-to-spend/free-to-spend.module';
+import { HealthModule } from './health/health.module';
 
 import databaseConfig from './config/database.config';
 
@@ -93,6 +94,7 @@ import databaseConfig from './config/database.config';
     SmartRecurrenceModule,
     IncomePlansModule,
     FreeToSpendModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [
