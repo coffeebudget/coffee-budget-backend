@@ -32,6 +32,7 @@ describe('UserController', () => {
           useValue: {
             findByAuth0Id: jest.fn(),
             createUser: jest.fn(),
+            deleteAccount: jest.fn(),
           },
         },
       ],
@@ -132,5 +133,17 @@ describe('UserController', () => {
       unexpectedError,
     );
     expect(userService.createUser).not.toHaveBeenCalled();
+  });
+
+  describe('deleteAccount', () => {
+    it('should call userService.deleteAccount with the user id', async () => {
+      const mockUser = { id: 1, auth0Id: 'auth0|123', email: 'test@example.com' } as User;
+      userService.deleteAccount = jest.fn().mockResolvedValue(undefined);
+
+      const result = await userController.deleteAccount(mockUser);
+
+      expect(userService.deleteAccount).toHaveBeenCalledWith(1);
+      expect(result).toEqual({ message: 'Account deleted successfully' });
+    });
   });
 });

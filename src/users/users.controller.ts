@@ -6,6 +6,7 @@ import {
   Post,
   Req,
   Body,
+  Delete,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { User } from './user.entity';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CurrentUser } from '../auth/user.decorator';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -75,5 +77,15 @@ export class UserController {
       message: 'User authenticated successfully',
       user: existingUser, // Return the existing or newly created user
     };
+  }
+
+  @Delete('account')
+  @ApiResponse({
+    status: 200,
+    description: 'Delete user account and all associated data.',
+  })
+  async deleteAccount(@CurrentUser() user: User): Promise<{ message: string }> {
+    await this.userService.deleteAccount(user.id);
+    return { message: 'Account deleted successfully' };
   }
 }
