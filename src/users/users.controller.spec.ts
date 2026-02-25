@@ -33,6 +33,7 @@ describe('UserController', () => {
             findByAuth0Id: jest.fn(),
             createUser: jest.fn(),
             deleteAccount: jest.fn(),
+            exportAccountData: jest.fn(),
           },
         },
       ],
@@ -144,6 +145,42 @@ describe('UserController', () => {
 
       expect(userService.deleteAccount).toHaveBeenCalledWith(1);
       expect(result).toEqual({ message: 'Account deleted successfully' });
+    });
+  });
+
+  describe('exportAccountData', () => {
+    it('should call userService.exportAccountData and set response headers', async () => {
+      const mockUser = {
+        id: 1,
+        auth0Id: 'auth0|123',
+        email: 'test@example.com',
+      } as User;
+      const mockExportData = {
+        exportedAt: '2026-02-25',
+        user: { email: 'test@example.com' },
+        transactions: [],
+      };
+      userService.exportAccountData = jest
+        .fn()
+        .mockResolvedValue(mockExportData);
+
+      const mockRes = {
+        setHeader: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await userController.exportAccountData(mockUser, mockRes as any);
+
+      expect(userService.exportAccountData).toHaveBeenCalledWith(1);
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Type',
+        'application/json',
+      );
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        'Content-Disposition',
+        expect.stringContaining('coffeebudget-export-'),
+      );
+      expect(mockRes.send).toHaveBeenCalled();
     });
   });
 });

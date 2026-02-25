@@ -85,6 +85,70 @@ describe('UserService', () => {
     usersRepository = module.get(getRepositoryToken(User));
   });
 
+  describe('exportAccountData', () => {
+    const userId = 42;
+    const mockUser: User = {
+      id: userId,
+      auth0Id: 'auth0|export-me',
+      email: 'export@example.com',
+      isDemoUser: false,
+      demoExpiryDate: null as any,
+      demoActivatedAt: null as any,
+      bankAccounts: [],
+      creditCards: [],
+      transactions: null,
+      tags: null,
+      categories: null,
+      paymentAccounts: [],
+    };
+
+    it('should throw NotFoundException when user does not exist', async () => {
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(null);
+      await expect(service.exportAccountData(999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return export data with correct structure', async () => {
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const mockFind = jest.fn().mockResolvedValue([]);
+      (dataSource as any).getRepository = jest
+        .fn()
+        .mockReturnValue({ find: mockFind });
+
+      const result = await service.exportAccountData(userId);
+
+      expect(result).toHaveProperty('exportedAt');
+      expect(result).toHaveProperty('user');
+      expect(result.user.email).toBe(mockUser.email);
+      expect(result).toHaveProperty('transactions');
+      expect(result).toHaveProperty('categories');
+      expect(result).toHaveProperty('tags');
+      expect(result).toHaveProperty('bankAccounts');
+      expect(result).toHaveProperty('creditCards');
+      expect(result).toHaveProperty('expensePlans');
+      expect(result).toHaveProperty('incomePlans');
+      expect(result).toHaveProperty('paymentAccounts');
+      expect(result).toHaveProperty('gocardlessConnections');
+      expect(result).toHaveProperty('syncReports');
+    });
+
+    it('should query all entity types', async () => {
+      (usersRepository.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+      const mockFind = jest.fn().mockResolvedValue([]);
+      (dataSource as any).getRepository = jest
+        .fn()
+        .mockReturnValue({ find: mockFind });
+
+      await service.exportAccountData(userId);
+
+      // Should call getRepository for each entity type (13 calls)
+      expect((dataSource as any).getRepository).toHaveBeenCalledTimes(13);
+    });
+  });
+
   describe('deleteAccount', () => {
     const userId = 42;
     const mockUser: User = {

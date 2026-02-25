@@ -10,6 +10,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { CategoriesService } from '../categories/categories.service';
 import { DefaultCategoriesService } from '../categories/default-categories.service';
 import { Transaction } from '../transactions/transaction.entity';
+import { PaymentActivity } from '../payment-activities/payment-activity.entity';
 import { PendingDuplicate } from '../pending-duplicates/entities/pending-duplicate.entity';
 import { PreventedDuplicate } from '../prevented-duplicates/entities/prevented-duplicate.entity';
 import { DetectedPattern } from '../smart-recurrence/entities/detected-pattern.entity';
@@ -73,6 +74,144 @@ export class UserService {
 
   async getAllActive(): Promise<User[]> {
     return this.usersRepository.find();
+  }
+
+  async exportAccountData(userId: number): Promise<Record<string, any>> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    // Query all user data (read-only, no transaction needed)
+    const [
+      transactions,
+      categories,
+      tags,
+      bankAccounts,
+      creditCards,
+      expensePlans,
+      expensePlanPayments,
+      incomePlans,
+      incomePlanEntries,
+      paymentAccounts,
+      paymentActivities,
+      gocardlessConnections,
+      syncReports,
+    ] = await Promise.all([
+      this.dataSource.getRepository(Transaction).find({
+        where: { user: { id: userId } },
+        relations: ['category', 'tags'],
+      }),
+      this.dataSource
+        .getRepository(Category)
+        .find({ where: { user: { id: userId } } }),
+      this.dataSource
+        .getRepository(Tag)
+        .find({ where: { user: { id: userId } } }),
+      this.dataSource
+        .getRepository(BankAccount)
+        .find({ where: { user: { id: userId } } }),
+      this.dataSource
+        .getRepository(CreditCard)
+        .find({ where: { user: { id: userId } } }),
+      this.dataSource
+        .getRepository(ExpensePlan)
+        .find({ where: { userId } }),
+      this.dataSource
+        .getRepository(ExpensePlanPayment)
+        .find({ where: { expensePlan: { userId } } }),
+      this.dataSource
+        .getRepository(IncomePlan)
+        .find({ where: { userId } }),
+      this.dataSource
+        .getRepository(IncomePlanEntry)
+        .find({ where: { incomePlan: { userId } } }),
+      this.dataSource
+        .getRepository(PaymentAccount)
+        .find({ where: { userId } }),
+      this.dataSource
+        .getRepository(PaymentActivity)
+        .find({ where: { paymentAccount: { user: { id: userId } } } }),
+      this.dataSource
+        .getRepository(GocardlessConnection)
+        .find({ where: { userId } }),
+      this.dataSource
+        .getRepository(SyncReport)
+        .find({ where: { user: { id: userId } } }),
+    ]);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      user: {
+        email: user.email,
+      },
+      transactions: transactions.map((t) => ({
+        description: t.description,
+        amount: t.amount,
+        type: t.type,
+        date: t.createdAt,
+        executionDate: t.executionDate,
+        category: t.category?.name ?? null,
+        tags: t.tags?.map((tag) => tag.name) ?? [],
+        source: t.source,
+        status: t.status,
+      })),
+      categories: categories.map((c) => ({
+        name: c.name,
+      })),
+      tags: tags.map((t) => ({
+        name: t.name,
+      })),
+      bankAccounts: bankAccounts.map((ba) => ({
+        name: ba.name,
+      })),
+      creditCards: creditCards.map((cc) => ({
+        name: cc.name,
+      })),
+      expensePlans: expensePlans.map((ep) => ({
+        name: ep.name,
+        planType: ep.planType,
+        monthlyContribution: ep.monthlyContribution,
+        targetAmount: ep.targetAmount,
+        status: ep.status,
+      })),
+      expensePlanPayments: expensePlanPayments.map((epp) => ({
+        amount: epp.amount,
+        paymentType: epp.paymentType,
+        date: epp.createdAt,
+      })),
+      incomePlans: incomePlans.map((ip) => ({
+        name: ip.name,
+        reliability: ip.reliability,
+      })),
+      incomePlanEntries: incomePlanEntries.map((ipe) => ({
+        actualAmount: ipe.actualAmount,
+        expectedAmount: ipe.expectedAmount,
+        date: ipe.createdAt,
+      })),
+      paymentAccounts: paymentAccounts.map((pa) => ({
+        displayName: pa.displayName,
+        provider: pa.provider,
+      })),
+      paymentActivities: paymentActivities.map((pa) => ({
+        amount: pa.amount,
+        description: pa.description,
+        date: pa.executionDate,
+        reconciliationStatus: pa.reconciliationStatus,
+      })),
+      gocardlessConnections: gocardlessConnections.map((gc) => ({
+        institutionName: gc.institutionName,
+        status: gc.status,
+        createdAt: gc.createdAt,
+      })),
+      syncReports: syncReports.map((sr) => ({
+        source: sr.source,
+        status: sr.status,
+        createdAt: sr.createdAt,
+        totalNewTransactions: sr.totalNewTransactions,
+        totalDuplicates: sr.totalDuplicates,
+      })),
+    };
   }
 
   async deleteAccount(userId: number): Promise<void> {

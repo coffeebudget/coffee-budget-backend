@@ -5,11 +5,13 @@ import {
   UseGuards,
   Post,
   Req,
+  Res,
   Body,
   Delete,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { UserService } from './users.service';
 import { User } from './user.entity';
 import { AuthGuard } from '@nestjs/passport';
@@ -23,6 +25,25 @@ import { CurrentUser } from '../auth/user.decorator';
 @UseGuards(AuthGuard('jwt'))
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get('account/export')
+  @ApiResponse({
+    status: 200,
+    description: 'Export all user data as JSON.',
+  })
+  async exportAccountData(
+    @CurrentUser() user: User,
+    @Res() res: Response,
+  ): Promise<void> {
+    const data = await this.userService.exportAccountData(user.id);
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="coffeebudget-export-${date}.json"`,
+    );
+    res.send(JSON.stringify(data, null, 2));
+  }
 
   @Get(':auth0Id')
   @ApiResponse({ status: 200, description: 'Retrieve user by Auth0 ID.' })
