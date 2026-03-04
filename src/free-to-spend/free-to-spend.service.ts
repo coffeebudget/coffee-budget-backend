@@ -176,6 +176,11 @@ export class FreeToSpendService {
         continue;
       }
 
+      // Skip plans that have ended
+      if (plan.endDate && new Date(plan.endDate) < new Date()) {
+        continue;
+      }
+
       // Categorize the plan type
       const type = this.categorizeExpensePlan(plan);
 
@@ -306,6 +311,7 @@ export class FreeToSpendService {
     const plans = await this.expensePlansService.findActiveByUser(userId);
     const budgetCategoryIds = plans
       .filter((p) => p.categoryId !== null)
+      .filter((p) => !p.endDate || new Date(p.endDate) >= new Date())
       .map((p) => p.categoryId);
 
     // Get all expense transactions for the period

@@ -660,6 +660,86 @@ describe('FreeToSpendService', () => {
     });
   });
 
+  describe('endDate filtering', () => {
+    beforeEach(() => {
+      (transactionRepository.count as jest.Mock).mockResolvedValue(0);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
+    });
+
+    it('should exclude expense plans with past endDate from obligations', async () => {
+      const plansWithExpired: Partial<ExpensePlan>[] = [
+        {
+          id: 1, userId: 1, name: 'Active Plan', planType: 'fixed_monthly',
+          purpose: 'sinking_fund', priority: 'essential',
+          monthlyContribution: 500, categoryId: null, endDate: null,
+          status: 'active',
+        },
+        {
+          id: 2, userId: 1, name: 'Expired Plan', planType: 'fixed_monthly',
+          purpose: 'sinking_fund', priority: 'essential',
+          monthlyContribution: 300, categoryId: null, endDate: new Date('2025-01-01'),
+          status: 'active',
+        },
+      ];
+
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue(plansWithExpired);
+      (transactionRepository.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.calculate(1, '2026-03');
+
+      // Only Active Plan should count in obligations
+      expect(result.obligations.total).toBe(500);
+    });
+
+    it('should include plans with future endDate in obligations', async () => {
+      const plansWithFutureEnd: Partial<ExpensePlan>[] = [
+        {
+          id: 1, userId: 1, name: 'Ending Soon', planType: 'fixed_monthly',
+          purpose: 'spending_budget', priority: 'essential',
+          monthlyContribution: 760, categoryId: null, endDate: new Date('2027-07-01'),
+          status: 'active',
+        },
+      ];
+
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue(plansWithFutureEnd);
+      (transactionRepository.find as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.calculate(1, '2026-03');
+
+      expect(result.obligations.total).toBe(760);
+    });
+
+    it('should exclude expired plan categories from discretionary category exclusions', async () => {
+      // An expired plan with categoryId should NOT exclude that category from discretionary
+      const plansWithExpiredCategory: Partial<ExpensePlan>[] = [
+        {
+          id: 1, userId: 1, name: 'Expired Groceries Plan', planType: 'fixed_monthly',
+          purpose: 'spending_budget', priority: 'essential',
+          monthlyContribution: 400, categoryId: 12, endDate: new Date('2025-06-01'),
+          status: 'active',
+        },
+      ];
+
+      const transactionsInCategory: Partial<Transaction>[] = [
+        {
+          id: 1, type: 'expense', amount: -50, description: 'Groceries',
+          executionDate: new Date('2026-03-10'),
+          category: { id: 12, name: 'Groceries', excludeFromExpenseAnalytics: false } as any,
+        },
+      ];
+
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue(plansWithExpiredCategory);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(transactionsInCategory);
+
+      const result = await service.calculate(1, '2026-03');
+
+      // Plan is expired, so category 12 should NOT be excluded from discretionary
+      // The grocery transaction should count as discretionary
+      expect(result.discretionarySpending.total).toBe(50);
+      expect(result.discretionarySpending.transactionCount).toBe(1);
+    });
+  });
+
   // ═══════════════════════════════════════════════════════════════════
   // REALISTIC SCENARIO - Full Pipeline Integration Test
   // ═══════════════════════════════════════════════════════════════════
