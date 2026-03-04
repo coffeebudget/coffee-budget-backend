@@ -794,5 +794,33 @@ describe('FreeToSpendService', () => {
       expect(result.envelopeBuffer?.total).toBe(500);
       expect(result.trulyAvailable).toBeCloseTo(2704.64, 2);
     });
+
+    it('should exclude sinking_fund plan categories from discretionary spending (regression)', async () => {
+      const result = await service.calculate(1, '2026-03');
+
+      const discretionaryCategories = result.discretionarySpending.topCategories.map(
+        (c) => c.category,
+      );
+      expect(discretionaryCategories).not.toContain('Mortgage Insurance Life');
+      expect(result.discretionarySpending.total).toBeCloseTo(expectedDiscretionaryTotal, 2);
+    });
+
+    it('should treat uncategorized transactions as discretionary', async () => {
+      const result = await service.calculate(1, '2026-03');
+
+      expect(result.discretionarySpending.total).toBeCloseTo(expectedDiscretionaryTotal, 2);
+      expect(result.discretionarySpending.transactionCount).toBe(8);
+    });
+
+    it('should exclude transactions with excludeFromExpenseAnalytics from discretionary', async () => {
+      const result = await service.calculate(1, '2026-03');
+
+      const discretionaryCategories = result.discretionarySpending.topCategories.map(
+        (c) => c.category,
+      );
+      expect(discretionaryCategories).not.toContain('New House');
+      expect(discretionaryCategories).not.toContain('Bank Transfers');
+      expect(result.discretionarySpending.total).toBeCloseTo(506.84, 2);
+    });
   });
 });
