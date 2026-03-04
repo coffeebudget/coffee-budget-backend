@@ -139,6 +139,9 @@ export class IncomePlan {
   @Column({ type: 'int', nullable: true })
   expectedDay: number | null;
 
+  @Column({ type: 'date', nullable: true })
+  endDate: Date | null;
+
   // ─────────────────────────────────────────────────────────────
   // STATUS
   // ─────────────────────────────────────────────────────────────

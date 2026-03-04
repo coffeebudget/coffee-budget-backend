@@ -152,6 +152,9 @@ export class ExpensePlan {
   @Column({ type: 'date', nullable: true })
   nextDueDate: Date | null;
 
+  @Column({ type: 'date', nullable: true })
+  endDate: Date | null;
+
   // ─────────────────────────────────────────────────────────────
   // TRACKING
   // ─────────────────────────────────────────────────────────────

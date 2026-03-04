@@ -72,6 +72,7 @@ describe('ExpensePlanAdjustmentService', () => {
     targetDate: null,
     seasonalMonths: null,
     nextDueDate: new Date('2025-01-15'),
+    endDate: null,
     status: 'active',
     autoCalculate: true,
     rolloverSurplus: true,
