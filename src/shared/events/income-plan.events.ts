@@ -27,3 +27,13 @@ export class IncomePlanDeletedEvent extends BaseEventClass {
     super(userId);
   }
 }
+
+export class IncomePlanArchivedEvent extends BaseEventClass {
+  constructor(
+    public readonly incomePlanId: number,
+    userId: number,
+    public readonly reason: string,
+  ) {
+    super(userId);
+  }
+}

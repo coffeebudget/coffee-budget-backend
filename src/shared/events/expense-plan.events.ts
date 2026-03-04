@@ -8,3 +8,13 @@ export class ExpensePlanDeletedEvent extends BaseEventClass {
     super(userId);
   }
 }
+
+export class ExpensePlanCompletedEvent extends BaseEventClass {
+  constructor(
+    public readonly expensePlanId: number,
+    userId: number,
+    public readonly reason: string,
+  ) {
+    super(userId);
+  }
+}
