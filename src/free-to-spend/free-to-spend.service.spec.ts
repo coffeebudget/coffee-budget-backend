@@ -659,4 +659,140 @@ describe('FreeToSpendService', () => {
       expect(result.trulyAvailable).toBe(0);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════
+  // REALISTIC SCENARIO - Full Pipeline Integration Test
+  // ═══════════════════════════════════════════════════════════════════
+  describe('realistic scenario - full pipeline', () => {
+    // Income: 3 guaranteed + 1 uncertain
+    const realisticIncomeSummary = {
+      year: 2026,
+      month: 3,
+      guaranteedTotal: 5625,
+      expectedTotal: 0,
+      uncertainTotal: 300,
+      totalIncome: 5925,
+      budgetSafeIncome: 5625,
+      planCount: 4,
+      plans: [
+        { id: 1, name: 'Salary', icon: '💼', reliability: 'guaranteed', annualTotal: 48000, monthlyAverage: 4000, currentMonthExpected: 4000 },
+        { id: 2, name: 'Second Income', icon: '💰', reliability: 'guaranteed', annualTotal: 17400, monthlyAverage: 1450, currentMonthExpected: 1450 },
+        { id: 3, name: 'Benefits', icon: '🏛️', reliability: 'guaranteed', annualTotal: 2100, monthlyAverage: 175, currentMonthExpected: 175 },
+        { id: 4, name: 'Gift', icon: '🎁', reliability: 'uncertain', annualTotal: 3600, monthlyAverage: 300, currentMonthExpected: 300 },
+      ],
+    };
+
+    // 10 expense plans: mix of sinking_fund and spending_budget
+    const realisticExpensePlans: Partial<ExpensePlan>[] = [
+      // SINKING FUND plans (bills category)
+      { id: 101, userId: 1, name: 'Electricity', icon: '⚡', planType: 'fixed_monthly', purpose: 'sinking_fund', priority: 'essential', targetAmount: 1528.56, monthlyContribution: 127.38, categoryId: 376 },
+      { id: 102, userId: 1, name: 'Internet & Phone', icon: '📱', planType: 'fixed_monthly', purpose: 'sinking_fund', priority: 'essential', targetAmount: 864.84, monthlyContribution: 72.07, categoryId: 379 },
+      { id: 103, userId: 1, name: 'Mortgage Insurance Life', icon: '🛡️', planType: 'fixed_monthly', purpose: 'sinking_fund', priority: 'essential', targetAmount: 450.84, monthlyContribution: 37.57, categoryId: 445 },
+      { id: 104, userId: 1, name: 'Insurance', icon: '📋', planType: 'seasonal', purpose: 'sinking_fund', priority: 'essential', targetAmount: 1158.24, monthlyContribution: 96.52, categoryId: 426 },
+      // SINKING FUND: emergency fund with zero contribution (should be skipped)
+      { id: 105, userId: 1, name: 'Emergency Fund', icon: '🆘', planType: 'emergency_fund', purpose: 'sinking_fund', priority: 'important', targetAmount: 5000, monthlyContribution: 0, categoryId: null },
+      // SPENDING BUDGET plans (budgets category)
+      { id: 201, userId: 1, name: 'Mortgage', icon: '🏠', planType: 'fixed_monthly', purpose: 'spending_budget', priority: 'essential', targetAmount: 15612, monthlyContribution: 1301, categoryId: 375 },
+      { id: 202, userId: 1, name: 'Groceries', icon: '🛒', planType: 'yearly_variable', purpose: 'spending_budget', priority: 'essential', targetAmount: 9600, monthlyContribution: 800, categoryId: 390 },
+      { id: 203, userId: 1, name: 'Personal Care', icon: '💇', planType: 'yearly_variable', purpose: 'spending_budget', priority: 'discretionary', targetAmount: 1789.92, monthlyContribution: 149.16, categoryId: 392 },
+      { id: 204, userId: 1, name: 'Travel', icon: '✈️', planType: 'yearly_variable', purpose: 'spending_budget', priority: 'discretionary', targetAmount: 1809.36, monthlyContribution: 150.78, categoryId: 411 },
+      { id: 205, userId: 1, name: 'Sports / Gym', icon: '🏋️', planType: 'seasonal', purpose: 'spending_budget', priority: 'discretionary', targetAmount: 2148.48, monthlyContribution: 179.04, categoryId: 415 },
+    ];
+
+    // Transactions: some in plan categories (excluded), some not (discretionary), some analytics-excluded
+    const realisticTransactions: Partial<Transaction>[] = [
+      // COVERED by spending_budget plans → excluded from discretionary
+      { id: 301, type: 'expense', amount: -289.45, description: 'Weekly groceries', executionDate: new Date('2026-03-10'), category: { id: 390, name: 'Groceries', excludeFromExpenseAnalytics: false } as any },
+      { id: 302, type: 'expense', amount: -160, description: 'Haircut', executionDate: new Date('2026-03-05'), category: { id: 392, name: 'Personal Care', excludeFromExpenseAnalytics: false } as any },
+      { id: 303, type: 'expense', amount: -5.1, description: 'Train ticket', executionDate: new Date('2026-03-12'), category: { id: 411, name: 'Travel', excludeFromExpenseAnalytics: false } as any },
+      { id: 304, type: 'expense', amount: -6.7, description: 'Gym session', executionDate: new Date('2026-03-08'), category: { id: 415, name: 'Sports / Gym', excludeFromExpenseAnalytics: false } as any },
+      // COVERED by sinking_fund plan → ALSO excluded from discretionary (critical regression test)
+      { id: 305, type: 'expense', amount: -37.3, description: 'Monthly premium', executionDate: new Date('2026-03-02'), category: { id: 445, name: 'Mortgage Insurance Life', excludeFromExpenseAnalytics: false } as any },
+      // EXCLUDED via excludeFromExpenseAnalytics
+      { id: 306, type: 'expense', amount: -206.32, description: 'House deposit', executionDate: new Date('2026-03-15'), category: { id: 440, name: 'New House', excludeFromExpenseAnalytics: true } as any },
+      { id: 307, type: 'expense', amount: -270, description: 'Transfer', executionDate: new Date('2026-03-01'), category: { id: 424, name: 'Bank Transfers', excludeFromExpenseAnalytics: true } as any },
+      // DISCRETIONARY — no plan linked to these categories
+      { id: 308, type: 'expense', amount: -269.71, description: 'Car insurance payment', executionDate: new Date('2026-03-03'), category: { id: 384, name: 'Car Insurance', excludeFromExpenseAnalytics: false } as any },
+      { id: 309, type: 'expense', amount: -187.41, description: 'Annual car tax', executionDate: new Date('2026-03-04'), category: { id: 385, name: 'Car Tax', excludeFromExpenseAnalytics: false } as any },
+      { id: 310, type: 'expense', amount: -17.5, description: 'Dinner out', executionDate: new Date('2026-03-14'), category: { id: 394, name: 'Restaurant', excludeFromExpenseAnalytics: false } as any },
+      { id: 311, type: 'expense', amount: -17, description: 'Satispay topup', executionDate: new Date('2026-03-07'), category: { id: 441, name: 'Satispay', excludeFromExpenseAnalytics: false } as any },
+      { id: 312, type: 'expense', amount: -8.7, description: 'Bank fee', executionDate: new Date('2026-03-01'), category: { id: 422, name: 'Bank Fees', excludeFromExpenseAnalytics: false } as any },
+      { id: 313, type: 'expense', amount: -5.5, description: 'Parking', executionDate: new Date('2026-03-09'), category: { id: 388, name: 'Parking / Tolls', excludeFromExpenseAnalytics: false } as any },
+      { id: 314, type: 'expense', amount: -1, description: 'Donation', executionDate: new Date('2026-03-20'), category: { id: 421, name: 'Donations', excludeFromExpenseAnalytics: false } as any },
+      // DISCRETIONARY — transaction without category
+      { id: 315, type: 'expense', amount: -0.02, description: 'Rounding', executionDate: new Date('2026-03-25'), category: null as any },
+    ];
+
+    // Expected discretionary total:
+    // Car Insurance(269.71) + Car Tax(187.41) + Restaurant(17.5) + Satispay(17) + Bank Fees(8.7) + Parking(5.5) + Donations(1) + Uncategorized(0.02) = 506.84
+    const expectedDiscretionaryTotal = 506.84;
+
+    // Obligations: Electricity(127.38) + Internet(72.07) + MortgageIns(37.57) + Insurance(96.52) + Mortgage(1301) + Groceries(800) + PersonalCare(149.16) + Travel(150.78) + Sports(179.04) = 2913.52
+    const expectedObligationsTotal = 2913.52;
+
+    const realisticEnvelopeBuffer = {
+      year: 2026,
+      month: 3,
+      totalBuffer: 500,
+      totalPositiveBalance: 500,
+      planBuffers: [
+        { planId: 202, planName: 'Groceries', planIcon: '🛒', purpose: 'spending_budget', previousBalance: 200, monthlyAllocation: 800, actualSpending: 600, currentBalance: 400, rolloverSurplus: true, status: 'under_budget', utilizationPercent: 75 },
+        { planId: 203, planName: 'Personal Care', planIcon: '💇', purpose: 'spending_budget', previousBalance: 50, monthlyAllocation: 149.16, actualSpending: 100, currentBalance: 100, rolloverSurplus: true, status: 'under_budget', utilizationPercent: 67 },
+      ],
+      byPurpose: { sinkingFunds: [], spendingBudgets: [] },
+    };
+
+    beforeEach(() => {
+      (incomePlansService.getMonthlySummary as jest.Mock).mockResolvedValue(realisticIncomeSummary);
+      (expensePlansService.findActiveByUser as jest.Mock).mockResolvedValue(realisticExpensePlans);
+      (transactionRepository.find as jest.Mock).mockResolvedValue(realisticTransactions);
+      (transactionRepository.count as jest.Mock).mockResolvedValue(0);
+      (expensePlanRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (envelopeBalanceService.getTotalEnvelopeBuffer as jest.Mock).mockResolvedValue(realisticEnvelopeBuffer);
+    });
+
+    it('should calculate free to spend correctly with realistic production-like data', async () => {
+      const result = await service.calculate(1, '2026-03');
+
+      // 1. Income: only guaranteed counts
+      expect(result.income.guaranteed).toBe(5625);
+      expect(result.income.uncertain).toBe(300);
+      expect(result.income.total).toBe(5925);
+      expect(result.income.breakdown).toHaveLength(4);
+
+      // 2. Obligations: sum of monthlyContribution (Emergency Fund skipped at €0)
+      expect(result.obligations.total).toBeCloseTo(expectedObligationsTotal, 2);
+      expect(result.obligations.items).toHaveLength(9);
+
+      // 3. Obligations breakdown by type
+      // Bills (sinking_fund: fixed_monthly + seasonal essential): 127.38 + 72.07 + 37.57 + 96.52 = 333.54
+      expect(result.obligations.byType.bills).toBeCloseTo(333.54, 2);
+      // Savings: 0 (emergency fund has €0 contribution)
+      expect(result.obligations.byType.savings).toBe(0);
+      // Budgets (all spending_budget): 1301 + 800 + 149.16 + 150.78 + 179.04 = 2579.98
+      expect(result.obligations.byType.budgets).toBeCloseTo(2579.98, 2);
+
+      // 4. Discretionary spending: only uncovered categories
+      expect(result.discretionarySpending.total).toBeCloseTo(expectedDiscretionaryTotal, 2);
+      expect(result.discretionarySpending.transactionCount).toBe(8);
+
+      // 5. Top discretionary categories
+      expect(result.discretionarySpending.topCategories[0].category).toBe('Car Insurance');
+      expect(result.discretionarySpending.topCategories[0].amount).toBeCloseTo(269.71, 2);
+      expect(result.discretionarySpending.topCategories[1].category).toBe('Car Tax');
+      expect(result.discretionarySpending.topCategories[1].amount).toBeCloseTo(187.41, 2);
+
+      // 6. Free to Spend formula: 5625 - 2913.52 - 506.84 = 2204.64
+      const expectedFTS = 5625 - expectedObligationsTotal - expectedDiscretionaryTotal;
+      expect(result.freeToSpend).toBeCloseTo(expectedFTS, 2);
+      expect(result.freeToSpend).toBeCloseTo(2204.64, 2);
+
+      // 7. Status: 2204.64 / 5625 = 39.2% → comfortable
+      expect(result.status).toBe('comfortable');
+
+      // 8. Envelope buffer and truly available: 500 + 2204.64 = 2704.64
+      expect(result.envelopeBuffer?.total).toBe(500);
+      expect(result.trulyAvailable).toBeCloseTo(2704.64, 2);
+    });
+  });
 });
