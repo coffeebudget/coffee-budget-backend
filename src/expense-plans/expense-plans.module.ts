@@ -10,6 +10,7 @@ import { TransactionLinkSuggestionEventHandler } from './event-handlers/transact
 import { TransactionLinkingService } from './transaction-linking.service';
 import { TransactionAutoLinkingEventHandler } from './event-handlers/transaction-auto-linking.event-handler';
 import { EnvelopeBalanceService } from './envelope-balance.service';
+import { CashFlowSimulationService } from './cash-flow-simulation.service';
 import { ExpensePlan } from './entities/expense-plan.entity';
 import { ExpensePlanPayment } from './entities/expense-plan-payment.entity';
 import { TransactionLinkSuggestion } from './entities/transaction-link-suggestion.entity';
@@ -17,6 +18,7 @@ import { BankAccount } from '../bank-accounts/entities/bank-account.entity';
 import { Transaction } from '../transactions/transaction.entity';
 import { User } from '../users/user.entity';
 import { SharedModule } from '../shared/shared.module';
+import { IncomePlansModule } from '../income-plans/income-plans.module';
 
 @Module({
   imports: [
@@ -29,6 +31,7 @@ import { SharedModule } from '../shared/shared.module';
       User,
     ]),
     SharedModule,
+    IncomePlansModule,
   ],
   controllers: [
     ExpensePlansController,
@@ -43,6 +46,7 @@ import { SharedModule } from '../shared/shared.module';
     TransactionLinkingService,
     TransactionAutoLinkingEventHandler,
     EnvelopeBalanceService,
+    CashFlowSimulationService,
   ],
   exports: [
     ExpensePlansService,

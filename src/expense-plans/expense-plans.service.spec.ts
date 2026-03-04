@@ -8,6 +8,8 @@ import { NotFoundException } from '@nestjs/common';
 import { RepositoryMockFactory } from '../test/test-utils/repository-mocks';
 import { EventPublisherService } from '../shared/services/event-publisher.service';
 import { EnvelopeBalanceService } from './envelope-balance.service';
+import { CashFlowSimulationService } from './cash-flow-simulation.service';
+import { IncomePlan } from '../income-plans/entities/income-plan.entity';
 
 describe('ExpensePlansService', () => {
   let service: ExpensePlansService;
@@ -112,6 +114,22 @@ describe('ExpensePlansService', () => {
             }),
           },
         },
+        {
+          provide: CashFlowSimulationService,
+          useValue: {
+            buildEventsForAccount: jest.fn().mockReturnValue([]),
+            simulateMonthlyFlow: jest.fn().mockReturnValue({
+              startingBalance: 0,
+              endingBalance: 0,
+              minimumBalance: 0,
+              minimumBalanceDay: 0,
+              hasShortfall: false,
+              shortfallAmount: 0,
+              dailyBalances: [],
+            }),
+          },
+        },
+        RepositoryMockFactory.createRepositoryProvider(IncomePlan),
       ],
     }).compile();
 

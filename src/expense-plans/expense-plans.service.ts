@@ -31,6 +31,8 @@ import {
   FixedMonthlyStatusDto,
 } from './dto/expense-plan-response.dto';
 import { EnvelopeBalanceService } from './envelope-balance.service';
+import { CashFlowSimulationService } from './cash-flow-simulation.service';
+import { IncomePlan } from '../income-plans/entities/income-plan.entity';
 
 export interface CreateExpensePlanDto {
   name: string;
@@ -113,8 +115,11 @@ export class ExpensePlansService {
     private readonly expensePlanRepository: Repository<ExpensePlan>,
     @InjectRepository(BankAccount)
     private readonly bankAccountRepository: Repository<BankAccount>,
+    @InjectRepository(IncomePlan)
+    private readonly incomePlanRepository: Repository<IncomePlan>,
     private readonly eventPublisher: EventPublisherService,
     private readonly envelopeBalanceService: EnvelopeBalanceService,
+    private readonly cashFlowSimulation: CashFlowSimulationService,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1113,6 +1118,11 @@ export class ExpensePlansService {
       relations: ['paymentAccount'],
     });
 
+    // Get income plans for cash flow simulation
+    const incomePlans = await this.incomePlanRepository.find({
+      where: { userId, status: 'active' },
+    });
+
     // Get all user's bank accounts
     const bankAccounts = await this.bankAccountRepository.find({
       where: { user: { id: userId } },
@@ -1139,7 +1149,7 @@ export class ExpensePlansService {
       const accountPlans = plansByAccountId.get(account.id);
       if (!accountPlans || accountPlans.length === 0) continue;
 
-      const summary = this.buildAccountAllocationSummary(account, accountPlans);
+      const summary = this.buildAccountAllocationSummary(account, accountPlans, incomePlans);
 
       accountSummaries.push(summary);
       totalMonthlyContribution += summary.monthlyContributionTotal;
@@ -1176,6 +1186,7 @@ export class ExpensePlansService {
   private buildAccountAllocationSummary(
     account: BankAccount,
     plans: ExpensePlan[],
+    incomePlans: IncomePlan[] = [],
   ): AccountAllocationSummary {
     const currentBalance = Number(account.balance);
     const fixedMonthlyPlans: FixedMonthlyPlanAllocation[] = [];
@@ -1217,6 +1228,32 @@ export class ExpensePlansService {
     // Determine balance source from GoCardless integration
     const balanceSource = account.gocardlessAccountId ? 'gocardless' : 'manual';
 
+    // Cash flow simulation
+    const currentMonthIndex = new Date().getMonth();
+    const events = this.cashFlowSimulation.buildEventsForAccount(
+      plans.map((p) => ({
+        name: p.name,
+        monthlyContribution: Number(p.monthlyContribution),
+        dueDay: p.dueDay,
+        paymentAccountId: p.paymentAccountId,
+        endDate: p.endDate,
+      })),
+      incomePlans
+        .filter((ip) => ip.paymentAccountId === account.id)
+        .map((ip) => ({
+          name: ip.name,
+          amount: Number(ip.getAmountForMonth(currentMonthIndex)),
+          expectedDay: ip.expectedDay,
+          paymentAccountId: ip.paymentAccountId,
+          endDate: ip.endDate,
+        })),
+      account.id,
+    );
+    const cashFlowResult = this.cashFlowSimulation.simulateMonthlyFlow(
+      currentBalance,
+      events,
+    );
+
     return {
       accountId: account.id,
       accountName: account.name,
@@ -1233,6 +1270,13 @@ export class ExpensePlansService {
       sinkingFundTotal,
       monthlyContributionTotal,
       suggestedCatchUp: shortfall > 0 ? shortfall : null,
+      cashFlow: {
+        minimumBalance: cashFlowResult.minimumBalance,
+        minimumBalanceDay: cashFlowResult.minimumBalanceDay,
+        hasShortfall: cashFlowResult.hasShortfall,
+        shortfallAmount: cashFlowResult.shortfallAmount,
+        endingBalance: cashFlowResult.endingBalance,
+      },
     };
   }
 

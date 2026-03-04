@@ -184,6 +184,17 @@ export class AccountAllocationSummary {
     example: 1949.43,
   })
   suggestedCatchUp: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Cash flow simulation results for the month',
+  })
+  cashFlow?: {
+    minimumBalance: number;
+    minimumBalanceDay: number;
+    hasShortfall: boolean;
+    shortfallAmount: number;
+    endingBalance: number;
+  };
 }
 
 /**
