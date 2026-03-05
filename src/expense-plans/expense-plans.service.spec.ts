@@ -1724,4 +1724,91 @@ describe('ExpensePlansService', () => {
       expect(result.overallStatus).toBe('has_shortfall');
     });
   });
+
+  describe('getAccountAllocationSummary', () => {
+    it('should include spending_budget plans in fixedMonthlyPlans', async () => {
+      const userId = 1;
+      const accountId = 10;
+
+      const mockAccount = {
+        id: accountId,
+        name: 'Main Account',
+        balance: 3000,
+        gocardlessAccountId: null,
+        user: { id: userId },
+      };
+
+      const spendingBudgetPlan = {
+        ...mockExpensePlan,
+        id: 5,
+        name: 'Groceries',
+        planType: 'spending_budget' as const,
+        purpose: 'spending_budget' as const,
+        paymentAccountId: accountId,
+        paymentAccount: mockAccount,
+        monthlyContribution: 500,
+        targetAmount: 500,
+        dueDay: null,
+        nextDueDate: null,
+        endDate: null,
+      };
+
+      const fixedMonthlyPlan = {
+        ...mockExpensePlan,
+        id: 6,
+        name: 'Rent',
+        planType: 'fixed_monthly' as const,
+        purpose: 'sinking_fund' as const,
+        paymentAccountId: accountId,
+        paymentAccount: mockAccount,
+        monthlyContribution: 800,
+        targetAmount: 9600,
+        frequency: 'monthly' as const,
+        dueDay: 1,
+        nextDueDate: new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          1,
+        ),
+        endDate: null,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        spendingBudgetPlan,
+        fixedMonthlyPlan,
+      ]);
+
+      const bankAccountRepo = module.get(getRepositoryToken(BankAccount));
+      (bankAccountRepo.find as jest.Mock).mockResolvedValue([mockAccount]);
+
+      const incomePlanRepo = module.get(getRepositoryToken(IncomePlan));
+      (incomePlanRepo.find as jest.Mock).mockResolvedValue([]);
+
+      const cashFlowService = module.get(CashFlowSimulationService);
+      (cashFlowService.buildEventsForAccount as jest.Mock).mockReturnValue([]);
+      (cashFlowService.simulateMonthlyFlow as jest.Mock).mockReturnValue({
+        startingBalance: 3000,
+        endingBalance: 1700,
+        minimumBalance: 1700,
+        minimumBalanceDay: 28,
+        hasShortfall: false,
+        shortfallAmount: 0,
+        dailyBalances: [],
+      });
+
+      const result = await service.getAccountAllocationSummary(userId);
+
+      expect(result.accounts).toHaveLength(1);
+      const account = result.accounts[0];
+      // Spending budget should be in fixedMonthlyPlans (not dropped)
+      expect(account.fixedMonthlyPlans).toHaveLength(2);
+      const groceryAllocation = account.fixedMonthlyPlans.find(
+        (p) => p.name === 'Groceries',
+      );
+      expect(groceryAllocation).toBeDefined();
+      expect(groceryAllocation!.requiredToday).toBe(500);
+      // Total should include both plans
+      expect(account.monthlyContributionTotal).toBe(1300);
+    });
+  });
 });

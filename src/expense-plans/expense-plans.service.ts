@@ -1272,6 +1272,12 @@ export class ExpensePlansService {
         const allocation = this.buildSinkingFundAllocation(plan);
         sinkingFundPlans.push(allocation);
         sinkingFundTotal += allocation.requiredToday;
+      } else {
+        // Spending budgets, goals, emergency funds, etc.
+        // Contribute their monthlyContribution to fixed monthly total
+        const allocation = this.buildFixedMonthlyAllocation(plan);
+        fixedMonthlyPlans.push(allocation);
+        fixedMonthlyTotal += allocation.requiredToday;
       }
     }
 
