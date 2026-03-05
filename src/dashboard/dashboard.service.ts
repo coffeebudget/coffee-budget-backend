@@ -660,15 +660,11 @@ export class DashboardService {
   > {
     const today = new Date();
 
-    // 1. Fetch active expense plans (skip emergency_fund and goal types)
-    const activePlans = await this.expensePlanRepository.find({
+    // 1. Fetch active expense plans (all types, including emergency_fund and goal)
+    const expensePlans = await this.expensePlanRepository.find({
       where: { userId, status: 'active' },
       relations: ['category'],
     });
-
-    const expensePlans = activePlans.filter(
-      (p) => p.planType !== 'emergency_fund' && p.planType !== 'goal',
-    );
 
     // 2. Collect category IDs covered by active plans
     const coveredCategoryIds = new Set<number>();
@@ -722,7 +718,7 @@ export class DashboardService {
     }
 
     this.logger.debug(
-      `Active expense plans (excl emergency/goal): ${expensePlans.length}`,
+      `Active expense plans: ${expensePlans.length}`,
     );
     for (const plan of expensePlans) {
       this.logger.debug(

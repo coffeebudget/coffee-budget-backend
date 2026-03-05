@@ -282,7 +282,7 @@ describe('DashboardService', () => {
       expect(result[0].expenses).toBe(800);
     });
 
-    it('should skip emergency_fund and goal plan types', async () => {
+    it('should include emergency_fund and goal plan types in forecast', async () => {
       expensePlanRepo.find.mockResolvedValue([
         createMockPlan({
           id: 1,
@@ -315,8 +315,8 @@ describe('DashboardService', () => {
         'expense-plans',
       );
 
-      // No planned expenses since both plans are emergency_fund/goal
-      expect(result[0].expenses).toBe(0);
+      // Both plans should contribute: 500 + 200 = 700
+      expect(result[0].expenses).toBe(700);
     });
 
     it('should use income plans (guaranteed+expected) for income instead of historical', async () => {
@@ -581,6 +581,55 @@ describe('DashboardService', () => {
 
       // Month 2: 500 monthly
       expect(result[2].expenses).toBe(500);
+    });
+
+    it('should include emergency_fund and goal plans in forecast', async () => {
+      expensePlanRepo.find.mockResolvedValue([
+        createMockPlan({
+          id: 1,
+          purpose: 'sinking_fund',
+          planType: 'emergency_fund',
+          frequency: 'monthly',
+          categoryId: null,
+          targetAmount: 12000,
+          monthlyContribution: 500,
+          status: 'active',
+        }),
+        createMockPlan({
+          id: 2,
+          purpose: 'sinking_fund',
+          planType: 'goal',
+          frequency: 'monthly',
+          categoryId: null,
+          targetAmount: 6000,
+          monthlyContribution: 200,
+          status: 'active',
+        }),
+        createMockPlan({
+          id: 3,
+          purpose: 'sinking_fund',
+          planType: 'fixed_monthly',
+          frequency: 'monthly',
+          categoryId: 10,
+          targetAmount: 800,
+          monthlyContribution: 800,
+          status: 'active',
+        }),
+      ]);
+
+      setupHistoricalMock(transactionRepo, { income: 3000, expenses: 0 });
+      setupHistoricalByCategoryMock(transactionRepo, []);
+
+      const result = await service.getCashFlowForecast(
+        userId,
+        3,
+        'expense-plans',
+      );
+
+      // All three plans should contribute: 500 + 200 + 800 = 1500
+      expect(result[0].expenses).toBe(1500);
+      expect(result[1].expenses).toBe(1500);
+      expect(result[2].expenses).toBe(1500);
     });
   });
 
