@@ -1034,30 +1034,116 @@ describe('ExpensePlansService', () => {
       expect(result).toEqual([]);
     });
 
-    it('should include status for each timeline entry', async () => {
-      // Arrange
+    it('should return on_track status when contribution rate is sufficient', async () => {
       const userId = 1;
       const futureDate = new Date();
       futureDate.setMonth(futureDate.getMonth() + 6);
-      // Set up a plan that should be on_track based on time
-      const planWithGoodContribution = {
+      const plan = {
         ...mockExpensePlan,
         id: 1,
         targetAmount: 1200,
-        monthlyContribution: 200, // 6 months * 200 = 1200, exactly on track
+        monthlyContribution: 200, // 6 months * 200 = 1200
         nextDueDate: futureDate,
-        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Started 1 month ago
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       };
-      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
-        planWithGoodContribution,
-      ]);
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan]);
 
-      // Act
       const result = await service.getTimelineView(userId, 12);
 
-      // Assert
-      // Without balance tracking, status is determined by contribution rate vs required rate
-      expect(result[0]).toHaveProperty('status');
+      expect(result[0].status).toBe('on_track');
+    });
+
+    it('should return behind status when contribution rate is insufficient', async () => {
+      const userId = 1;
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 3);
+      const plan = {
+        ...mockExpensePlan,
+        id: 1,
+        targetAmount: 3000,
+        monthlyContribution: 100, // 3 months * 100 = 300, way under 3000
+        nextDueDate: futureDate,
+        createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan]);
+
+      const result = await service.getTimelineView(userId, 12);
+
+      expect(result[0].status).toBe('behind');
+    });
+
+    it('should return funded status when plan is fully funded near due date', async () => {
+      const userId = 1;
+      // Due in 15 days → monthsUntilDue = 1, triggers near-due-date path
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 15);
+      // monthsNeededToSave = 600/500 = 1.2, ceil = 2
+      // savingStartDate = dueDate - 2 months ≈ 1.5 months ago
+      // expectedFunded = min(1.5 * 500, 600) = 600 >= 600 → funded
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([{
+        ...mockExpensePlan,
+        id: 1,
+        targetAmount: 600,
+        monthlyContribution: 500,
+        nextDueDate: futureDate,
+        createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000),
+      }]);
+
+      const result = await service.getTimelineView(userId, 12);
+
+      expect(result[0].status).toBe('funded');
+    });
+
+    it('should return almost_ready status when plan is nearly funded near due date', async () => {
+      const userId = 1;
+      // Due in ~20 days → monthsUntilDue = max(1, 0) = 1, triggers near-due-date path
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 20);
+      // monthsNeededToSave = 100/10 = 10, savingStartDate ≈ 9+ months ago
+      // expectedFunded ≈ 93 → between 80% (80) and 100% (100) → almost_ready
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([{
+        ...mockExpensePlan,
+        id: 1,
+        targetAmount: 100,
+        monthlyContribution: 10,
+        nextDueDate: futureDate,
+        createdAt: new Date(Date.now() - 300 * 24 * 60 * 60 * 1000),
+      }]);
+
+      const result = await service.getTimelineView(userId, 12);
+
+      expect(result[0].status).toBe('almost_ready');
+    });
+
+    it('should use envelope-balance-based status for spending budgets', async () => {
+      const userId = 1;
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 1);
+      const plan = {
+        ...mockExpensePlan,
+        id: 1,
+        planType: 'spending_budget' as any,
+        purpose: 'spending_budget' as any,
+        targetAmount: 300,
+        monthlyContribution: 300,
+        nextDueDate: futureDate,
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([plan]);
+
+      // Mock envelope balance: overspent
+      const envelopeBalanceService = module.get(EnvelopeBalanceService);
+      (envelopeBalanceService.calculateEnvelopeBalance as jest.Mock).mockResolvedValue({
+        currentBalance: -50,
+        previousBalance: 0,
+        monthlyAllocation: 300,
+        actualSpending: 350,
+        status: 'over_budget',
+        utilizationPercent: 117,
+      });
+
+      const result = await service.getTimelineView(userId, 12);
+
+      expect(result[0].status).toBe('behind');
     });
   });
 

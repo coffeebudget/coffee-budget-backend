@@ -104,7 +104,7 @@ export interface TimelineEntry {
   planName: string;
   icon: string | null;
   amount: number;
-  status: 'funded' | 'on_track' | 'behind';
+  status: 'funded' | 'almost_ready' | 'on_track' | 'behind';
   monthsAway: number;
 }
 
@@ -862,11 +862,30 @@ export class ExpensePlansService {
 
       const monthlyAmount = Number(plan.monthlyContribution);
 
-      let status: 'funded' | 'on_track' | 'behind';
-      if (this.isOnTrack(plan, dueDate)) {
-        status = 'on_track';
+      let status: 'funded' | 'almost_ready' | 'on_track' | 'behind';
+
+      if (plan.purpose === 'spending_budget' && plan.status === 'active') {
+        // For spending budgets, use envelope-balance-based status
+        const now = new Date();
+        const envelopeBalance =
+          await this.envelopeBalanceService.calculateEnvelopeBalance(
+            plan.id,
+            now.getFullYear(),
+            now.getMonth() + 1,
+            plan.userId,
+          );
+        if (envelopeBalance.currentBalance < 0) {
+          status = 'behind';
+        } else if (envelopeBalance.utilizationPercent <= 90) {
+          status = 'on_track';
+        } else if (envelopeBalance.utilizationPercent <= 100) {
+          status = 'almost_ready';
+        } else {
+          status = 'behind';
+        }
       } else {
-        status = 'behind';
+        // For sinking funds and other plan types, use calculateStatus()
+        status = this.calculateStatus(plan);
       }
 
       timeline.push({
