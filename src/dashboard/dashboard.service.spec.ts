@@ -583,6 +583,38 @@ describe('DashboardService', () => {
       expect(result[2].expenses).toBe(500);
     });
   });
+
+  describe('getMonthlyIncomeAndExpenses', () => {
+    const userId = 1;
+
+    it('should return savings field calculated as income minus expenses', async () => {
+      setupHistoricalMock(transactionRepo, { income: 3000, expenses: 1200 });
+
+      const result = await service.getMonthlyIncomeAndExpenses(userId, 3);
+
+      expect(result).toHaveLength(3);
+      result.forEach((month) => {
+        expect(month).toHaveProperty('savings');
+        expect(month.savings).toBe(3000 - 1200);
+      });
+    });
+
+    it('should return savings as 0 when income equals expenses', async () => {
+      setupHistoricalMock(transactionRepo, { income: 1500, expenses: 1500 });
+
+      const result = await service.getMonthlyIncomeAndExpenses(userId, 1);
+
+      expect(result[0].savings).toBe(0);
+    });
+
+    it('should return negative savings when expenses exceed income', async () => {
+      setupHistoricalMock(transactionRepo, { income: 1000, expenses: 2000 });
+
+      const result = await service.getMonthlyIncomeAndExpenses(userId, 1);
+
+      expect(result[0].savings).toBe(-1000);
+    });
+  });
 });
 
 // ─── Test Helpers ──────────────────────────────────────────────────

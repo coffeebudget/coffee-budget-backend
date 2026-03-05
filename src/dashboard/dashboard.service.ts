@@ -88,12 +88,13 @@ export class DashboardService {
     userId: number,
     numberOfMonths: number = 6,
   ): Promise<
-    { month: string; income: number; expenses: number; date: Date }[]
+    { month: string; income: number; expenses: number; savings: number; date: Date }[]
   > {
     const result: {
       month: string;
       income: number;
       expenses: number;
+      savings: number;
       date: Date;
     }[] = [];
     const currentDate = new Date();
@@ -143,6 +144,7 @@ export class DashboardService {
         month: format(date, 'MMM yyyy'),
         income,
         expenses,
+        savings: income - expenses,
         date: date,
       });
     }
