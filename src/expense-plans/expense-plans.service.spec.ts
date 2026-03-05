@@ -718,6 +718,39 @@ describe('ExpensePlansService', () => {
       expect(result.totalMonthlyDeposit).toBe(0);
       expect(result.planCount).toBe(0);
     });
+
+    it('should exclude plans with endDate in the past', async () => {
+      const userId = 1;
+      const activePlan = { ...mockExpensePlan, id: 1, monthlyContribution: 100, endDate: null };
+      const endedPlan = {
+        ...mockExpensePlan,
+        id: 2,
+        monthlyContribution: 200,
+        endDate: new Date('2025-01-01'), // Past endDate
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([activePlan, endedPlan]);
+
+      const result = await service.getMonthlyDepositSummary(userId);
+
+      expect(result.totalMonthlyDeposit).toBe(100);
+      expect(result.planCount).toBe(1);
+    });
+
+    it('should include plans with endDate in the future', async () => {
+      const userId = 1;
+      const futurePlan = {
+        ...mockExpensePlan,
+        id: 1,
+        monthlyContribution: 150,
+        endDate: new Date('2028-12-31'),
+      };
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([futurePlan]);
+
+      const result = await service.getMonthlyDepositSummary(userId);
+
+      expect(result.totalMonthlyDeposit).toBe(150);
+      expect(result.planCount).toBe(1);
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════

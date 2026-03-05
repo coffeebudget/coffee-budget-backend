@@ -532,13 +532,20 @@ export class ExpensePlansService {
     };
 
     let totalMonthlyDeposit = 0;
+    let activePlanCount = 0;
     let fullyFundedCount = 0;
     let onTrackCount = 0;
     let behindScheduleCount = 0;
 
     for (const plan of plans) {
+      // Skip plans that have ended
+      if (plan.endDate && new Date(plan.endDate) < new Date()) {
+        continue;
+      }
+
       const contribution = Number(plan.monthlyContribution);
       totalMonthlyDeposit += contribution;
+      activePlanCount++;
 
       const planSummary = {
         id: plan.id,
@@ -595,7 +602,7 @@ export class ExpensePlansService {
 
     return {
       totalMonthlyDeposit,
-      planCount: plans.length,
+      planCount: activePlanCount,
       fullyFundedCount,
       onTrackCount,
       behindScheduleCount,
