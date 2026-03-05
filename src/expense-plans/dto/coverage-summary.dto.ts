@@ -135,6 +135,18 @@ export class AccountCoverage {
     type: [PlanAtRisk],
   })
   plansAtRisk: PlanAtRisk[];
+
+  @ApiPropertyOptional({
+    description:
+      'Cash flow simulation results showing day-by-day balance projection',
+  })
+  cashFlow?: {
+    minimumBalance: number;
+    minimumBalanceDay: number;
+    hasShortfall: boolean;
+    shortfallAmount: number;
+    endingBalance: number;
+  };
 }
 
 /**

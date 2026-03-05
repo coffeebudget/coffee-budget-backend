@@ -946,10 +946,15 @@ export class ExpensePlansService {
       (po) => po.obligation.hasObligation,
     );
 
-    // Get all user's bank accounts
-    const bankAccounts = await this.bankAccountRepository.find({
-      where: { user: { id: userId } },
-    });
+    // Get all user's bank accounts and income plans (for cash flow simulation)
+    const [bankAccounts, incomePlans] = await Promise.all([
+      this.bankAccountRepository.find({
+        where: { user: { id: userId } },
+      }),
+      this.incomePlanRepository.find({
+        where: { userId, status: 'active' },
+      }),
+    ]);
 
     // Group plans by account
     const plansByAccountId = new Map<
@@ -981,8 +986,36 @@ export class ExpensePlansService {
       );
       const currentBalance = Number(account.balance);
       const projectedBalance = currentBalance - upcomingTotal;
-      const hasShortfall = projectedBalance < 0;
-      const shortfallAmount = hasShortfall ? Math.abs(projectedBalance) : 0;
+
+      // Cash flow simulation: accounts for income timing to avoid false positives
+      const currentMonthIndex = today.getMonth();
+      const cashFlowEvents = this.cashFlowSimulation.buildEventsForAccount(
+        plans.map((p) => ({
+          name: p.name,
+          monthlyContribution: Number(p.monthlyContribution),
+          dueDay: p.dueDay,
+          paymentAccountId: p.paymentAccountId,
+          endDate: p.endDate,
+        })),
+        incomePlans
+          .filter((ip) => ip.paymentAccountId === account.id)
+          .map((ip) => ({
+            name: ip.name,
+            amount: Number(ip.getAmountForMonth(currentMonthIndex)),
+            expectedDay: ip.expectedDay,
+            paymentAccountId: ip.paymentAccountId,
+            endDate: ip.endDate,
+          })),
+        account.id,
+      );
+      const cashFlowResult = this.cashFlowSimulation.simulateMonthlyFlow(
+        currentBalance,
+        cashFlowEvents,
+      );
+
+      // Use cash flow simulation as primary shortfall indicator
+      const hasShortfall = cashFlowResult.hasShortfall;
+      const shortfallAmount = cashFlowResult.shortfallAmount;
 
       // Sort plans by due date (soonest first)
       const sortedPlans = [...accountPlans].sort((a, b) => {
@@ -1030,6 +1063,13 @@ export class ExpensePlansService {
         hasShortfall,
         shortfallAmount,
         plansAtRisk,
+        cashFlow: {
+          minimumBalance: cashFlowResult.minimumBalance,
+          minimumBalanceDay: cashFlowResult.minimumBalanceDay,
+          hasShortfall: cashFlowResult.hasShortfall,
+          shortfallAmount: cashFlowResult.shortfallAmount,
+          endingBalance: cashFlowResult.endingBalance,
+        },
       });
     }
 

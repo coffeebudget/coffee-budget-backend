@@ -1459,4 +1459,150 @@ describe('ExpensePlansService', () => {
       });
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // COVERAGE SUMMARY - CASH FLOW SIMULATION
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('getCoverageSummary', () => {
+    it('should use cash flow simulation to determine shortfall', async () => {
+      // Arrange: lump-sum shows shortfall (5548 - 6488 < 0), but cash flow says no shortfall
+      const userId = 1;
+      const accountId = 10;
+
+      const mockAccount = {
+        id: accountId,
+        name: 'BNL',
+        balance: 5548,
+        gocardlessAccountId: null,
+        user: { id: userId },
+      };
+
+      const mockPlanWithAccount = {
+        ...mockExpensePlan,
+        id: 2,
+        name: 'Mortgage',
+        paymentAccountId: accountId,
+        paymentAccount: mockAccount,
+        monthlyContribution: 1200,
+        dueDay: 28,
+        nextDueDate: new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          28,
+        ),
+        planType: 'fixed_monthly' as const,
+        frequency: 'monthly' as const,
+        targetAmount: 14400,
+      };
+
+      // Mock expense plan repo to return plans with this account
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        mockPlanWithAccount,
+      ]);
+
+      // Mock bank account repo
+      const bankAccountRepo = module.get(getRepositoryToken(BankAccount));
+      (bankAccountRepo.find as jest.Mock).mockResolvedValue([mockAccount]);
+
+      // Mock income plan repo (returns income plans for cash flow)
+      const incomePlanRepo = module.get(getRepositoryToken(IncomePlan));
+      (incomePlanRepo.find as jest.Mock).mockResolvedValue([]);
+
+      // Mock cash flow simulation: income arrives before expenses, no real shortfall
+      const cashFlowService = module.get(CashFlowSimulationService);
+      (cashFlowService.buildEventsForAccount as jest.Mock).mockReturnValue([
+        { day: 27, amount: 3000, name: 'Salary', type: 'income' },
+        { day: 28, amount: -1200, name: 'Mortgage', type: 'expense' },
+      ]);
+      (cashFlowService.simulateMonthlyFlow as jest.Mock).mockReturnValue({
+        startingBalance: 5548,
+        endingBalance: 7348,
+        minimumBalance: 5548,
+        minimumBalanceDay: 0,
+        hasShortfall: false,
+        shortfallAmount: 0,
+        dailyBalances: [],
+      });
+
+      // Act
+      const result = await service.getCoverageSummary(userId);
+
+      // Assert: cash flow says no shortfall, so coverage should agree
+      expect(result.accounts).toHaveLength(1);
+      expect(result.accounts[0].hasShortfall).toBe(false);
+      expect(result.accounts[0].shortfallAmount).toBe(0);
+      expect(result.accounts[0].plansAtRisk).toHaveLength(0);
+      expect(result.accounts[0].cashFlow).toBeDefined();
+      expect(result.accounts[0].cashFlow!.hasShortfall).toBe(false);
+      expect(result.overallStatus).toBe('all_covered');
+    });
+
+    it('should report shortfall when cash flow simulation detects one', async () => {
+      // Arrange: both lump-sum and cash flow agree there is a shortfall
+      const userId = 1;
+      const accountId = 10;
+
+      const mockAccount = {
+        id: accountId,
+        name: 'BNL',
+        balance: 500,
+        gocardlessAccountId: null,
+        user: { id: userId },
+      };
+
+      const mockPlanWithAccount = {
+        ...mockExpensePlan,
+        id: 2,
+        name: 'Mortgage',
+        paymentAccountId: accountId,
+        paymentAccount: mockAccount,
+        monthlyContribution: 1200,
+        dueDay: 5,
+        nextDueDate: new Date(
+          new Date().getFullYear(),
+          new Date().getMonth(),
+          5,
+        ),
+        planType: 'fixed_monthly' as const,
+        frequency: 'monthly' as const,
+        targetAmount: 14400,
+      };
+
+      (expensePlanRepository.find as jest.Mock).mockResolvedValue([
+        mockPlanWithAccount,
+      ]);
+
+      const bankAccountRepo = module.get(getRepositoryToken(BankAccount));
+      (bankAccountRepo.find as jest.Mock).mockResolvedValue([mockAccount]);
+
+      const incomePlanRepo = module.get(getRepositoryToken(IncomePlan));
+      (incomePlanRepo.find as jest.Mock).mockResolvedValue([]);
+
+      const cashFlowService = module.get(CashFlowSimulationService);
+      (cashFlowService.buildEventsForAccount as jest.Mock).mockReturnValue([
+        { day: 5, amount: -1200, name: 'Mortgage', type: 'expense' },
+        { day: 27, amount: 3000, name: 'Salary', type: 'income' },
+      ]);
+      (cashFlowService.simulateMonthlyFlow as jest.Mock).mockReturnValue({
+        startingBalance: 500,
+        endingBalance: 2300,
+        minimumBalance: -700,
+        minimumBalanceDay: 5,
+        hasShortfall: true,
+        shortfallAmount: 700,
+        dailyBalances: [],
+      });
+
+      // Act
+      const result = await service.getCoverageSummary(userId);
+
+      // Assert
+      expect(result.accounts[0].hasShortfall).toBe(true);
+      expect(result.accounts[0].shortfallAmount).toBe(700);
+      expect(result.accounts[0].cashFlow!.hasShortfall).toBe(true);
+      expect(result.accounts[0].cashFlow!.minimumBalance).toBe(-700);
+      expect(result.overallStatus).toBe('has_shortfall');
+    });
+  });
 });
