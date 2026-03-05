@@ -137,6 +137,40 @@ describe('DashboardService', () => {
       expect(result[2].expenses).toBe(400);
     });
 
+    it('should respect frequency for spending_budget with yearly frequency', async () => {
+      const today = new Date();
+      const currentMonth = today.getMonth() + 1; // 1-12
+
+      expensePlanRepo.find.mockResolvedValue([
+        createMockPlan({
+          id: 1,
+          purpose: 'spending_budget',
+          planType: 'yearly_fixed',
+          frequency: 'yearly',
+          categoryId: 10,
+          targetAmount: 1200,
+          monthlyContribution: 100,
+          dueMonth: currentMonth, // due this month
+          status: 'active',
+        }),
+      ]);
+
+      setupHistoricalMock(transactionRepo, { income: 3000, expenses: 0 });
+      setupHistoricalByCategoryMock(transactionRepo, []);
+
+      const result = await service.getCashFlowForecast(
+        userId,
+        3,
+        'expense-plans',
+      );
+
+      // Month 0 (current): due this month → full targetAmount 1200
+      expect(result[0].expenses).toBe(1200);
+      // Month 1 and 2: not due → 0
+      expect(result[1].expenses).toBe(0);
+      expect(result[2].expenses).toBe(0);
+    });
+
     it('should use monthlyContribution (not targetAmount) for sinking_fund monthly plans', async () => {
       expensePlanRepo.find.mockResolvedValue([
         createMockPlan({

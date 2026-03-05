@@ -555,12 +555,7 @@ export class DashboardService {
     const forecastMonth = forecastDate.getMonth(); // 0-11
     const forecastYear = forecastDate.getFullYear();
 
-    if (plan.purpose === 'spending_budget') {
-      // Spending budgets (e.g., Groceries) → monthlyContribution every month
-      return Number(plan.monthlyContribution) || 0;
-    }
-
-    // Sinking fund plans → show actual payment amount when the expense occurs
+    // All plan types use frequency-based logic
     // Note: targetAmount is always the ANNUAL total for all plan types
     switch (plan.frequency) {
       case 'monthly':
